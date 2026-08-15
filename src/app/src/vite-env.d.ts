@@ -7,3 +7,4 @@ declare const __LOCAL_R2__: boolean;
 declare const __USE_R2_NYC__: boolean;
 declare const __R2_PROXY__: boolean;
 declare const __TILES_HOST__: string;
+declare const __STREET_TILES_URL__: string;

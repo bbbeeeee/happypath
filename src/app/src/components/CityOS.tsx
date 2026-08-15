@@ -12,6 +12,12 @@ interface Message {
   toolsUsed?: string[];
 }
 
+interface CityOSResponse {
+  text?: string;
+  toolsUsed?: string[];
+  error?: string;
+}
+
 const SUGGESTIONS = [
   "What's going on around here right now?",
   "Any noise complaints nearby this week?",
@@ -28,9 +34,13 @@ const TOOL_LABELS: Record<string, string> = {
 
 interface CityOSProps {
   onClose: () => void;
+  location?: {
+    latitude: number;
+    longitude: number;
+  };
 }
 
-export function CityOS({ onClose }: CityOSProps) {
+export function CityOS({ onClose, location = DEFAULT_LOCATION }: CityOSProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [draft, setDraft] = useState("");
   const [pending, setPending] = useState(false);
@@ -68,28 +78,46 @@ export function CityOS({ onClose }: CityOSProps) {
               role: message.role,
               content:
                 `${message.content}\n\n<map_location>` +
-                `latitude: ${DEFAULT_LOCATION.latitude}, ` +
-                `longitude: ${DEFAULT_LOCATION.longitude}` +
+                `latitude: ${location.latitude}, ` +
+                `longitude: ${location.longitude}` +
                 `</map_location>`,
             }
           : { role: message.role, content: message.content }
       );
 
+      const controller = new AbortController();
+      const requestTimeout = window.setTimeout(() => controller.abort(), 30_000);
       const response = await fetch("/api/cityos/chat", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ messages: payload }),
+        signal: controller.signal,
       });
+      window.clearTimeout(requestTimeout);
 
-      const data = await response.json();
+      const contentType = response.headers.get("content-type") ?? "";
+      if (!contentType.includes("application/json")) {
+        throw new Error(
+          "City OS reached the wrong local server. Open this app on port 3001 and try again."
+        );
+      }
+
+      const data = (await response.json()) as CityOSResponse;
       if (!response.ok) throw new Error(data.error ?? `Request failed (${response.status})`);
+      if (!data.text) throw new Error("City OS returned an empty response. Please try again.");
 
       setMessages([
         ...nextMessages,
         { role: "assistant", content: data.text, toolsUsed: data.toolsUsed },
       ]);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(
+        err instanceof DOMException && err.name === "AbortError"
+          ? "City OS took too long to respond. Please try a shorter question."
+          : err instanceof Error
+            ? err.message
+            : String(err)
+      );
     } finally {
       setPending(false);
     }

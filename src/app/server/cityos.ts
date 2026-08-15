@@ -7,7 +7,10 @@ import Anthropic from "@anthropic-ai/sdk";
 // deployed service. The one thing it does take seriously is keeping
 // ANTHROPIC_API_KEY server-side — the browser never sees it.
 
-const MODEL = "claude-opus-5";
+const DEFAULT_MODEL = "claude-sonnet-4-20250514";
+const REQUEST_TIMEOUT_MS = 25_000;
+const DATA_TIMEOUT_MS = 8_000;
+const MAX_BODY_BYTES = 128_000;
 const NYC_LATITUDE = 40.7128;
 const NYC_LONGITUDE = -74.006;
 
@@ -59,7 +62,9 @@ async function nyc311(input: {
     "https://data.cityofnewyork.us/resource/erm2-nwe9.json" +
     `?$limit=40&$order=created_date DESC&$where=${encodeURIComponent(clauses.join(" AND "))}`;
 
-  const response = await fetch(url);
+  const response = await fetch(url, {
+    signal: AbortSignal.timeout(DATA_TIMEOUT_MS),
+  });
   if (!response.ok) {
     return { content: `311 API returned ${response.status}`, isError: true };
   }
@@ -104,7 +109,9 @@ async function nycWeather(input: {
     "&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max" +
     "&forecast_days=3&temperature_unit=fahrenheit&timezone=America%2FNew_York";
 
-  const response = await fetch(url);
+  const response = await fetch(url, {
+    signal: AbortSignal.timeout(DATA_TIMEOUT_MS),
+  });
   if (!response.ok) {
     return { content: `Weather API returned ${response.status}`, isError: true };
   }
@@ -170,27 +177,29 @@ async function runTool(name: string, input: unknown): Promise<ToolResult> {
 }
 
 // Cap the agentic loop so a demo can't spin.
-const MAX_TURNS = 8;
+const MAX_TURNS = 4;
 
 async function chat(
   client: Anthropic,
   messages: Anthropic.MessageParam[]
 ): Promise<{ text: string; toolsUsed: string[] }> {
   const toolsUsed: string[] = [];
+  const model = process.env.CITY_OS_MODEL || DEFAULT_MODEL;
 
   for (let turn = 0; turn < MAX_TURNS; turn++) {
-    const response = await client.messages.create({
-      model: MODEL,
-      max_tokens: 16000,
-      system: SYSTEM_PROMPT,
-      thinking: { type: "adaptive" },
-      output_config: { effort: "medium" },
-      tools: [
-        ...TOOLS,
-        { type: "web_search_20260209", name: "web_search" } as unknown as Anthropic.Tool,
-      ],
-      messages,
-    });
+    const response = await client.messages.create(
+      {
+        model,
+        max_tokens: 1800,
+        system: SYSTEM_PROMPT,
+        tools: [
+          ...TOOLS,
+          { type: "web_search_20260209", name: "web_search" } as unknown as Anthropic.Tool,
+        ],
+        messages,
+      },
+      { timeout: REQUEST_TIMEOUT_MS }
+    );
 
     if (response.stop_reason === "refusal") {
       return { text: "I can't help with that one.", toolsUsed };
@@ -244,7 +253,13 @@ async function chat(
 function readBody(req: import("http").IncomingMessage): Promise<string> {
   return new Promise((resolve, reject) => {
     let body = "";
-    req.on("data", (chunk) => (body += chunk));
+    req.on("data", (chunk: Buffer) => {
+      body += chunk;
+      if (Buffer.byteLength(body) > MAX_BODY_BYTES) {
+        reject(new Error("Request body is too large"));
+        req.destroy();
+      }
+    });
     req.on("end", () => resolve(body));
     req.on("error", reject);
   });
@@ -255,13 +270,13 @@ export function cityOsPlugin(): Plugin {
     name: "city-os",
     configureServer(server) {
       server.middlewares.use("/api/cityos/chat", async (req, res) => {
+        res.setHeader("content-type", "application/json; charset=utf-8");
+
         if (req.method !== "POST") {
           res.statusCode = 405;
           res.end(JSON.stringify({ error: "POST only" }));
           return;
         }
-
-        res.setHeader("content-type", "application/json");
 
         const apiKey = process.env.ANTHROPIC_API_KEY;
         if (!apiKey) {
@@ -280,13 +295,26 @@ export function cityOsPlugin(): Plugin {
             messages: Anthropic.MessageParam[];
           };
 
+          if (!Array.isArray(messages) || messages.length === 0) {
+            res.statusCode = 400;
+            res.end(JSON.stringify({ error: "A message is required." }));
+            return;
+          }
+
           const client = new Anthropic({ apiKey });
           const result = await chat(client, messages);
           res.end(JSON.stringify(result));
         } catch (error) {
           console.error("[city-os]", error);
-          res.statusCode = 500;
-          res.end(JSON.stringify({ error: String(error) }));
+          const message = error instanceof Error ? error.message : String(error);
+          res.statusCode = message.includes("too large") ? 413 : 500;
+          res.end(
+            JSON.stringify({
+              error: message.includes("timed out")
+                ? "City OS timed out while contacting live services. Please try again."
+                : message,
+            })
+          );
         }
       });
     },

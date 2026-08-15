@@ -7,18 +7,34 @@ import { cityOsPlugin } from "./server/cityos";
 // project's public bucket — the only place these tiles are published. Override
 // with TILES_HOST in .env once we host our own. See UPSTREAM.md.
 const TILES_HOST = "https://isometric-nyc-tiles.cannoneyed.com";
+const STREET_TILES_URL =
+  "https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png";
 
 export default defineConfig(({ mode }) => {
   // Load env file from project root (two levels up from src/app/).
-  // Set the third parameter to '' to load all env regardless of the `VITE_` prefix.
-  const env = loadEnv(mode, resolve(__dirname, "../.."), "");
+  // Only load variables this app understands so unrelated terminal secrets never
+  // become part of Vite's configuration object.
+  const env = loadEnv(mode, resolve(__dirname, "../.."), [
+    "ANTHROPIC_",
+    "CITY_OS_",
+    "LOCAL_",
+    "MAP_",
+    "R2_",
+    "STREET_",
+    "TILES_",
+    "USE_",
+  ]);
 
   const tilesHost = env.TILES_HOST || TILES_HOST;
+  const streetTilesUrl = env.STREET_TILES_URL || STREET_TILES_URL;
 
   // The City OS endpoint reads ANTHROPIC_API_KEY from the process env; surface
   // the value from the repo-root .env so `npx vite` alone is enough to run it.
   if (!process.env.ANTHROPIC_API_KEY && env.ANTHROPIC_API_KEY) {
     process.env.ANTHROPIC_API_KEY = env.ANTHROPIC_API_KEY;
+  }
+  if (!process.env.CITY_OS_MODEL && env.CITY_OS_MODEL) {
+    process.env.CITY_OS_MODEL = env.CITY_OS_MODEL;
   }
 
   return {
@@ -66,6 +82,8 @@ export default defineConfig(({ mode }) => {
       __R2_PROXY__: JSON.stringify(
         mode !== "production" && env.R2_PROXY !== "false"
       ),
+      // Browser-requested Web Mercator tiles for the normal 2D map mode.
+      __STREET_TILES_URL__: JSON.stringify(streetTilesUrl),
     },
   };
 });

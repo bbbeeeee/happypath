@@ -1,6 +1,19 @@
 import { useState, useCallback, useEffect, useRef } from "react";
-import { Globe, ZoomIn, ZoomOut, Sparkles } from "lucide-react";
+import {
+  Building2,
+  Globe,
+  LocateFixed,
+  Map as MapIcon,
+  Sparkles,
+  ZoomIn,
+  ZoomOut,
+} from "lucide-react";
 import { IsometricMap } from "./components/IsometricMap";
+import {
+  StreetMap,
+  type MapLocation,
+  type StreetViewState,
+} from "./components/StreetMap";
 import { ControlPanel } from "./components/ControlPanel";
 import { TileInfo } from "./components/TileInfo";
 import { CityStatus } from "./components/CityStatus";
@@ -73,6 +86,46 @@ const VIEW_STATE_STORAGE_KEY = "isometric-nyc-view-state";
 // Example: -2 = 0.25x (zoomed out), 0 = 1x, 2 = 4x (zoomed in)
 const MIN_ZOOM = 6.6; // Most zoomed out (shows large area)
 const DEFAULT_ZOOM = 11.03;
+const MAP_MODE_STORAGE_KEY = "happy-path-map-mode";
+const STREET_VIEW_STORAGE_KEY = "happy-path-street-view";
+const DEFAULT_STREET_VIEW: StreetViewState = {
+  latitude: 40.7128,
+  longitude: -74.006,
+  zoom: 15,
+};
+
+type MapMode = "isometric" | "street";
+
+function loadMapMode(): MapMode {
+  const requestedMode = new URLSearchParams(window.location.search).get("mode");
+  if (requestedMode === "2d" || requestedMode === "street") return "street";
+  if (requestedMode === "iso" || requestedMode === "isometric") return "isometric";
+  return localStorage.getItem(MAP_MODE_STORAGE_KEY) === "street"
+    ? "street"
+    : "isometric";
+}
+
+function loadStreetView(): StreetViewState {
+  try {
+    const saved = localStorage.getItem(STREET_VIEW_STORAGE_KEY);
+    if (!saved) return DEFAULT_STREET_VIEW;
+    const parsed = JSON.parse(saved) as Partial<StreetViewState>;
+    if (
+      typeof parsed.latitude === "number" &&
+      typeof parsed.longitude === "number" &&
+      typeof parsed.zoom === "number"
+    ) {
+      return {
+        latitude: parsed.latitude,
+        longitude: parsed.longitude,
+        zoom: parsed.zoom,
+      };
+    }
+  } catch {
+    // Ignore a malformed saved view and return to the NYC default.
+  }
+  return DEFAULT_STREET_VIEW;
+}
 
 // Calculate max zoom for 1:1 pixel ratio (no upscaling beyond native resolution)
 // At zoom Z, the OSD zoom = (windowWidth / totalWidth) * 2^Z
@@ -167,6 +220,12 @@ function saveViewState(viewState: ViewState): void {
 }
 
 function App() {
+  const [mapMode, setMapMode] = useState<MapMode>(loadMapMode);
+  const [streetViewState, setStreetViewState] =
+    useState<StreetViewState>(loadStreetView);
+  const [userLocation, setUserLocation] = useState<MapLocation | null>(null);
+  const [isLocating, setIsLocating] = useState(false);
+  const [locationError, setLocationError] = useState<string | null>(null);
   const [tileConfig, setTileConfig] = useState<TileConfig | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -183,9 +242,17 @@ function App() {
     }, 200);
   }, []);
 
-  // Load tile configuration on mount
+  // Load the large isometric-map configuration only when that mode is opened.
+  // The 2D navigation view can now paint immediately without waiting on R2.
   // Priority: DZI (native OSD) > Legacy manifest
   useEffect(() => {
+    if (mapMode !== "isometric" || tileConfig) return;
+
+    const controller = new AbortController();
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+
     // Construct URLs based on export directory
     // Structure: {baseUrl}/{exportDir}/tiles.dzi, {baseUrl}/{exportDir}/metadata.json
     const exportBase = tilesBaseUrl ? `${tilesBaseUrl}/${exportDir}` : exportDir;
@@ -195,7 +262,7 @@ function App() {
     const fetchMetadata = async (): Promise<DziMetadata> => {
       const tryFetch = async (url: string): Promise<DziMetadata | null> => {
         try {
-          const response = await fetch(url);
+          const response = await fetch(url, { signal: controller.signal });
           if (!response.ok) return null;
           // Check content-type to avoid parsing HTML as JSON (Vite SPA fallback)
           const contentType = response.headers.get("content-type");
@@ -222,6 +289,7 @@ function App() {
     console.log("Checking for DZI at:", dziUrl);
     fetchMetadata()
       .then((meta) => {
+        if (cancelled) return;
         console.log("Loaded DZI metadata:", meta);
 
         setTileConfig({
@@ -249,6 +317,7 @@ function App() {
             return res.json() as Promise<TileManifest>;
           })
           .then((manifest) => {
+            if (cancelled) return;
             setTileConfig({
               gridWidth: manifest.gridWidth,
               gridHeight: manifest.gridHeight,
@@ -263,21 +332,43 @@ function App() {
             setLoading(false);
           })
           .catch((err) => {
+            if (cancelled || err instanceof DOMException && err.name === "AbortError") {
+              return;
+            }
             console.error("Failed to load tile manifest:", err);
             setError(err.message);
             setLoading(false);
           });
       });
-  }, []);
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [mapMode, tileConfig]);
 
   const [viewState, setViewState] = useState<ViewState | null>(null);
   const [showMinimap, setShowMinimap] = useState(true);
   const [showCityOS, setShowCityOS] = useState(false);
 
+  useEffect(() => {
+    localStorage.setItem(MAP_MODE_STORAGE_KEY, mapMode);
+  }, [mapMode]);
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      localStorage.setItem(
+        STREET_VIEW_STORAGE_KEY,
+        JSON.stringify(streetViewState),
+      );
+    }, 350);
+    return () => window.clearTimeout(timeout);
+  }, [streetViewState]);
+
   // Calculate max zoom for 1:1 pixel ratio when tileConfig is available
   // and update on window resize
   useEffect(() => {
-    if (!tileConfig) return;
+    if (mapMode !== "isometric" || !tileConfig) return;
 
     const totalWidth = tileConfig.gridWidth * tileConfig.tileSize;
 
@@ -295,7 +386,7 @@ function App() {
     // Update on resize
     window.addEventListener("resize", updateMaxZoom);
     return () => window.removeEventListener("resize", updateMaxZoom);
-  }, [tileConfig]);
+  }, [mapMode, tileConfig]);
 
   // Clamp zoom when maxZoom decreases (e.g., window resize to smaller size)
   useEffect(() => {
@@ -372,22 +463,73 @@ function App() {
   );
 
   const handleZoomIn = useCallback(() => {
+    if (mapMode === "street") {
+      setStreetViewState((current) => ({
+        ...current,
+        zoom: Math.min(19, current.zoom + 1),
+      }));
+      return;
+    }
     if (!viewState || maxZoom === null) return;
     const newZoom = Math.min(maxZoom, viewState.zoom * 1.05);
     const newViewState = { ...viewState, zoom: newZoom };
     setViewState(newViewState);
     saveViewState(newViewState);
     logZoom(newZoom);
-  }, [viewState, maxZoom, logZoom]);
+  }, [mapMode, viewState, maxZoom, logZoom]);
 
   const handleZoomOut = useCallback(() => {
+    if (mapMode === "street") {
+      setStreetViewState((current) => ({
+        ...current,
+        zoom: Math.max(2, current.zoom - 1),
+      }));
+      return;
+    }
     if (!viewState) return;
     const newZoom = Math.max(MIN_ZOOM, viewState.zoom / 1.05);
     const newViewState = { ...viewState, zoom: newZoom };
     setViewState(newViewState);
     saveViewState(newViewState);
     logZoom(newZoom);
-  }, [viewState, logZoom]);
+  }, [mapMode, viewState, logZoom]);
+
+  const handleStreetViewStateChange = useCallback((nextView: StreetViewState) => {
+    setStreetViewState(nextView);
+  }, []);
+
+  const handleLocateMe = useCallback(() => {
+    if (!navigator.geolocation) {
+      setLocationError("Location services are not available in this browser.");
+      return;
+    }
+
+    setIsLocating(true);
+    setLocationError(null);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const location = {
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        };
+        setUserLocation(location);
+        setStreetViewState((current) => ({
+          ...location,
+          zoom: Math.max(current.zoom, 16),
+        }));
+        setIsLocating(false);
+      },
+      (geolocationError) => {
+        setLocationError(
+          geolocationError.code === geolocationError.PERMISSION_DENIED
+            ? "Location permission was denied. You can still pan the 2D map manually."
+            : "Your current location could not be determined.",
+        );
+        setIsLocating(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 },
+    );
+  }, []);
 
   const handleTileHover = useCallback(
     (tile: { x: number; y: number } | null) => {
@@ -397,7 +539,7 @@ function App() {
   );
 
   // Loading state
-  if (loading) {
+  if (mapMode === "isometric" && loading) {
     return (
       <div className="app loading">
         <div className="loading-message">Loading tile manifest...</div>
@@ -406,7 +548,7 @@ function App() {
   }
 
   // Error state
-  if (error || !tileConfig) {
+  if (mapMode === "isometric" && (error || !tileConfig)) {
     return (
       <div className="app error">
         <div className="error-message">
@@ -417,7 +559,7 @@ function App() {
   }
 
   // Wait for view state and max zoom to be initialized
-  if (!viewState || maxZoom === null) {
+  if (mapMode === "isometric" && (!viewState || maxZoom === null)) {
     return (
       <div className="app loading">
         <div className="loading-message">Initializing view...</div>
@@ -427,24 +569,53 @@ function App() {
 
   return (
     <div className="app">
-      <IsometricMap
-        tileConfig={tileConfig}
-        viewState={viewState}
-        onViewStateChange={handleViewStateChange}
-        lightDirection={_lightDirection}
-        onTileHover={handleTileHover}
-        waterShader={waterShader}
-        showMinimap={showMinimap}
-      />
+      {mapMode === "isometric" ? (
+        <IsometricMap
+          tileConfig={tileConfig!}
+          viewState={viewState!}
+          onViewStateChange={handleViewStateChange}
+          lightDirection={_lightDirection}
+          onTileHover={handleTileHover}
+          waterShader={waterShader}
+          showMinimap={showMinimap}
+        />
+      ) : (
+        <StreetMap
+          viewState={streetViewState}
+          onViewStateChange={handleStreetViewStateChange}
+          userLocation={userLocation}
+        />
+      )}
 
       <header className="header">
         <h1>New York City</h1>
         <CityStatus />
         <div className="header-actions">
+          <div className="map-mode-switch" role="group" aria-label="Map view">
+            <button
+              className={mapMode === "isometric" ? "active" : ""}
+              onClick={() => setMapMode("isometric")}
+              title="Isometric city view"
+              aria-pressed={mapMode === "isometric"}
+            >
+              <Building2 size={12} />
+              <span>ISO</span>
+            </button>
+            <button
+              className={mapMode === "street" ? "active" : ""}
+              onClick={() => setMapMode("street")}
+              title="2D street map"
+              aria-pressed={mapMode === "street"}
+            >
+              <MapIcon size={12} />
+              <span>2D</span>
+            </button>
+          </div>
           <button
             className="icon-button"
             onClick={handleZoomIn}
             title="Zoom in"
+            aria-label="Zoom in"
           >
             <ZoomIn size={14} />
           </button>
@@ -452,41 +623,68 @@ function App() {
             className="icon-button"
             onClick={handleZoomOut}
             title="Zoom out"
+            aria-label="Zoom out"
           >
             <ZoomOut size={14} />
           </button>
-          <button
-            className={`icon-button ${showMinimap ? "active" : ""}`}
-            onClick={() => setShowMinimap(!showMinimap)}
-            title={showMinimap ? "Hide minimap" : "Show minimap"}
-          >
-            <Globe size={14} />
-          </button>
+          {mapMode === "isometric" ? (
+            <button
+              className={`icon-button ${showMinimap ? "active" : ""}`}
+              onClick={() => setShowMinimap(!showMinimap)}
+              title={showMinimap ? "Hide minimap" : "Show minimap"}
+              aria-label={showMinimap ? "Hide minimap" : "Show minimap"}
+            >
+              <Globe size={14} />
+            </button>
+          ) : (
+            <button
+              className={`icon-button ${isLocating ? "active" : ""}`}
+              onClick={handleLocateMe}
+              title="Center map on my location"
+              aria-label="Center map on my location"
+              disabled={isLocating}
+            >
+              <LocateFixed size={14} />
+            </button>
+          )}
           <button
             className={`icon-button ${showCityOS ? "active" : ""}`}
             onClick={() => setShowCityOS(!showCityOS)}
             title={showCityOS ? "Close City OS" : "Open City OS"}
+            aria-label={showCityOS ? "Close City OS" : "Open City OS"}
           >
             <Sparkles size={14} />
           </button>
         </div>
       </header>
 
-      {showCityOS && <CityOS onClose={() => setShowCityOS(false)} />}
+      {showCityOS && (
+        <CityOS
+          onClose={() => setShowCityOS(false)}
+          location={mapMode === "street" ? streetViewState : undefined}
+        />
+      )}
 
-      {showDebugUI && (
+      {locationError && (
+        <div className="map-location-error" role="status">
+          <span>{locationError}</span>
+          <button onClick={() => setLocationError(null)}>Dismiss</button>
+        </div>
+      )}
+
+      {showDebugUI && mapMode === "isometric" && (
         <ControlPanel
           waterShader={waterShader}
           onWaterShaderChange={setWaterShader}
         />
       )}
 
-      {showDebugUI && (
+      {showDebugUI && mapMode === "isometric" && (
         <TileInfo
           hoveredTile={hoveredTile}
-          viewState={viewState}
-          originX={tileConfig.originX}
-          originY={tileConfig.originY}
+          viewState={viewState!}
+          originX={tileConfig!.originX}
+          originY={tileConfig!.originY}
         />
       )}
     </div>

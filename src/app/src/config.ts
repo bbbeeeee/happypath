@@ -89,4 +89,4 @@ function shouldShowDebugUI(): boolean {
 export const tilesBaseUrl = getTilesBaseUrl();
 export const exportDir = getExportDir();
 export const showDebugUI = shouldShowDebugUI();
-
+export const streetTilesUrl = __STREET_TILES_URL__;

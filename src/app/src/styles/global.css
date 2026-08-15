@@ -149,6 +149,54 @@ body {
   gap: 4px;
 }
 
+/* Compact XP-style view selector: the active view reads like a pressed tab. */
+.map-mode-switch {
+  display: flex;
+  align-items: center;
+  height: 23px;
+  padding: 1px;
+  margin-right: 3px;
+  background: #d4d0c8;
+  border: 1px solid #052d78;
+  border-radius: 4px;
+  box-shadow:
+    inset 1px 1px 0 #fff,
+    inset -1px -1px 0 #85837a;
+}
+
+.map-mode-switch button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  min-width: 39px;
+  height: 19px;
+  padding: 0 5px;
+  color: #2b2b2b;
+  background: transparent;
+  border: 0;
+  border-radius: 2px;
+  font-family: Tahoma, "Segoe UI", sans-serif;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.map-mode-switch button:hover:not(.active) {
+  color: #0647a4;
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.map-mode-switch button.active {
+  color: #fff;
+  background: linear-gradient(180deg, #529cf0 0%, #1265cb 56%, #0750b5 100%);
+  box-shadow:
+    inset 1px 1px 0 rgba(255, 255, 255, 0.45),
+    0 0 0 1px #174b91;
+  text-shadow: 1px 1px 0 rgba(0, 31, 95, 0.65);
+}
+
 /* Windows XP Luna style window buttons */
 .icon-button {
   display: flex;
@@ -196,6 +244,11 @@ body {
   );
   box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.3);
   transform: none;
+}
+
+.icon-button:disabled {
+  opacity: 0.58;
+  cursor: wait;
 }
 
 .icon-button svg {
@@ -1152,6 +1205,405 @@ input[type="range"]::-moz-range-thumb {
   transform: translateZ(0);
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
+}
+
+/* ============================================
+   2D STREET MAP — standard navigation view
+   ============================================ */
+
+.street-map {
+  color: #242b36;
+  background: #c8dce9;
+  overflow: hidden;
+}
+
+.street-map::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 1px solid rgba(4, 45, 110, 0.42);
+  box-shadow:
+    inset 0 0 28px rgba(20, 51, 83, 0.12),
+    inset 0 30px 24px -28px rgba(5, 32, 78, 0.34);
+  pointer-events: none;
+  z-index: 69;
+}
+
+.street-map-canvas {
+  width: 100%;
+  height: 100%;
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.35), rgba(170, 191, 206, 0.25)),
+    #d7e3eb;
+  filter: saturate(1.07) contrast(1.025);
+}
+
+.street-map canvas,
+.street-map .openseadragon-canvas {
+  image-rendering: auto;
+}
+
+/* The crosshair is also the location sent to City OS when it is open. */
+.street-map-hud {
+  position: absolute;
+  top: 42px;
+  left: 10px;
+  width: 218px;
+  color: #282828;
+  background: #ece9d8;
+  border: 2px solid #0b4fae;
+  border-top-color: #4b96ee;
+  border-left-color: #4b96ee;
+  border-radius: 5px 5px 2px 2px;
+  box-shadow:
+    2px 3px 9px rgba(0, 0, 0, 0.32),
+    inset 1px 0 0 rgba(255, 255, 255, 0.65);
+  font-family: Tahoma, "Segoe UI", sans-serif;
+  overflow: hidden;
+  z-index: 75;
+}
+
+.street-map-hud-title {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 34px;
+  padding: 4px 7px;
+  color: #fff;
+  background: linear-gradient(180deg, #448ee5 0%, #1464c6 55%, #0747a7 100%);
+  border-bottom: 1px solid #07367d;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55);
+  text-shadow: 1px 1px 0 rgba(0, 32, 92, 0.72);
+}
+
+.street-map-hud-icon {
+  display: grid;
+  place-items: center;
+  width: 23px;
+  height: 23px;
+  color: #173f77;
+  background: linear-gradient(135deg, #fffbd1, #ffd743 68%, #e4a900);
+  border: 1px solid #07377c;
+  border-radius: 3px;
+  box-shadow: inset 1px 1px 0 rgba(255, 255, 255, 0.82);
+  flex-shrink: 0;
+}
+
+.street-map-hud-title > div {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.street-map-hud-title strong {
+  font-size: 11px;
+  line-height: 14px;
+}
+
+.street-map-hud-title div > span {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 8px;
+  font-weight: 700;
+  line-height: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.street-map-hud-title i {
+  width: 6px;
+  height: 6px;
+  background: #6ddd31;
+  border: 1px solid #286b0b;
+  border-radius: 50%;
+  box-shadow: 0 0 4px rgba(122, 234, 59, 0.75);
+}
+
+.street-map-hud-help {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 28px;
+  padding: 5px 8px;
+  color: #4b4a42;
+  background: linear-gradient(180deg, #f7f5e9, #e6e2d2);
+  border-top: 1px solid #fff;
+  font-size: 9px;
+}
+
+.street-map-hud-help span {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.street-map-compass {
+  position: absolute;
+  top: 42px;
+  right: 10px;
+  display: grid;
+  place-items: center;
+  width: 43px;
+  height: 43px;
+  color: #154f9c;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.97), rgba(232, 229, 214, 0.96));
+  border: 1px solid #6c6b64;
+  border-top-color: #fff;
+  border-left-color: #fff;
+  border-radius: 50%;
+  box-shadow:
+    2px 3px 8px rgba(0, 0, 0, 0.28),
+    inset -2px -2px 3px rgba(75, 73, 65, 0.18);
+  z-index: 75;
+}
+
+.street-map-compass span {
+  position: absolute;
+  top: 2px;
+  right: 4px;
+  color: #c23827;
+  font-family: Tahoma, "Segoe UI", sans-serif;
+  font-size: 8px;
+  font-weight: 700;
+}
+
+/* The focus pin is the location sent to City OS when it is open. */
+.street-map-center {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 116px;
+  height: 63px;
+  transform: translate(-50%, -42px);
+  pointer-events: none;
+  z-index: 74;
+}
+
+.street-map-pin {
+  position: absolute;
+  top: 2px;
+  left: 50%;
+  width: 28px;
+  height: 28px;
+  background: linear-gradient(135deg, #ffb75f 0%, #f2762e 48%, #cf3c17 100%);
+  border: 2px solid #fff;
+  border-radius: 50% 50% 50% 4px;
+  box-shadow:
+    0 0 0 1px #9b2c10,
+    2px 3px 5px rgba(48, 36, 20, 0.42);
+  transform: translateX(-50%) rotate(-45deg);
+}
+
+.street-map-pin i {
+  position: absolute;
+  top: 7px;
+  left: 7px;
+  width: 10px;
+  height: 10px;
+  background: #fff8d7;
+  border: 1px solid #9c3819;
+  border-radius: 50%;
+}
+
+.street-map-focus-label {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  color: #fff;
+  background: linear-gradient(180deg, #347fce, #1456a7);
+  border: 1px solid #fff;
+  border-radius: 2px;
+  box-shadow:
+    0 0 0 1px #164a89,
+    1px 2px 3px rgba(0, 0, 0, 0.3);
+  transform: translateX(-50%);
+  font-family: Tahoma, "Segoe UI", sans-serif;
+  font-size: 8px;
+  font-weight: 700;
+  line-height: 14px;
+  letter-spacing: 0.07em;
+  text-shadow: 1px 1px 0 rgba(0, 33, 90, 0.7);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.street-map-position {
+  position: absolute;
+  left: 8px;
+  bottom: 27px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 4px 8px 4px 5px;
+  color: #252a34;
+  background: rgba(236, 233, 216, 0.94);
+  border: 1px solid #64645d;
+  border-top-color: #fff;
+  border-left-color: #fff;
+  border-radius: 3px;
+  box-shadow:
+    2px 2px 5px rgba(0, 0, 0, 0.27),
+    inset -1px -1px 0 rgba(127, 123, 109, 0.15);
+  font-family: Tahoma, "Segoe UI", sans-serif;
+  font-size: 10px;
+  line-height: 16px;
+  pointer-events: none;
+  z-index: 75;
+}
+
+.street-map-position-icon {
+  display: grid;
+  place-items: center;
+  width: 23px;
+  height: 23px;
+  color: #fff;
+  background: linear-gradient(180deg, #4b91db, #1554a5);
+  border: 1px solid #0c3d7e;
+  border-radius: 2px;
+  box-shadow: inset 1px 1px 0 rgba(255, 255, 255, 0.45);
+}
+
+.street-map-position-copy {
+  display: flex;
+  flex-direction: column;
+}
+
+.street-map-position-copy strong {
+  color: #0b4d9a;
+  font-size: 9px;
+  line-height: 12px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.street-map-position-copy span {
+  color: #4b4a43;
+  font-size: 9px;
+  line-height: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.street-map-attribution {
+  position: absolute;
+  right: 5px;
+  bottom: 5px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 5px;
+  color: #4c4c47;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(80, 80, 75, 0.48);
+  font-family: Tahoma, "Segoe UI", sans-serif;
+  font-size: 9px;
+  line-height: 13px;
+  z-index: 75;
+}
+
+.street-map-attribution a {
+  color: #0755a5;
+  text-decoration: none;
+}
+
+.street-map-attribution a:hover {
+  text-decoration: underline;
+}
+
+.street-map-user-location {
+  width: 17px;
+  height: 17px;
+  background: #1a73e8;
+  border: 3px solid #fff;
+  border-radius: 50%;
+  box-shadow:
+    0 0 0 2px rgba(12, 73, 161, 0.85),
+    0 2px 6px rgba(0, 0, 0, 0.4);
+}
+
+.street-map-user-location::after {
+  content: "";
+  position: absolute;
+  inset: -8px;
+  border: 2px solid rgba(26, 115, 232, 0.36);
+  border-radius: 50%;
+  animation: location-ring 1.8s ease-out infinite;
+}
+
+.map-location-error {
+  position: absolute;
+  top: 40px;
+  left: 50%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: min(430px, calc(100% - 24px));
+  padding: 7px 8px 7px 10px;
+  color: #61170e;
+  background: #fff2c7;
+  border: 2px solid #c56d26;
+  border-top-color: #f1b168;
+  border-left-color: #f1b168;
+  border-radius: 3px;
+  box-shadow: 2px 3px 8px rgba(0, 0, 0, 0.35);
+  transform: translateX(-50%);
+  font-family: Tahoma, "Segoe UI", sans-serif;
+  font-size: 10px;
+  z-index: 190;
+}
+
+.map-location-error button {
+  padding: 2px 7px;
+  color: #222;
+  background: #ece9d8;
+  border: 1px solid #777;
+  border-top-color: #fff;
+  border-left-color: #fff;
+  font: inherit;
+  cursor: pointer;
+}
+
+@keyframes location-ring {
+  from { opacity: 0.85; transform: scale(0.45); }
+  to { opacity: 0; transform: scale(1.2); }
+}
+
+@media (max-width: 560px) {
+  .map-mode-switch button {
+    min-width: 34px;
+  }
+
+  .street-map-hud {
+    width: 170px;
+  }
+
+  .street-map-hud-help,
+  .street-map-compass {
+    display: none;
+  }
+
+  .street-map-position {
+    right: 8px;
+    justify-content: space-between;
+  }
+
+  .street-map-attribution {
+    left: 5px;
+    right: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .street-map-user-location::after {
+    animation: none;
+    opacity: 0.45;
+  }
 }
 
 /* Keyboard shortcut hints */
