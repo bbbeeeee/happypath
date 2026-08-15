@@ -2,7 +2,8 @@
 
 The map renderer and tile-generation pipeline in this repo were vendored from
 the open-source `isometric-nyc` project by Andy Coenen, used here under the MIT
-license (see [LICENSE](LICENSE)).
+license. The upstream copyright and complete license text are retained in
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 We are building the Happy Path routing experience on top of it. See
 [README.md](README.md) for the product docs.
