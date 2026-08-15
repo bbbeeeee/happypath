@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import {
   Building2,
+  Footprints,
   Globe,
   LocateFixed,
   Map as MapIcon,
@@ -12,6 +13,7 @@ import { IsometricMap } from "./components/IsometricMap";
 import {
   StreetMap,
   type MapLocation,
+  type RouteOverlay,
   type StreetViewState,
 } from "./components/StreetMap";
 import { ControlPanel } from "./components/ControlPanel";
@@ -20,6 +22,8 @@ import { CityStatus } from "./components/CityStatus";
 import { CityOS } from "./components/CityOS";
 import { defaultShaderParams } from "./shaders/water";
 import { tilesBaseUrl, exportDir, showDebugUI } from "./config";
+import type { IsometricProjectionConfig } from "./isometricProjection";
+import { TripPlanner } from "./components/TripPlanner";
 
 interface TileConfig {
   gridWidth: number;
@@ -36,6 +40,7 @@ interface TileConfig {
   dziUrl?: string;
   // Legacy file-based tiles
   tileUrlPattern?: string;
+  projection?: IsometricProjectionConfig;
   // Default view position and zoom from generation config
   appDefaults?: {
     x: number;
@@ -60,6 +65,7 @@ interface DziMetadata {
     y: number;
     zoom: number;
   };
+  projection?: IsometricProjectionConfig;
 }
 
 // Legacy manifest format (for backward compatibility)
@@ -73,6 +79,30 @@ interface TileManifest {
   maxZoomLevel: number;
   generated: string;
   urlPattern: string;
+}
+
+interface NavigationCandidate {
+  candidate_id: string;
+  shape: [number, number][];
+  is_baseline: boolean;
+}
+
+interface NavigationPlan {
+  recommended: NavigationCandidate;
+  candidates: NavigationCandidate[];
+}
+
+function overlaysFromPlan(plan: NavigationPlan): RouteOverlay[] {
+  return plan.candidates.map((candidate) => ({
+    id: candidate.candidate_id,
+    shape: candidate.shape,
+    variant:
+      candidate.candidate_id === plan.recommended.candidate_id
+        ? "recommended"
+        : candidate.is_baseline
+          ? "baseline"
+          : "alternate",
+  }));
 }
 
 export interface ViewState {
@@ -303,6 +333,7 @@ function App() {
           originY: meta.originY ?? 0,
           dziUrl: dziUrl,
           appDefaults: meta.appDefaults,
+          projection: meta.projection,
         });
         setLoading(false);
       })
@@ -350,6 +381,13 @@ function App() {
   const [viewState, setViewState] = useState<ViewState | null>(null);
   const [showMinimap, setShowMinimap] = useState(true);
   const [showCityOS, setShowCityOS] = useState(false);
+  const [showTripPlanner, setShowTripPlanner] = useState(false);
+  const [routeOrigin, setRouteOrigin] = useState<MapLocation | null>(null);
+  const [routeDestination, setRouteDestination] = useState<MapLocation | null>(null);
+  const [routes, setRoutes] = useState<RouteOverlay[]>([]);
+  const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
+  const [routeStatus, setRouteStatus] = useState<"idle" | "routing">("idle");
+  const [routeError, setRouteError] = useState<string | null>(null);
 
   useEffect(() => {
     localStorage.setItem(MAP_MODE_STORAGE_KEY, mapMode);
@@ -538,6 +576,86 @@ function App() {
     [],
   );
 
+  const clearPointRoute = useCallback(() => {
+    setRouteOrigin(null);
+    setRouteDestination(null);
+    setRoutes([]);
+    setSelectedRouteId(null);
+    setRouteError(null);
+    setRouteStatus("idle");
+  }, []);
+
+  const handlePlannerRoutesChange = useCallback((nextRoutes: RouteOverlay[]) => {
+    setRoutes(nextRoutes);
+    setRouteDestination(null);
+    setRouteError(null);
+  }, []);
+
+  const handleMapRouteClick = useCallback(
+    async (location: MapLocation) => {
+      if (routeStatus === "routing") return;
+
+      // A completed route turns the next click into a fresh starting point.
+      if (!routeOrigin || routeDestination) {
+        setRouteOrigin(location);
+        setRouteDestination(null);
+        setRoutes([]);
+        setSelectedRouteId(null);
+        setRouteError(null);
+        return;
+      }
+
+      const origin = routeOrigin;
+      setRouteDestination(location);
+      setRouteStatus("routing");
+      setRouteError(null);
+
+      try {
+        const response = await fetch("/api/nav/plan", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            brief: {
+              journey_shape: "destination",
+              origin,
+              destination_or_end_condition: {
+                kind: "coordinates",
+                latitude: location.latitude,
+                longitude: location.longitude,
+                label: "Dropped pin",
+              },
+              walking_budget_minutes: null,
+              preferences: ["greener"],
+              requirements: [],
+              avoidances: [],
+              unsupported_or_unverified: [],
+              summary: "Point-to-point greener walk",
+            },
+          }),
+        });
+        const contentType = response.headers.get("content-type") ?? "";
+        if (!contentType.includes("application/json")) {
+          throw new Error("The walking-route service is unavailable on this server.");
+        }
+        const plan = (await response.json()) as NavigationPlan & { error?: string };
+        if (!response.ok) throw new Error(plan.error ?? "Couldn't build that walk.");
+
+        const nextRoutes = overlaysFromPlan(plan);
+        setRoutes(nextRoutes);
+        setSelectedRouteId(plan.recommended.candidate_id);
+      } catch (routeRequestError) {
+        setRouteError(
+          routeRequestError instanceof Error
+            ? routeRequestError.message
+            : String(routeRequestError),
+        );
+      } finally {
+        setRouteStatus("idle");
+      }
+    },
+    [routeDestination, routeOrigin, routeStatus],
+  );
+
   // Loading state
   if (mapMode === "isometric" && loading) {
     return (
@@ -578,12 +696,21 @@ function App() {
           onTileHover={handleTileHover}
           waterShader={waterShader}
           showMinimap={showMinimap}
+          routes={routes}
+          selectedRouteId={selectedRouteId}
+          onRouteSelect={setSelectedRouteId}
         />
       ) : (
         <StreetMap
           viewState={streetViewState}
           onViewStateChange={handleStreetViewStateChange}
           userLocation={userLocation}
+          routes={routes}
+          selectedRouteId={selectedRouteId}
+          onRouteSelect={setSelectedRouteId}
+          origin={routeOrigin}
+          destination={routeDestination}
+          onMapClick={handleMapRouteClick}
         />
       )}
 
@@ -648,8 +775,22 @@ function App() {
             </button>
           )}
           <button
+            className={`icon-button ${showTripPlanner ? "active" : ""}`}
+            onClick={() => {
+              setShowTripPlanner(!showTripPlanner);
+              setShowCityOS(false);
+            }}
+            title={showTripPlanner ? "Close walk planner" : "Plan a walk"}
+            aria-label={showTripPlanner ? "Close walk planner" : "Plan a walk"}
+          >
+            <Footprints size={14} />
+          </button>
+          <button
             className={`icon-button ${showCityOS ? "active" : ""}`}
-            onClick={() => setShowCityOS(!showCityOS)}
+            onClick={() => {
+              setShowCityOS(!showCityOS);
+              setShowTripPlanner(false);
+            }}
             title={showCityOS ? "Close City OS" : "Open City OS"}
             aria-label={showCityOS ? "Close City OS" : "Open City OS"}
           >
@@ -657,6 +798,46 @@ function App() {
           </button>
         </div>
       </header>
+
+      {mapMode === "street" && (
+        <div className="route-picker" role="status" aria-live="polite">
+          <Footprints size={14} aria-hidden="true" />
+          <div>
+            <strong>
+              {routeStatus === "routing"
+                ? "Finding a walking route…"
+                : routeDestination && routes.length > 0
+                  ? "Route ready"
+                  : routeOrigin
+                    ? "Start set"
+                    : "Click two points"}
+            </strong>
+            <span>
+              {routeStatus === "routing"
+                ? "Checking walkable streets and alternatives"
+                : routeDestination && routes.length > 0
+                  ? "Click anywhere to begin a new route"
+                  : routeOrigin
+                    ? "Now click your destination"
+                    : "First click sets start · second sets destination"}
+            </span>
+            {routeError && <span className="route-picker-error">{routeError}</span>}
+          </div>
+          {(routeOrigin || routes.length > 0) && (
+            <button onClick={clearPointRoute}>Clear</button>
+          )}
+        </div>
+      )}
+
+      {showTripPlanner && (
+        <TripPlanner
+          origin={routeOrigin ?? userLocation ?? streetViewState}
+          onRoutesChange={handlePlannerRoutesChange}
+          selectedRouteId={selectedRouteId ?? undefined}
+          onRouteSelect={setSelectedRouteId}
+          onClose={() => setShowTripPlanner(false)}
+        />
+      )}
 
       {showCityOS && (
         <CityOS

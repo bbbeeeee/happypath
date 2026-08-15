@@ -18,11 +18,39 @@ export interface StreetViewState extends MapLocation {
   zoom: number;
 }
 
+export type RouteVariant = "recommended" | "baseline" | "alternate";
+
+/**
+ * A route to draw. Deliberately carries no trip metrics — minutes, distance and
+ * greenery stay in the planner panel so this component never has to know what a
+ * candidate means, only where it goes.
+ */
+export interface RouteOverlay {
+  id: string;
+  /** [latitude, longitude] pairs, in order. */
+  shape: [number, number][];
+  variant: RouteVariant;
+}
+
 interface StreetMapProps {
   viewState: StreetViewState;
   onViewStateChange: (viewState: StreetViewState) => void;
   userLocation?: MapLocation | null;
+  routes?: RouteOverlay[];
+  selectedRouteId?: string | null;
+  onRouteSelect?: (routeId: string) => void;
+  origin?: MapLocation | null;
+  destination?: MapLocation | null;
+  onMapClick?: (location: MapLocation) => void;
 }
+
+// Draw order, back to front: the baseline sits under everything it is being
+// compared against, and the recommended route is never occluded.
+const VARIANT_DEPTH: Record<RouteVariant, number> = {
+  baseline: 0,
+  alternate: 1,
+  recommended: 2,
+};
 
 function clamp(value: number, minimum: number, maximum: number): number {
   return Math.min(maximum, Math.max(minimum, value));
@@ -62,6 +90,12 @@ export function StreetMap({
   viewState,
   onViewStateChange,
   userLocation,
+  routes,
+  selectedRouteId,
+  onRouteSelect,
+  origin,
+  destination,
+  onMapClick,
 }: StreetMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<OpenSeadragon.Viewer | null>(null);
@@ -70,6 +104,67 @@ export function StreetMap({
   const isUpdatingFromProps = useRef(false);
   const positionValueRef = useRef<HTMLSpanElement>(null);
   const pendingPositionFrame = useRef<number | null>(null);
+  const routeLayerRef = useRef<SVGSVGElement>(null);
+  const pendingRouteFrame = useRef<number | null>(null);
+  const onMapClickRef = useRef(onMapClick);
+  onMapClickRef.current = onMapClick;
+
+  // The draw loop reads routes from a ref so that panning does not have to
+  // re-subscribe viewer handlers every time the planner returns new candidates.
+  const routesRef = useRef<RouteOverlay[]>([]);
+  const drawnRoutes = routes ?? [];
+  routesRef.current = drawnRoutes;
+
+  // Routes are projected into container pixels every frame rather than drawn
+  // into a world-sized SVG: at MAX_STREET_ZOOM the world is ~134M px across,
+  // far past what a browser will lay out.
+  const drawRoutes = useCallback(() => {
+    const viewer = viewerRef.current;
+    const layer = routeLayerRef.current;
+    if (!viewer?.viewport || !layer) return;
+
+    const definitions = new Map<string, string>();
+    for (const route of routesRef.current) {
+      if (route.shape.length < 2) {
+        definitions.set(route.id, "");
+        continue;
+      }
+
+      const commands: string[] = [];
+      for (let index = 0; index < route.shape.length; index += 1) {
+        const [latitude, longitude] = route.shape[index];
+        const point = viewer.viewport.pixelFromPoint(
+          new OpenSeadragon.Point(
+            longitudeToWorldX(longitude),
+            latitudeToWorldY(latitude),
+          ),
+          true,
+        );
+        commands.push(
+          `${index === 0 ? "M" : "L"}${point.x.toFixed(1)} ${point.y.toFixed(1)}`,
+        );
+      }
+      definitions.set(route.id, commands.join(" "));
+    }
+
+    // Read ids off the rendered groups rather than tracking element refs, so
+    // adding or removing a path within a group needs no bookkeeping here.
+    for (const group of layer.querySelectorAll<SVGGElement>("g[data-route-id]")) {
+      const definition = definitions.get(group.dataset.routeId ?? "");
+      if (definition === undefined) continue;
+      for (const path of group.querySelectorAll<SVGPathElement>("path")) {
+        path.setAttribute("d", definition);
+      }
+    }
+  }, []);
+
+  const scheduleRouteDraw = useCallback(() => {
+    if (pendingRouteFrame.current !== null) return;
+    pendingRouteFrame.current = window.requestAnimationFrame(() => {
+      pendingRouteFrame.current = null;
+      drawRoutes();
+    });
+  }, [drawRoutes]);
 
   const streetToOsd = useCallback((state: StreetViewState) => {
     const containerWidth = containerRef.current?.clientWidth || window.innerWidth;
@@ -140,6 +235,7 @@ export function StreetMap({
     viewer.addHandler("open", () => {
       viewer.viewport.zoomTo(initialView.zoom, undefined, true);
       viewer.viewport.panTo(initialView.center, true);
+      scheduleRouteDraw();
     });
 
     const readView = () => osdToStreet(viewer);
@@ -176,21 +272,42 @@ export function StreetMap({
     // Keep the small coordinate readout current without rerendering the entire
     // React tree for every animation frame. Commit shared state when motion ends.
     viewer.addHandler("viewport-change", () => {
+      // Routes follow the viewport even while props are driving it, so this
+      // redraw sits outside the readout's isUpdatingFromProps guard.
+      scheduleRouteDraw();
       if (isUpdatingFromProps.current) return;
       updatePositionReadout(readView());
     });
     viewer.addHandler("animation-finish", commitView);
     viewer.addHandler("canvas-release", commitView);
+    viewer.addHandler("resize", scheduleRouteDraw);
+    viewer.addHandler("canvas-click", (event) => {
+      if (!event.quick || !event.position || !onMapClickRef.current) return;
+      const viewportPoint = viewer.viewport.pointFromPixel(event.position);
+      onMapClickRef.current({
+        latitude: worldYToLatitude(clamp(viewportPoint.y, 0, 1)),
+        longitude: worldXToLongitude(viewportPoint.x),
+      });
+    });
 
     viewerRef.current = viewer;
     return () => {
       if (pendingPositionFrame.current !== null) {
         window.cancelAnimationFrame(pendingPositionFrame.current);
       }
+      if (pendingRouteFrame.current !== null) {
+        window.cancelAnimationFrame(pendingRouteFrame.current);
+        pendingRouteFrame.current = null;
+      }
       viewer.destroy();
       viewerRef.current = null;
     };
-  }, [onViewStateChange, osdToStreet, streetToOsd]);
+  }, [onViewStateChange, osdToStreet, scheduleRouteDraw, streetToOsd]);
+
+  // Redraw when the candidate set itself changes, not just the viewport.
+  useEffect(() => {
+    scheduleRouteDraw();
+  }, [drawnRoutes, scheduleRouteDraw]);
 
   useEffect(() => {
     const viewer = viewerRef.current;
@@ -237,9 +354,78 @@ export function StreetMap({
     };
   }, [userLocation]);
 
+  useEffect(() => {
+    const viewer = viewerRef.current;
+    if (!viewer) return;
+
+    const endpoints: [MapLocation | null | undefined, string, string][] = [
+      [origin, "origin", "Trip origin"],
+      [destination, "destination", "Trip destination"],
+    ];
+
+    const markers = endpoints.flatMap(([location, kind, label]) => {
+      if (!location) return [];
+
+      const marker = document.createElement("div");
+      marker.className = `street-map-endpoint street-map-endpoint-${kind}`;
+      marker.setAttribute("aria-label", label);
+      marker.title = label;
+      viewer.addOverlay({
+        element: marker,
+        location: new OpenSeadragon.Point(
+          longitudeToWorldX(location.longitude),
+          latitudeToWorldY(location.latitude),
+        ),
+        placement: OpenSeadragon.Placement.BOTTOM,
+        checkResize: false,
+      });
+      return [marker];
+    });
+
+    return () => {
+      for (const marker of markers) viewer.removeOverlay(marker);
+    };
+  }, [destination, origin]);
+
   return (
-    <div className="map-container street-map">
+    <div
+      className={`map-container street-map ${onMapClick ? "street-map-picking" : ""}`}
+    >
       <div ref={containerRef} className="street-map-canvas" />
+
+      {drawnRoutes.length > 0 && (
+        <svg
+          ref={routeLayerRef}
+          className="street-map-routes"
+          aria-hidden="true"
+        >
+          {[...drawnRoutes]
+            .sort((a, b) => VARIANT_DEPTH[a.variant] - VARIANT_DEPTH[b.variant])
+            .map((route) => {
+              const isSelected = route.id === selectedRouteId;
+              return (
+                <g
+                  key={route.id}
+                  className="street-map-route"
+                  data-route-id={route.id}
+                  data-variant={route.variant}
+                  data-selected={isSelected ? "true" : undefined}
+                >
+                  <path className="street-map-route-casing" />
+                  <path className="street-map-route-line" />
+                  {onRouteSelect && (
+                    // A fat transparent stroke gives the thin line a usable hit
+                    // target; it is the only part of the layer that takes events.
+                    <path
+                      className="street-map-route-hit"
+                      onClick={() => onRouteSelect(route.id)}
+                    />
+                  )}
+                </g>
+              );
+            })}
+        </svg>
+      )}
 
       <section className="street-map-hud" aria-label="Street navigation help">
         <div className="street-map-hud-title">
@@ -255,7 +441,8 @@ export function StreetMap({
         </div>
         <div className="street-map-hud-help">
           <span>
-            <MousePointer2 size={11} aria-hidden="true" /> Drag to explore
+              <MousePointer2 size={11} aria-hidden="true" />
+              {onMapClick ? "Click to set route" : "Drag to explore"}
           </span>
           <span>Scroll to zoom</span>
         </div>

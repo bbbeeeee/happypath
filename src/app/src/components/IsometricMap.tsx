@@ -4,6 +4,11 @@ import type { ViewState } from "../App";
 import { WaterShaderOverlay } from "./WaterShaderOverlay";
 import type { ShaderParams } from "../shaders/water";
 import { tilesBaseUrl } from "../config";
+import type { RouteOverlay } from "./StreetMap";
+import {
+	latLngToIsometricImagePoint,
+	type IsometricProjectionConfig,
+} from "../isometricProjection";
 
 // Debounced debug logger for viewport changes (only when ?debug=true)
 let debugLogTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -35,6 +40,7 @@ interface TileConfig {
 	dziUrl?: string;
 	// Legacy file-based tiles
 	tileUrlPattern?: string;
+	projection?: IsometricProjectionConfig;
 }
 
 interface WaterShaderSettings {
@@ -51,7 +57,16 @@ interface IsometricMapProps {
 	onTileHover: (tile: { x: number; y: number } | null) => void;
 	waterShader?: WaterShaderSettings;
 	showMinimap?: boolean; // Toggle minimap visibility
+	routes?: RouteOverlay[];
+	selectedRouteId?: string | null;
+	onRouteSelect?: (routeId: string) => void;
 }
+
+const ROUTE_DEPTH: Record<RouteOverlay["variant"], number> = {
+	baseline: 0,
+	alternate: 1,
+	recommended: 2,
+};
 
 export function IsometricMap({
 	tileConfig,
@@ -60,17 +75,88 @@ export function IsometricMap({
 	onTileHover,
 	waterShader,
 	showMinimap = true,
+	routes,
+	selectedRouteId,
+	onRouteSelect,
 }: IsometricMapProps) {
 	const containerRef = useRef<HTMLDivElement>(null);
 	const viewerRef = useRef<OpenSeadragon.Viewer | null>(null);
 	const isUpdatingFromProps = useRef(false);
 	const lastOSDViewState = useRef<ViewState | null>(null);
+	const routeLayerRef = useRef<SVGSVGElement>(null);
+	const pendingRouteFrame = useRef<number | null>(null);
+	const routesRef = useRef<RouteOverlay[]>([]);
+	const drawnRoutes = routes ?? [];
+	routesRef.current = drawnRoutes;
 
 	const { gridWidth, gridHeight, tileSize, maxZoomLevel, dziUrl } = tileConfig;
 
 	// Total image dimensions in pixels
 	const totalWidth = gridWidth * tileSize;
 	const totalHeight = gridHeight * tileSize;
+
+	const drawRoutes = useCallback(() => {
+		const viewer = viewerRef.current;
+		const layer = routeLayerRef.current;
+		if (!viewer?.viewport || !layer) return;
+
+		const definitions = new Map<
+			string,
+			{ path: string; start?: OpenSeadragon.Point; end?: OpenSeadragon.Point }
+		>();
+		for (const route of routesRef.current) {
+			const points = route.shape.map(([latitude, longitude]) => {
+				const imagePoint = latLngToIsometricImagePoint(latitude, longitude, {
+					originX: tileConfig.originX,
+					originY: tileConfig.originY,
+					tileSize,
+					projection: tileConfig.projection,
+				});
+				const viewportPoint = viewer.viewport.imageToViewportCoordinates(
+					new OpenSeadragon.Point(imagePoint.x, imagePoint.y),
+				);
+				return viewer.viewport.pixelFromPoint(viewportPoint, true);
+			});
+
+			const path = points
+				.map(
+					(point, index) =>
+						`${index === 0 ? "M" : "L"}${point.x.toFixed(1)} ${point.y.toFixed(1)}`,
+				)
+				.join(" ");
+			definitions.set(route.id, {
+				path,
+				start: points[0],
+				end: points.at(-1),
+			});
+		}
+
+		for (const group of layer.querySelectorAll<SVGGElement>("g[data-route-id]")) {
+			const definition = definitions.get(group.dataset.routeId ?? "");
+			if (!definition) continue;
+			for (const path of group.querySelectorAll<SVGPathElement>("path")) {
+				path.setAttribute("d", definition.path);
+			}
+			const start = group.querySelector<SVGCircleElement>("[data-route-start]");
+			const end = group.querySelector<SVGCircleElement>("[data-route-end]");
+			if (start && definition.start) {
+				start.setAttribute("cx", String(definition.start.x));
+				start.setAttribute("cy", String(definition.start.y));
+			}
+			if (end && definition.end) {
+				end.setAttribute("cx", String(definition.end.x));
+				end.setAttribute("cy", String(definition.end.y));
+			}
+		}
+	}, [tileConfig.originX, tileConfig.originY, tileConfig.projection, tileSize]);
+
+	const scheduleRouteDraw = useCallback(() => {
+		if (pendingRouteFrame.current !== null) return;
+		pendingRouteFrame.current = window.requestAnimationFrame(() => {
+			pendingRouteFrame.current = null;
+			drawRoutes();
+		});
+	}, [drawRoutes]);
 
 	// Convert our view state to OSD viewport coordinates
 	// Our viewState: { target: [worldX, worldY, 0], zoom: log2Scale }
@@ -249,10 +335,12 @@ export function IsometricMap({
 			// Set initial position
 			viewer.viewport.zoomTo(initialZoom, undefined, true);
 			viewer.viewport.panTo(new OpenSeadragon.Point(centerX, centerY), true);
+			scheduleRouteDraw();
 		});
 
 		// Track viewport changes
 		viewer.addHandler("viewport-change", () => {
+			scheduleRouteDraw();
 			if (isUpdatingFromProps.current) return;
 
 			const newViewState = osdToWorld(viewer);
@@ -263,6 +351,7 @@ export function IsometricMap({
 			// Debug logging (debounced)
 			logViewportDebug(newViewState);
 		});
+		viewer.addHandler("resize", scheduleRouteDraw);
 
 		// Track mouse position for tile hover
 		viewer.addHandler("canvas-exit", () => {
@@ -298,6 +387,10 @@ export function IsometricMap({
 		viewerRef.current = viewer;
 
 		return () => {
+			if (pendingRouteFrame.current !== null) {
+				window.cancelAnimationFrame(pendingRouteFrame.current);
+				pendingRouteFrame.current = null;
+			}
 			viewer.destroy();
 			viewerRef.current = null;
 		};
@@ -313,7 +406,12 @@ export function IsometricMap({
 		onViewStateChange,
 		onTileHover,
 		dziUrl,
+		scheduleRouteDraw,
 	]);
+
+	useEffect(() => {
+		scheduleRouteDraw();
+	}, [drawnRoutes, scheduleRouteDraw]);
 
 	// Sync external view state changes to OSD
 	// Only sync if viewState came from an external source (not from OSD itself)
@@ -356,7 +454,7 @@ export function IsometricMap({
 	}, [showMinimap]);
 
 	return (
-		<div className="map-container">
+		<div className="map-container isometric-map">
 			<div
 				ref={containerRef}
 				style={{
@@ -365,6 +463,40 @@ export function IsometricMap({
 					background: "#0a0c14",
 				}}
 			/>
+			{drawnRoutes.length > 0 && (
+				<svg
+					ref={routeLayerRef}
+					className="isometric-map-routes"
+					aria-hidden="true"
+				>
+					{[...drawnRoutes]
+						.sort((a, b) => ROUTE_DEPTH[a.variant] - ROUTE_DEPTH[b.variant])
+						.map((route) => (
+							<g
+								key={route.id}
+								className="isometric-map-route"
+								data-route-id={route.id}
+								data-variant={route.variant}
+								data-selected={route.id === selectedRouteId ? "true" : undefined}
+							>
+								<path className="isometric-map-route-shadow" />
+								<path className="isometric-map-route-line" />
+								{onRouteSelect && (
+									<path
+										className="isometric-map-route-hit"
+										onClick={() => onRouteSelect(route.id)}
+									/>
+								)}
+								{route.variant === "recommended" && (
+									<>
+										<circle data-route-start className="isometric-route-start" r="6" />
+										<circle data-route-end className="isometric-route-end" r="7" />
+									</>
+								)}
+							</g>
+						))}
+				</svg>
+			)}
 			{waterShader && (
 				<WaterShaderOverlay
 					enabled={waterShader.enabled}

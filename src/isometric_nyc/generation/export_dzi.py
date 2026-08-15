@@ -794,6 +794,7 @@ def create_metadata_sidecar(
     image_width: int,
     image_height: int,
     image_format: str,
+    generation_config: dict[str, Any],
     app_defaults: dict[str, Any] | None = None,
 ) -> None:
     """
@@ -819,6 +820,16 @@ def create_metadata_sidecar(
         "imageWidth": image_width,
         "imageHeight": image_height,
         "format": image_format,
+        "projection": {
+            "seedLatitude": generation_config["seed"]["lat"],
+            "seedLongitude": generation_config["seed"]["lng"],
+            "cameraAzimuthDegrees": generation_config["camera_azimuth_degrees"],
+            "cameraElevationDegrees": generation_config["camera_elevation_degrees"],
+            "viewportWidthPixels": generation_config["width_px"],
+            "viewportHeightPixels": generation_config["height_px"],
+            "viewHeightMeters": generation_config["view_height_meters"],
+            "tileStep": generation_config.get("tile_step", 0.5),
+        },
         "generated": datetime.now(timezone.utc).isoformat(),
         "appDefaults": app_defaults,
     }
@@ -1298,7 +1309,14 @@ Examples:
         print(f"   Computed app_defaults: x={app_defaults['x']}, y={app_defaults['y']}, zoom={app_defaults['zoom']}")
 
     create_metadata_sidecar(
-        metadata_path, tl, br, stats["image_width"], stats["image_height"], image_format, app_defaults
+        metadata_path,
+        tl,
+        br,
+        stats["image_width"],
+        stats["image_height"],
+        image_format,
+        config,
+        app_defaults,
     )
 
     # Print summary
