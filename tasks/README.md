@@ -25,7 +25,7 @@ Allowed statuses are `ready`, `in-progress`, `blocked`, and `done`.
 | Task | Status | Owner |
 | --- | --- | --- |
 | [001 — Define the first user and problem](001-define-user-and-problem.md) | Ready | Unassigned |
-| [002 — Research NYC path data](002-research-nyc-path-data.md) | Ready | Unassigned |
+| [002 — Research NYC path data](002-research-nyc-path-data.md) | Done | codex |
 | [003 — Explore path qualities](003-explore-path-qualities.md) | Ready | Unassigned |
 
 Project-specific collaboration lessons are kept in [lessons.md](lessons.md).

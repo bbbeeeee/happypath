@@ -10,6 +10,7 @@
 | Pilot | One bounded, data-rich NYC area |
 | Primary experience | Consumer city-time planner |
 | Planning extension | Detour, after the consumer MVP |
+| Data companion | [Data and inference specification](data-and-inference.md) |
 | Last updated | 2026-08-15 |
 
 ## 1. Product brief
@@ -256,10 +257,12 @@ route receipt + refinement
 | System | Responsibilities |
 | --- | --- |
 | Language and preference layer | Interpret colloquial intent, patch the Trip Brief, map taste anchors to supported features, rank close candidates, and explain tradeoffs |
-| Geospatial routing layer | Enforce legal connectivity, time, distance, slope, stairs, detour limits, route continuity, and candidate generation |
+| Geospatial routing layer | Enforce mapped pedestrian connectivity, time, distance, slope, stairs, detour limits, route continuity, and candidate generation |
 | Evidence layer | Track source, observation date, derivation, official versus inferred values, confidence, and user corrections |
 
 Inference never invents paths, physical conditions, travel-time arithmetic, or accessibility guarantees. It can propose route-compatible stops and rank valid candidates only within the supplied evidence and constraints.
+
+The companion [Data and inference specification](data-and-inference.md) defines source IDs, feature derivations, validation gates, and the claims each evidence type may support.
 
 ## 7. Personalization and learning
 
@@ -325,11 +328,12 @@ The profile stores structured preferences rather than complete location history 
 
 ## 8. Route features
 
-The MVP needs two or three route dimensions that are credible in the pilot, plus personal taste anchors.
+The MVP needs two or three route dimensions that are credible in the pilot, plus personal taste anchors. Time-aware shade is the first proposed measurable proof; one or two additional dimensions advance only after pilot validation.
 
 | Dimension | Evidence | Product claim |
 | --- | --- | --- |
-| Greener and shadier | Trees, parks, building geometry, time, canopy where available | Greener or estimated shade; keep the two metrics distinct internally |
+| Time-aware shade | Building geometry, usable heights, solar position, time | Estimated direct-sun exposure, not measured street temperature |
+| Greener | Trees, parks, land cover, and canopy where available | Green adjacency or cover; keep greenery distinct from shade |
 | Gentler | Elevation, slope, mapped stairs, ramps, seating | Lower effort based on available data, not guaranteed accessibility |
 | Personally interesting | Saved places, explicit anchors, POIs, cultural places, public spaces | Similar to evidence the user supplied, not objectively cool |
 | Quieter or livelier | Traffic, events, construction, activity proxies, time | Expected conditions; experimental until validated |
@@ -461,12 +465,13 @@ With sufficient consented feedback, Happy Path can train a preference-aware rera
 - The current request always outranks saved or inferred preferences.
 - The MVP demonstrates explicit cross-session preference memory.
 - MVP preference memory is browser-local and requires no account.
+- Time-aware shade is the first proposed measurable route proof, subject to pilot validation.
 - Mature implicit learning, contribution, Public Assets, and Detour are later phases.
 
 ### Open questions
 
 1. Which pilot area best supports all three journey shapes and the demo route dimensions?
 2. Which Quick Picks can the pilot support with defensible evidence?
-3. Which two or three route dimensions create the strongest MVP contrast?
+3. Which one or two route dimensions should accompany time-aware shade in the MVP?
 4. How should endpoint candidates be generated for Wander requests?
 5. What confidence threshold is required before a feature can affect ranking?

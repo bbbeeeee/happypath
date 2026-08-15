@@ -7,6 +7,7 @@ The project is intentionally documentation-first. We will shape the product toge
 ## Start here
 
 - [Product requirements document](docs/PRD.md)
+- [Data and inference specification](docs/data-and-inference.md)
 - [Idea workspace](docs/ideas/README.md)
 - [Parallel task board](tasks/README.md)
 

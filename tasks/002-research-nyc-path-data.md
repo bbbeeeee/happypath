@@ -1,8 +1,8 @@
 ---
 id: "002"
 title: Research NYC path data
-status: ready
-owner: unassigned
+status: done
+owner: codex
 depends_on: []
 last_updated: 2026-08-15
 ---
@@ -23,15 +23,15 @@ A short research note linked from `docs/PRD.md` or saved as an idea note if it r
 
 ## Acceptance criteria
 
-- [ ] Candidate data sources are listed with direct links.
-- [ ] Coverage, access method, licensing, and material limitations are summarized.
-- [ ] Unknowns or validation steps are explicit.
-- [ ] The research distinguishes MVP needs from later possibilities.
+- [x] Candidate data sources are listed with direct links.
+- [x] Coverage, access method, licensing, and material limitations are summarized.
+- [x] Unknowns or validation steps are explicit.
+- [x] The research distinguishes MVP needs from later possibilities.
 
-## Notes
+## Result
 
-Unassigned.
+[Data and inference specification](../docs/data-and-inference.md) records the phased source registry, inference boundary, feature derivations, claim rules, and pilot validation gate.
 
 ## Verification
 
-Open each source and confirm that its documented access and coverage match the note.
+Core catalog links and source names were checked against NYC Open Data, OpenStreetMap, and the National Weather Service on 2026-08-15. Dataset-level coverage and feature quality still require a pilot-area audit before implementation.

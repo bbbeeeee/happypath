@@ -5,6 +5,7 @@ This folder is the shared product workspace for Happy Path.
 ## Documents
 
 - [PRD](PRD.md) — the source of truth for the product we decide to build
+- [Data and inference specification](data-and-inference.md) — public sources, evidence rules, and the boundary between inference and routing
 - [Ideas](ideas/README.md) — possibilities worth exploring without committing them to the PRD
 - [Tasks](../tasks/README.md) — discrete work that collaborators can claim in parallel
 
