@@ -1,15 +1,15 @@
-# Good Way NYC + Detour Atlas
+# Happy Path
 
 **Status:** Hackathon product specification
-**Primary product:** Good Way NYC
-**Planning extension:** Detour Atlas
+**Primary product:** Happy Path
+**Planning extension:** Detour
 **Later extension:** Civic Assets & Actions
 **Initial mode:** Walking
 **Initial geography:** One data-rich NYC pilot area
 
 ## 1. Product summary
 
-**Good Way NYC** provides walking directions optimized for how a person wants the trip to feel—not only for minimum travel time.
+**Happy Path** provides walking directions optimized for how a person wants the trip to feel—not only for minimum travel time.
 
 A user can ask for a route that is:
 
@@ -20,9 +20,9 @@ A user can ask for a route that is:
 * less affected by construction or sidewalk sheds;
 * better supplied with seating, restrooms, or drinking water.
 
-The user sets how much extra time they are willing to spend. Good Way recommends a route and explains what the detour buys them.
+The user sets how much extra time they are willing to spend. Happy Path recommends a route and explains what the detour buys them.
 
-**Detour Atlas** applies the same routing model at a city-planning scale. It identifies places where missing shade, inaccessible connections, construction, or absent amenities impose avoidable burdens on pedestrian trips. It can then estimate which interventions would improve the most journeys.
+**Detour**, the Happy Path planning extension, applies the same routing model at a city-planning scale. It identifies places where missing shade, inaccessible connections, construction, or absent amenities impose avoidable burdens on pedestrian trips. It can then estimate which interventions would improve the most journeys.
 
 > **Resident value:** Find a route that fits your body, company, mood, and conditions.
 > **City value:** Understand where small public-realm interventions could improve the pedestrian network most.
@@ -50,7 +50,7 @@ The product should be built around four principles.
 
 ### 3.1 There is no universally “best” block
 
-A crowded, steep, sunny street may be undesirable for one trip and desirable for another. Good Way models streets as collections of characteristics rather than assigning them one permanent quality score.
+A crowded, steep, sunny street may be undesirable for one trip and desirable for another. Happy Path models streets as collections of characteristics rather than assigning them one permanent quality score.
 
 ### 3.2 Time is the clearest tradeoff
 
@@ -74,7 +74,7 @@ The app must show what changed relative to the fastest route:
 
 ### 3.4 The resident product and planning product share one model
 
-Good Way should not be a consumer app with an unrelated civic dashboard attached. Detour Atlas should derive directly from the same street-segment features, route constraints, and scoring logic.
+Happy Path should not be a consumer app with an unrelated civic dashboard attached. Detour should derive directly from the same street-segment features, route constraints, and scoring logic.
 
 ## 4. Users and jobs
 
@@ -138,7 +138,7 @@ Optional requirements:
 
 ### 5.2 Route result
 
-The app shows the fastest route and the recommended Good Way route.
+The app shows the fastest route and the recommended Happy Path route.
 
 ```text
 GENTLER ROUTE
@@ -299,7 +299,7 @@ A route can remain usable with incomplete data, but the product must avoid unsup
 
 ## 8. MVP requirements
 
-### P0: Good Way
+### P0: Happy Path
 
 * Mobile-first web experience
 * Origin and destination search
@@ -316,7 +316,7 @@ A route can remain usable with incomplete data, but the product must avoid unsup
 * Simple route-quality feedback
 * One bounded pilot geography
 
-### P0: Detour Atlas
+### P0: Detour
 
 * Select one profile: Cool or Gentle
 * Map route-level detour burdens across the pilot area
@@ -351,11 +351,11 @@ The MTA provides canonical station-accessibility information and separate real-t
 * A complete volunteer-task marketplace
 * Replacement of 311 or existing agency workflows
 
-## 9. Detour Atlas
+## 9. Detour
 
 ### 9.1 Purpose
 
-Detour Atlas translates individual street conditions into network-level pedestrian consequences.
+Detour translates individual street conditions into network-level pedestrian consequences.
 
 It should answer:
 
@@ -367,7 +367,7 @@ It should answer:
 
 ### 9.2 Initial demand model
 
-Detour Atlas should provide useful analysis before Good Way has a large user base.
+Detour should provide useful analysis before Happy Path has a large user base.
 
 The first version should use a representative origin-destination matrix constructed from:
 
@@ -379,7 +379,7 @@ The first version should use a representative origin-destination matrix construc
 
 NYC’s Facilities Database aggregates more than 30,000 public and public-serving sites, while DOT’s Pedestrian Mobility Plan data categorizes streets based on pedestrian needs and generators.
 
-Actual Good Way route requests can later supplement this model, but should not replace it; app users will not form a representative sample of New Yorkers.
+Actual Happy Path route requests can later supplement this model, but should not replace it; app users will not form a representative sample of New Yorkers.
 
 ### 9.3 Core metrics
 
@@ -459,7 +459,7 @@ Connects transit, library, and park routes
 
 ### 9.5 Planning principles
 
-Detour Atlas must:
+Detour must:
 
 * identify specific network conditions, not rate whole communities;
 * separate City responsibility from resident preference;
@@ -542,7 +542,7 @@ Observations ──────┘
                          ↓
             enriched pedestrian street graph
                      ↙           ↘
-             Good Way API     Detour analysis
+             Happy Path API     Detour analysis
                     ↓               ↓
               Resident map     Planning map
 ```
@@ -555,7 +555,7 @@ Observations ──────┘
 * Routing service supporting dynamic edge costs
 * API returning route geometry, receipt, explanations, and confidence
 * Map-based mobile web client
-* Separate scenario-analysis service for Detour Atlas
+* Separate scenario-analysis service for Detour
 * Cached sun-position and shade calculations by time interval
 
 ### Key shared entities
@@ -607,7 +607,7 @@ The product succeeds if it can demonstrate:
 2. A clear explanation of what each route optimizes
 3. A useful route within the selected extra-time budget
 4. Traceability from every major claim to an underlying source
-5. One Detour Atlas hotspot with a credible simulated intervention
+5. One Detour hotspot with a credible simulated intervention
 6. A coherent connection between resident utility and City planning
 
 ### Prototype performance targets
@@ -653,7 +653,7 @@ A strong candidate is **Downtown Brooklyn, Brooklyn Heights, and DUMBO**, becaus
 * Fastest-route comparison
 * Route receipt and segment explanations
 * One confidence framework
-* Detour Atlas for Cool and Gentle trips
+* Detour for Cool and Gentle trips
 * Two intervention simulations:
 
   * one shade-network improvement;
@@ -675,7 +675,7 @@ A strong candidate is **Downtown Brooklyn, Brooklyn Heights, and DUMBO**, becaus
 1. A user enters an origin and destination.
 2. The fastest route takes 18 minutes.
 3. The user selects “Taking my parents” and allows five extra minutes.
-4. Good Way returns a 22-minute route with:
+4. Happy Path returns a 22-minute route with:
    • less climbing
    • no mapped stairs
    • more estimated shade
@@ -684,7 +684,7 @@ A strong candidate is **Downtown Brooklyn, Brooklyn Heights, and DUMBO**, becaus
 5. The route receipt explains each tradeoff and its confidence.
 6. The same destination is rerouted using “Livelier,” producing a
    route through active restaurants, public spaces, and an event.
-7. Detour Atlas reveals that one uncertain or missing step-free
+7. Detour reveals that one uncertain or missing step-free
    connection causes repeated detours across the pilot area.
 8. A simulated intervention shows how many representative journeys
    would improve if that connection were fixed.
@@ -692,4 +692,4 @@ A strong candidate is **Downtown Brooklyn, Brooklyn Heights, and DUMBO**, becaus
 
 ## 16. Product definition
 
-> **Good Way NYC helps people move through New York in a way that fits the person and the moment. It combines fragmented public data into transparent, preference-aware walking routes. Detour Atlas uses the same model to reveal the shade, access, amenity, and construction gaps that impose the greatest burdens on pedestrian journeys—and to estimate which interventions would make the largest difference.**
+> **Happy Path helps people move through New York in a way that fits the person and the moment. It combines fragmented public data into transparent, preference-aware walking routes. Detour uses the same model to reveal the shade, access, amenity, and construction gaps that impose the greatest burdens on pedestrian journeys—and to estimate which interventions would make the largest difference.**
