@@ -1207,6 +1207,79 @@ input[type="range"]::-moz-range-thumb {
   -webkit-backface-visibility: hidden;
 }
 
+/* The isometric view is the story layer: the same route geometry used by the
+   2D navigator becomes a symbolic, pixel-friendly ribbon above the city. */
+.isometric-map-routes {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+  z-index: 24;
+}
+
+.isometric-map-route path {
+  fill: none;
+  stroke-linecap: square;
+  stroke-linejoin: bevel;
+}
+
+.isometric-map-route-shadow {
+  stroke: rgba(4, 12, 25, 0.88);
+  stroke-width: 10;
+}
+
+.isometric-map-route-line {
+  stroke: #75d46b;
+  stroke-width: 5;
+  filter: drop-shadow(0 0 3px rgba(117, 212, 107, 0.78));
+}
+
+.isometric-map-route[data-variant="baseline"] .isometric-map-route-shadow {
+  stroke-width: 7;
+  opacity: 0.72;
+}
+
+.isometric-map-route[data-variant="baseline"] .isometric-map-route-line {
+  stroke: #aeb8c5;
+  stroke-width: 3;
+  stroke-dasharray: 5 6;
+  filter: none;
+}
+
+.isometric-map-route[data-variant="alternate"] .isometric-map-route-line {
+  stroke: #6eb4e8;
+  stroke-width: 4;
+}
+
+.isometric-map-route[data-selected="true"] .isometric-map-route-line {
+  stroke: #fff36a;
+  stroke-width: 6;
+  filter: drop-shadow(0 0 4px rgba(255, 243, 106, 0.92));
+}
+
+.isometric-map-route-hit {
+  stroke: transparent;
+  stroke-width: 22;
+  pointer-events: stroke;
+  cursor: pointer;
+}
+
+.isometric-map-route circle {
+  stroke: #071426;
+  stroke-width: 3;
+  vector-effect: non-scaling-stroke;
+}
+
+.isometric-route-start {
+  fill: #75d46b;
+}
+
+.isometric-route-end {
+  fill: #ff6655;
+}
+
 /* ============================================
    2D STREET MAP — standard navigation view
    ============================================ */
@@ -1536,6 +1609,89 @@ input[type="range"]::-moz-range-thumb {
   animation: location-ring 1.8s ease-out infinite;
 }
 
+/* Route overlay — polyline layer drawn above the tiles, below the chrome.
+   Geometry is set imperatively in StreetMap.tsx; everything here is paint. */
+.street-map-routes {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+  z-index: 68;
+}
+
+.street-map-route path {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.street-map-route-casing {
+  stroke: rgba(255, 255, 255, 0.9);
+  stroke-width: 9;
+}
+
+.street-map-route-line {
+  stroke: #1a73e8;
+  stroke-width: 5;
+}
+
+.street-map-route-hit {
+  stroke: transparent;
+  stroke-width: 20;
+  pointer-events: stroke;
+  cursor: pointer;
+}
+
+/* The baseline is a reference, not a suggestion: dashed, grey, set back. */
+.street-map-route[data-variant="baseline"] .street-map-route-casing {
+  stroke: rgba(255, 255, 255, 0.62);
+  stroke-width: 7;
+}
+
+.street-map-route[data-variant="baseline"] .street-map-route-line {
+  stroke: #7c8794;
+  stroke-width: 3.5;
+  stroke-dasharray: 7 6;
+}
+
+.street-map-route[data-variant="alternate"] .street-map-route-line {
+  stroke: #6aa5e0;
+  stroke-width: 4;
+}
+
+.street-map-route[data-variant="recommended"] .street-map-route-line {
+  stroke: #2f9e44;
+}
+
+.street-map-route[data-selected="true"] .street-map-route-casing {
+  stroke: #fff;
+  stroke-width: 11;
+}
+
+.street-map-route[data-selected="true"] .street-map-route-line {
+  stroke-width: 6;
+  stroke-dasharray: none;
+}
+
+.street-map-endpoint {
+  width: 15px;
+  height: 15px;
+  background: #2f9e44;
+  border: 3px solid #fff;
+  border-radius: 50% 50% 50% 0;
+  box-shadow:
+    0 0 0 1px rgba(12, 73, 161, 0.55),
+    0 2px 5px rgba(0, 0, 0, 0.42);
+  transform: rotate(-45deg);
+  transform-origin: bottom left;
+}
+
+.street-map-endpoint-destination {
+  background: #c92a2a;
+}
+
 .map-location-error {
   position: absolute;
   top: 40px;
@@ -1754,4 +1910,302 @@ input[type="range"]::-moz-range-thumb {
 ::selection {
   background: rgba(255, 107, 53, 0.3);
   color: var(--color-text-primary);
+}
+
+/* ============================================
+   TRIP PLANNER — navigation panel
+   Owned by the navigation work. Append-only block;
+   do not reflow. See .cityos-* for the assistant panel.
+   ============================================ */
+
+.tripplanner {
+  position: absolute;
+  top: 38px;
+  right: 8px;
+  bottom: 8px;
+  width: 380px;
+  max-width: calc(100% - 16px);
+  display: flex;
+  flex-direction: column;
+  z-index: 200;
+  background: var(--color-bg-deep);
+  border: 3px solid;
+  border-color: #4a90c8 #1a4a7a #1a4a7a #4a90c8;
+  border-radius: 8px 8px 4px 4px;
+  box-shadow:
+    0 0 0 1px rgba(0, 80, 160, 0.5),
+    inset 0 0 0 1px rgba(120, 180, 255, 0.2),
+    0 8px 32px rgba(0, 0, 0, 0.6);
+  overflow: hidden;
+}
+
+/* Same Luna title bar as the nav bar and the assistant panel */
+.tripplanner-titlebar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 6px;
+  flex-shrink: 0;
+  color: #ffffff;
+  background: linear-gradient(
+    180deg,
+    #0a246a 0%,
+    #0f3c8c 8%,
+    #1665c4 20%,
+    #1a72d4 40%,
+    #1665c4 60%,
+    #0f3c8c 85%,
+    #0a246a 100%
+  );
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.25),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.2);
+}
+
+.tripplanner-titlebar svg {
+  color: #9fe870;
+  flex-shrink: 0;
+}
+
+.tripplanner-titlebar h2 {
+  flex: 1;
+  font-family: "Trebuchet MS", "Tahoma", "Segoe UI", sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  text-shadow: 1px 1px 1px rgba(0, 0, 0, 0.6);
+}
+
+.tripplanner-titlebar .icon-button {
+  width: 18px;
+  height: 18px;
+}
+
+.tripplanner-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  font-size: 12px;
+}
+
+.tripplanner-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.tripplanner-field span {
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+/* The prompt keeps the legal-pad treatment used by the assistant composer */
+.tripplanner-field textarea {
+  width: 100%;
+  padding: 7px 9px;
+  resize: vertical;
+  border: 1px solid rgba(0, 0, 0, 0.35);
+  border-radius: 3px;
+  font-family: "Trebuchet MS", "Tahoma", "Segoe UI", sans-serif;
+  font-size: 12px;
+  line-height: 20px;
+  color: #2b2b26;
+  background-color: #fdf6c3;
+  background-image: repeating-linear-gradient(
+    180deg,
+    transparent 0px,
+    transparent 19px,
+    rgba(90, 128, 168, 0.3) 19px,
+    rgba(90, 128, 168, 0.3) 20px
+  );
+  box-shadow: inset 0 2px 5px rgba(140, 120, 40, 0.2);
+}
+
+.tripplanner-field textarea::placeholder {
+  color: #9a9070;
+}
+
+.tripplanner-field textarea:focus {
+  outline: none;
+  background-color: #fefad2;
+}
+
+.tripplanner-group h3,
+.tripplanner-brief h3,
+.tripplanner-receipt h3 {
+  margin-bottom: 5px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+
+.tripplanner-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.tripplanner-chips button {
+  padding: 4px 9px;
+  font: inherit;
+  font-size: 11px;
+  color: var(--color-text-primary);
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: 3px;
+  cursor: pointer;
+  transition: background var(--transition-fast), border-color var(--transition-fast);
+}
+
+.tripplanner-chips button:hover {
+  background: var(--color-bg-surface);
+}
+
+.tripplanner-chips button.active {
+  color: #ffffff;
+  background: linear-gradient(180deg, #529cf0 0%, #1265cb 56%, #0750b5 100%);
+  border-color: #174b91;
+  text-shadow: 1px 1px 0 rgba(0, 31, 95, 0.65);
+}
+
+.tripplanner-go {
+  padding: 8px;
+  font: inherit;
+  font-weight: 700;
+  color: #ffffff;
+  background: linear-gradient(180deg, #4488cc 0%, #2255aa 60%, #1144aa 100%);
+  border: 1px solid rgba(0, 0, 0, 0.4);
+  border-radius: 3px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  cursor: pointer;
+}
+
+.tripplanner-go:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+
+.tripplanner-error {
+  padding: 7px 9px;
+  font-size: 11px;
+  color: #ffd7cc;
+  background: rgba(255, 107, 53, 0.12);
+  border: 1px solid var(--color-border-accent);
+  border-radius: 4px;
+}
+
+.tripplanner-brief,
+.tripplanner-receipt {
+  padding: 9px;
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+}
+
+.tripplanner-summary {
+  color: var(--color-text-primary);
+}
+
+/* Requests we can't back with evidence stay visible rather than vanishing */
+.tripplanner-unsupported {
+  margin-top: 8px;
+  padding: 7px 8px;
+  font-size: 11px;
+  color: #ffe0b8;
+  background: rgba(255, 210, 63, 0.08);
+  border: 1px solid rgba(255, 210, 63, 0.28);
+  border-radius: 3px;
+}
+
+.tripplanner-unsupported strong {
+  display: block;
+  margin-bottom: 3px;
+  font-size: 10px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--color-accent-warning);
+}
+
+.tripplanner-unsupported ul,
+.tripplanner-receipt ul {
+  padding-left: 15px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.tripplanner-headline {
+  margin-bottom: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--color-accent-secondary);
+}
+
+.tripplanner-receipt h4 {
+  margin: 8px 0 4px;
+  font-size: 10px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+
+.tripplanner-candidates {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.tripplanner-candidates button {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 5px 8px;
+  font: inherit;
+  font-size: 11px;
+  text-align: left;
+  color: var(--color-text-primary);
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.tripplanner-candidates button.active {
+  border-color: var(--color-accent-secondary);
+  box-shadow: inset 0 0 0 1px rgba(0, 212, 170, 0.35);
+}
+
+.tripplanner-candidate-green {
+  color: var(--color-accent-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Provenance is part of the claim, not a footnote to hide */
+.tripplanner-provenance {
+  font-size: 10px;
+  line-height: 1.5;
+  color: var(--color-text-muted);
+}
+
+@media (max-width: 700px) {
+  .tripplanner {
+    left: 8px;
+    width: auto;
+  }
+}
+
+/* Budget overrun is stated, never hidden (PRD: no silent budget violation) */
+.tripplanner-overbudget {
+  margin-bottom: 8px;
+  padding: 6px 8px;
+  font-size: 11px;
+  color: #ffe0b8;
+  background: rgba(255, 210, 63, 0.1);
+  border: 1px solid rgba(255, 210, 63, 0.3);
+  border-radius: 3px;
 }

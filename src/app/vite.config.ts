@@ -2,6 +2,7 @@ import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
 import { resolve } from "path";
 import { cityOsPlugin } from "./server/cityos";
+import { navigationPlugin } from "./server/navigation";
 
 // Default host serving the rendered NYC tile pyramid. This is the upstream
 // project's public bucket — the only place these tiles are published. Override
@@ -39,7 +40,7 @@ export default defineConfig(({ mode }) => {
 
   return {
     base: "/",
-    plugins: [react(), cityOsPlugin()],
+    plugins: [react(), cityOsPlugin(), navigationPlugin()],
     resolve: {
       alias: {
         "@": resolve(__dirname, "src"),
