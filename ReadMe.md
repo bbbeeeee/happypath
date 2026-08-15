@@ -1,4 +1,4 @@
-happypath hackathon!
+happypath hackathon project!
  
 plan route, 
 you enter target destination, few toggles of criteria: quieter, scenic, shadier, rain cover, accessible, green, less pedestrian traffic, 
