@@ -15,7 +15,6 @@ This contains the ~32k generated tile "quadrants" in the following format:
 
 The model that generated the vast majority of the tile data was a fine-tuned `Qwen/Image-Edit` model trained on [oxen.ai]. These models were trained on an "omni" infill task - essentially they were trained to generate pixel-art-style data in an image with some portion of previously-generate pixel data "masked" with a rectangle of raw, orthographically rendered 3D tiles satellite data (see examples below).
 
-![infill pair images / diagram](https://cannoneyed.com/img/projects/isometric-nyc/training_data_infill.png)
 
 These synthetic datasets were assembled from render->generation pairs generated with [Nano Banana](https://gemini.google/overview/image-generation/), using a [marimo](https://marimo.io) notebook in `src/notebooks/nano-banana.py`.
 

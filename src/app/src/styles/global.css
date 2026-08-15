@@ -1,5 +1,5 @@
 /* ============================================
-   ISOMETRIC NYC - GLOBAL STYLES
+   NEW YORK CITY - GLOBAL STYLES
    A retro-futuristic pixel art aesthetic
    ============================================ */
 
@@ -220,6 +220,53 @@ body {
   text-overflow: ellipsis;
 }
 
+/* Live NYC date / time / weather readout in the title bar */
+.city-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  margin-right: 4px;
+  padding: 2px 10px;
+  font-family: "Trebuchet MS", "Tahoma", "Segoe UI", sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: rgba(255, 255, 255, 0.95);
+  white-space: nowrap;
+  /* Recessed XP-style inset panel */
+  background: rgba(0, 0, 0, 0.18);
+  border: 1px solid rgba(0, 0, 0, 0.3);
+  border-top-color: rgba(0, 0, 0, 0.4);
+  border-bottom-color: rgba(255, 255, 255, 0.15);
+  border-radius: 3px;
+  text-shadow: 1px 1px 1px rgba(0, 0, 0, 0.6);
+}
+
+.city-status-separator {
+  width: 1px;
+  height: 11px;
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.city-status-time {
+  font-variant-numeric: tabular-nums;
+}
+
+.city-status-weather {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The status panel is the first thing to go on narrow screens */
+@media (max-width: 560px) {
+  .city-status {
+    display: none;
+  }
+}
+
 .header .subtitle {
   font-size: 11px;
   font-weight: 500;
@@ -227,6 +274,567 @@ body {
   letter-spacing: 0.15em;
   color: var(--color-accent-secondary);
   opacity: 0.8;
+}
+
+/* ============================================
+   CITY OS — assistant panel
+   ============================================ */
+
+.cityos {
+  --cityos-paper: #fff4ad;
+  --cityos-paper-light: #fff9cf;
+  --cityos-ink: #24304a;
+  --cityos-rule: rgba(61, 116, 173, 0.25);
+  --cityos-margin: rgba(211, 70, 67, 0.56);
+  position: absolute;
+  top: 42px;
+  right: 12px;
+  bottom: 12px;
+  width: min(408px, calc(100% - 24px));
+  display: flex;
+  flex-direction: column;
+  z-index: 200;
+  color: var(--cityos-ink);
+  background: #ece9d8;
+  border: 3px solid #0b49a0;
+  border-top-color: #3b8cf4;
+  border-left-color: #3b8cf4;
+  border-radius: 9px 9px 4px 4px;
+  box-shadow:
+    0 0 0 1px #082d72,
+    inset 1px 0 0 rgba(255, 255, 255, 0.55),
+    5px 8px 24px rgba(0, 0, 0, 0.55);
+  overflow: hidden;
+  animation: cityos-open 160ms ease-out;
+}
+
+/* Glossy Windows XP Luna title bar. */
+.cityos-titlebar {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 31px;
+  padding: 3px 4px 3px 6px;
+  background: linear-gradient(
+    180deg,
+    #56a3ff 0%,
+    #0a64dc 12%,
+    #0758cc 52%,
+    #0346b5 80%,
+    #033487 100%
+  );
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.65),
+    inset 0 -1px 0 rgba(0, 24, 94, 0.65);
+  color: #ffffff;
+  flex-shrink: 0;
+}
+
+.cityos-app-icon {
+  display: grid;
+  place-items: center;
+  width: 21px;
+  height: 21px;
+  color: #123374;
+  background: linear-gradient(135deg, #fffbd2 0%, #ffd72e 62%, #e4a900 100%);
+  border: 1px solid #082b71;
+  border-radius: 3px;
+  box-shadow:
+    inset 1px 1px 0 rgba(255, 255, 255, 0.9),
+    1px 1px 0 rgba(0, 0, 0, 0.22);
+  flex-shrink: 0;
+}
+
+.cityos-window-title {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  overflow: hidden;
+}
+
+.cityos-titlebar h2 {
+  font-family: "Trebuchet MS", "Tahoma", "Segoe UI", sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  text-shadow: 1px 1px 1px rgba(0, 0, 0, 0.75);
+}
+
+.cityos-window-title > span {
+  overflow: hidden;
+  color: rgba(255, 255, 255, 0.72);
+  font-family: Tahoma, "Segoe UI", sans-serif;
+  font-size: 10px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.45);
+}
+
+.cityos-close {
+  display: grid;
+  place-items: center;
+  width: 23px;
+  height: 23px;
+  padding: 0;
+  color: #fff;
+  background: linear-gradient(135deg, #f8a594 0%, #e34b31 35%, #c9210c 72%, #a91108 100%);
+  border: 1px solid #fff;
+  border-radius: 4px;
+  box-shadow:
+    inset 1px 1px 0 rgba(255, 255, 255, 0.45),
+    0 0 0 1px #7c160d,
+    1px 1px 2px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+}
+
+.cityos-close:hover {
+  filter: brightness(1.12);
+}
+
+.cityos-close:active {
+  background: #b51d0c;
+  box-shadow: inset 1px 1px 2px rgba(74, 0, 0, 0.65);
+}
+
+/* Thin system toolbar makes the live-data state explicit. */
+.cityos-toolbar {
+  min-height: 30px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 9px;
+  color: #3d3a30;
+  background: #ece9d8;
+  border-top: 1px solid #fff;
+  border-bottom: 1px solid #aca899;
+  box-shadow: inset 0 -1px 0 #d6d2c2;
+  font-family: Tahoma, "Segoe UI", sans-serif;
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.cityos-toolbar strong {
+  color: #2f6c12;
+  font-weight: 700;
+}
+
+.cityos-online-dot {
+  width: 8px;
+  height: 8px;
+  background: #52ad20;
+  border: 1px solid #276b0b;
+  border-radius: 50%;
+  box-shadow:
+    inset 1px 1px 0 rgba(255, 255, 255, 0.65),
+    0 0 4px rgba(63, 154, 21, 0.45);
+}
+
+.cityos-toolbar-divider {
+  width: 1px;
+  height: 14px;
+  margin: 0 1px;
+  background: #aca899;
+  border-right: 1px solid #fff;
+}
+
+.cityos-transcript {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px 18px 24px 43px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  color: var(--cityos-ink);
+  background-color: var(--cityos-paper);
+  background-image:
+    linear-gradient(
+      90deg,
+      transparent 29px,
+      var(--cityos-margin) 29px,
+      var(--cityos-margin) 31px,
+      transparent 31px
+    ),
+    repeating-linear-gradient(
+      180deg,
+      transparent 0,
+      transparent 23px,
+      var(--cityos-rule) 23px,
+      var(--cityos-rule) 24px
+    ),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.28), transparent 18%, rgba(183, 142, 27, 0.06));
+  background-position: 0 0, 0 8px, 0 0;
+  box-shadow:
+    inset 0 4px 7px rgba(92, 76, 18, 0.16),
+    inset -8px 0 14px rgba(145, 109, 10, 0.07);
+  font-family: "Trebuchet MS", Tahoma, sans-serif;
+  font-size: 13px;
+  line-height: 24px;
+  scrollbar-color: #b7ac72 #fff4ad;
+}
+
+.cityos-intro {
+  color: #3f4960;
+}
+
+.cityos-note-label {
+  display: inline-block;
+  margin-bottom: 5px;
+  padding: 0 6px;
+  color: #6d5c0c;
+  background: rgba(255, 218, 44, 0.42);
+  border: 1px solid rgba(156, 121, 5, 0.36);
+  font-family: Tahoma, "Segoe UI", sans-serif;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 17px;
+  letter-spacing: 0.1em;
+}
+
+.cityos-intro h3 {
+  margin-bottom: 5px;
+  color: #203968;
+  font-family: "Trebuchet MS", Tahoma, sans-serif;
+  font-size: 18px;
+  line-height: 24px;
+}
+
+.cityos-intro p {
+  line-height: 24px;
+}
+
+.cityos-suggestions {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin-top: 14px;
+}
+
+.cityos-suggestions button {
+  position: relative;
+  text-align: left;
+  padding: 6px 9px 6px 27px;
+  color: #254372;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.76), rgba(255, 248, 202, 0.82));
+  border: 1px solid #9c9a87;
+  border-top-color: #fffef1;
+  border-left-color: #fffef1;
+  border-radius: 2px;
+  box-shadow: 1px 1px 0 rgba(103, 89, 37, 0.2);
+  font-family: Tahoma, "Segoe UI", sans-serif;
+  font-size: 11px;
+  line-height: 17px;
+  cursor: pointer;
+}
+
+.cityos-suggestions button::before {
+  content: "›";
+  position: absolute;
+  left: 9px;
+  color: #2e72c7;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.cityos-suggestions button:hover {
+  color: #0b50b0;
+  background: linear-gradient(180deg, #fffef0, #fff0a5);
+  border-color: #4f78ab;
+}
+
+.cityos-suggestions button:active {
+  padding: 7px 8px 5px 28px;
+  border-color: #777568 #fff #fff #777568;
+  box-shadow: inset 1px 1px 1px rgba(71, 62, 30, 0.25);
+}
+
+.cityos-message {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cityos-user {
+  align-items: flex-end;
+}
+
+.cityos-message-role {
+  color: #6f6747;
+  font-family: Tahoma, "Segoe UI", sans-serif;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 14px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.cityos-assistant .cityos-message-role {
+  color: #165aa6;
+}
+
+.cityos-bubble {
+  max-width: 94%;
+  padding: 6px 9px;
+  line-height: 20px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.cityos-user .cityos-bubble {
+  color: #193a6c;
+  background: rgba(218, 235, 255, 0.78);
+  border: 1px solid #799aca;
+  border-radius: 5px 5px 1px 5px;
+  box-shadow:
+    inset 1px 1px 0 rgba(255, 255, 255, 0.85),
+    1px 1px 0 rgba(77, 84, 84, 0.14);
+}
+
+.cityos-assistant .cityos-bubble {
+  max-width: 100%;
+  padding: 0;
+  color: #27314a;
+  background: transparent;
+  border: 0;
+}
+
+/* Which live sources answered this message */
+.cityos-sources {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 3px;
+}
+
+.cityos-source {
+  padding: 1px 6px 1px 14px;
+  color: #27680b;
+  background: rgba(232, 255, 208, 0.8);
+  border: 1px solid #7aa45d;
+  border-radius: 2px;
+  font-family: Tahoma, "Segoe UI", sans-serif;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 15px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  box-shadow: inset 1px 1px 0 rgba(255, 255, 255, 0.8);
+  position: relative;
+}
+
+.cityos-source::before {
+  content: "";
+  position: absolute;
+  left: 5px;
+  top: 5px;
+  width: 5px;
+  height: 5px;
+  background: #55a727;
+  border-radius: 50%;
+}
+
+.cityos-thinking {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  min-height: 20px;
+}
+
+.cityos-thinking span {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #2e69b4;
+  animation: cityos-pulse 1.2s infinite ease-in-out;
+}
+
+.cityos-thinking span:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.cityos-thinking span:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+@keyframes cityos-pulse {
+  0%, 80%, 100% { opacity: 0.25; transform: translateY(0); }
+  40% { opacity: 1; transform: translateY(-3px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cityos-thinking span {
+    animation: none;
+    opacity: 0.6;
+  }
+}
+
+.cityos-error {
+  padding: 7px 9px 7px 26px;
+  font-size: 11px;
+  line-height: 17px;
+  color: #71170c;
+  background: rgba(255, 222, 205, 0.88);
+  border: 1px solid #c36a50;
+  border-radius: 2px;
+}
+
+/* ---- Legal-pad composer ---- */
+.cityos-composer {
+  position: relative;
+  flex-shrink: 0;
+  min-height: 124px;
+  padding: 25px 11px 24px 43px;
+  background-color: var(--cityos-paper-light);
+  background-image:
+    linear-gradient(
+      90deg,
+      transparent 29px,
+      var(--cityos-margin) 29px,
+      var(--cityos-margin) 31px,
+      transparent 31px
+    ),
+    repeating-linear-gradient(
+      180deg,
+      transparent 0,
+      transparent 23px,
+      var(--cityos-rule) 23px,
+      var(--cityos-rule) 24px
+    );
+  background-position: 0 0, 0 8px;
+  border-top: 1px dashed rgba(103, 82, 24, 0.48);
+  box-shadow: inset 0 5px 8px rgba(121, 91, 12, 0.1);
+}
+
+.cityos-composer label {
+  position: absolute;
+  top: 3px;
+  left: 43px;
+  color: #6f6747;
+  font-family: Tahoma, "Segoe UI", sans-serif;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 18px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.cityos-composer textarea {
+  display: block;
+  width: 100%;
+  min-height: 66px;
+  padding: 1px 82px 1px 3px;
+  border: none;
+  resize: none;
+  font-family: "Trebuchet MS", "Tahoma", "Segoe UI", sans-serif;
+  font-size: 13px;
+  line-height: 24px;
+  color: var(--cityos-ink);
+  caret-color: #1a4a7a;
+  background: transparent;
+}
+
+.cityos-composer textarea::placeholder {
+  color: #918762;
+}
+
+.cityos-composer textarea:focus {
+  outline: none;
+}
+
+.cityos-composer textarea:disabled {
+  opacity: 0.65;
+}
+
+.cityos-send {
+  position: absolute;
+  right: 11px;
+  top: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-width: 66px;
+  height: 27px;
+  padding: 0 9px;
+  color: #ffffff;
+  background: linear-gradient(180deg, #79c346 0%, #4b9f1b 48%, #347f0b 100%);
+  border: 1px solid #245b07;
+  border-radius: 3px;
+  box-shadow:
+    inset 1px 1px 0 rgba(255, 255, 255, 0.58),
+    1px 1px 1px rgba(59, 67, 16, 0.3);
+  font-family: Tahoma, "Segoe UI", sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  text-shadow: 1px 1px 0 rgba(22, 69, 4, 0.65);
+  cursor: pointer;
+}
+
+.cityos-send:hover:not(:disabled) {
+  background: linear-gradient(180deg, #93d45f 0%, #59ad24 48%, #3c8a0e 100%);
+}
+
+.cityos-send:active:not(:disabled) {
+  background: #347f0b;
+  box-shadow: inset 1px 1px 2px rgba(21, 67, 3, 0.65);
+  transform: translate(1px, 1px);
+}
+
+.cityos-send:disabled {
+  color: #787878;
+  background: #d4d0c8;
+  border-color: #9c9a8f;
+  box-shadow: inset 1px 1px 0 #efefea;
+  text-shadow: none;
+  cursor: default;
+}
+
+.cityos-key-hint {
+  position: absolute;
+  left: 43px;
+  bottom: 4px;
+  color: #827958;
+  font-family: Tahoma, "Segoe UI", sans-serif;
+  font-size: 9px;
+  line-height: 16px;
+}
+
+@keyframes cityos-open {
+  from { opacity: 0; transform: translateY(-5px) scale(0.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Full-width panel on narrow screens. */
+@media (max-width: 700px) {
+  .cityos {
+    left: 8px;
+    right: 8px;
+    top: 38px;
+    bottom: 8px;
+    width: auto;
+  }
+
+  .cityos-transcript {
+    padding-right: 12px;
+  }
+
+  .cityos-window-title > span,
+  .cityos-key-hint {
+    display: none;
+  }
+
+  .cityos-composer {
+    min-height: 112px;
+    padding-bottom: 12px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cityos {
+    animation: none;
+  }
 }
 
 /* XP app icon in title bar */

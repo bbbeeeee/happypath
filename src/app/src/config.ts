@@ -1,5 +1,8 @@
-// Worker URL for DZI tiles (adds caching headers to R2)
-const R2_TILES_URL = "https://isometric-nyc-tiles.cannoneyed.com";
+// Host serving the DZI tile pyramid. Configure with TILES_HOST in .env.
+// This currently points at the upstream project's public bucket, which is the
+// only place the rendered NYC tiles are hosted — swap it once we publish our
+// own tiles. See UPSTREAM.md.
+const R2_TILES_URL = __TILES_HOST__;
 
 // Default export directory name (subdirectory under public/dzi/)
 const DEFAULT_EXPORT_DIR = "tiny-nyc";
@@ -48,6 +51,13 @@ function getTilesBaseUrl(): string {
 
 	// Check for USE_R2_NYC env var (fetches from R2 dzi/ directly)
 	if (__USE_R2_NYC__) {
+		// In dev, go through the vite proxy so requests are same-origin. The R2
+		// worker only allows https://cannoneyed.com, so direct fetches from
+		// localhost are blocked by CORS.
+		if (__R2_PROXY__) {
+			console.log("📡 Using R2 tiles via dev proxy (same-origin)");
+			return "";
+		}
 		console.log("📡 Using R2 tiles (via USE_R2_NYC env var)");
 		return R2_TILES_URL;
 	}

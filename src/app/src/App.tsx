@@ -1,8 +1,10 @@
 import { useState, useCallback, useEffect, useRef } from "react";
-import { Globe, ZoomIn, ZoomOut, HelpCircle } from "lucide-react";
+import { Globe, ZoomIn, ZoomOut, Sparkles } from "lucide-react";
 import { IsometricMap } from "./components/IsometricMap";
 import { ControlPanel } from "./components/ControlPanel";
 import { TileInfo } from "./components/TileInfo";
+import { CityStatus } from "./components/CityStatus";
+import { CityOS } from "./components/CityOS";
 import { defaultShaderParams } from "./shaders/water";
 import { tilesBaseUrl, exportDir, showDebugUI } from "./config";
 
@@ -270,6 +272,7 @@ function App() {
 
   const [viewState, setViewState] = useState<ViewState | null>(null);
   const [showMinimap, setShowMinimap] = useState(true);
+  const [showCityOS, setShowCityOS] = useState(false);
 
   // Calculate max zoom for 1:1 pixel ratio when tileConfig is available
   // and update on window resize
@@ -435,7 +438,8 @@ function App() {
       />
 
       <header className="header">
-        <h1>Isometric NYC</h1>
+        <h1>New York City</h1>
+        <CityStatus />
         <div className="header-actions">
           <button
             className="icon-button"
@@ -458,17 +462,17 @@ function App() {
           >
             <Globe size={14} />
           </button>
-          <a
-            href="https://cannoneyed.com/projects/isometric-nyc"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="icon-button"
-            title="About this project"
+          <button
+            className={`icon-button ${showCityOS ? "active" : ""}`}
+            onClick={() => setShowCityOS(!showCityOS)}
+            title={showCityOS ? "Close City OS" : "Open City OS"}
           >
-            <HelpCircle size={14} />
-          </a>
+            <Sparkles size={14} />
+          </button>
         </div>
       </header>
+
+      {showCityOS && <CityOS onClose={() => setShowCityOS(false)} />}
 
       {showDebugUI && (
         <ControlPanel
