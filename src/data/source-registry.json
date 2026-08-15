@@ -1,0 +1,310 @@
+{
+  "sources": [
+    {
+      "source_id": "nyc-planning-geosearch",
+      "publisher": "NYC Department of City Planning",
+      "dataset_name": "NYC GeoSearch",
+      "dataset_url": "https://geosearch.planninglabs.nyc/",
+      "canonical_url": "https://geosearch.planninglabs.nyc/",
+      "dataset_id": null,
+      "asset_type": "api",
+      "authority": "official",
+      "access_method": "realtime_api",
+      "format": "Pelias GeoJSON",
+      "terms_url": "https://www.nyc.gov/home/terms-of-use.page",
+      "attribution": "NYC Department of City Planning",
+      "refresh_target": "on explicit address submission",
+      "source_updated_at": null,
+      "retrieved_at": "2026-08-15T20:30:00.000Z",
+      "last_successful_ingest": null,
+      "snapshot_hash": null,
+      "geometry_type": "Point",
+      "source_crs": "EPSG:4326",
+      "pilot_bbox": null,
+      "pilot_coverage": null,
+      "derived_from": [],
+      "method_version": "nyc-geosearch-submit-v1",
+      "known_limitations": [
+        "Search result must be inside the pilot",
+        "Result is snapped to the nearest routable graph node",
+        "Queries are sent only after explicit submission"
+      ],
+      "allowed_claims": [
+        "Address search result from NYC Planning GeoSearch"
+      ],
+      "prohibited_claims": [
+        "Exact building entrance",
+        "Exact routing origin without snapping"
+      ],
+      "validation_status": "pending"
+    },
+    {
+      "source_id": "openstreetmap",
+      "publisher": "OpenStreetMap contributors",
+      "dataset_name": "OpenStreetMap cropped pilot snapshot",
+      "dataset_url": "https://www.openstreetmap.org/export",
+      "canonical_url": "https://www.openstreetmap.org/copyright",
+      "dataset_id": null,
+      "asset_type": "dataset",
+      "authority": "community",
+      "access_method": "bulk_download",
+      "format": "Overpass JSON",
+      "terms_url": "https://www.openstreetmap.org/copyright",
+      "attribution": "© OpenStreetMap contributors",
+      "refresh_target": "deliberate pilot refresh",
+      "source_updated_at": null,
+      "retrieved_at": "2026-08-15T20:22:56.189Z",
+      "last_successful_ingest": "2026-08-15T20:22:56.189Z",
+      "snapshot_hash": "sha256:6da5415063d25c0082f7d2d651c8519889adbeb95c03fb6e02441030f21369cd",
+      "geometry_type": "ways and nodes",
+      "source_crs": "EPSG:4326",
+      "pilot_bbox": {
+        "south": 40.726,
+        "west": -74.006,
+        "north": 40.736,
+        "east": -73.988
+      },
+      "pilot_coverage": 0.9935783879539415,
+      "derived_from": [],
+      "method_version": "osm-pedestrian-graph-v1",
+      "known_limitations": [
+        "Mapped access and crossing completeness varies",
+        "Snapshot is not proof of legal completeness or step-free access",
+        "Turn restrictions are not yet modeled"
+      ],
+      "allowed_claims": [
+        "Uses mapped pedestrian ways",
+        "Avoids mapped steps when the hard constraint is enabled"
+      ],
+      "prohibited_claims": [
+        "Legally complete",
+        "Accessible",
+        "Guaranteed step-free"
+      ],
+      "validation_status": "pending"
+    },
+    {
+      "source_id": "nyc-building-footprints",
+      "publisher": "NYC Office of Technology and Innovation",
+      "dataset_name": "BUILDING",
+      "dataset_url": "https://data.cityofnewyork.us/d/5zhs-2jue",
+      "canonical_url": "https://data.cityofnewyork.us/City-Government/BUILDING/5zhs-2jue",
+      "dataset_id": "5zhs-2jue",
+      "asset_type": "dataset",
+      "authority": "official",
+      "access_method": "socrata_api",
+      "format": "GeoJSON",
+      "terms_url": "https://opendata.cityofnewyork.us/overview/#termsofuse",
+      "attribution": "NYC OpenData",
+      "refresh_target": "deliberate pilot refresh",
+      "source_updated_at": "2026-07-01T20:14:27.000Z",
+      "retrieved_at": "2026-08-15T20:24:35.682Z",
+      "last_successful_ingest": "2026-08-15T20:24:35.682Z",
+      "snapshot_hash": "sha256:1f5bad11b81859d237b537299f9a495a4a7c47078e40ab1dbc91d1242a1ac7f9",
+      "geometry_type": "MultiPolygon",
+      "source_crs": "EPSG:4326",
+      "pilot_bbox": {
+        "south": 40.726,
+        "west": -74.006,
+        "north": 40.736,
+        "east": -73.988
+      },
+      "pilot_coverage": 1,
+      "derived_from": [],
+      "method_version": "nyc-building-crop-v1",
+      "known_limitations": [
+        "Roof heights may be missing, zero, anomalous, or stale",
+        "Building geometry does not measure sidewalk temperature"
+      ],
+      "allowed_claims": [
+        "Estimated building shade after shadow-model validation"
+      ],
+      "prohibited_claims": [
+        "Measured temperature",
+        "Guaranteed shade",
+        "Cooler street"
+      ],
+      "validation_status": "pending"
+    },
+    {
+      "source_id": "building-shadow-model",
+      "publisher": "Happy Path",
+      "dataset_name": "Pilot projected building shadows",
+      "dataset_url": "https://data.cityofnewyork.us/d/5zhs-2jue",
+      "canonical_url": "https://data.cityofnewyork.us/d/5zhs-2jue",
+      "dataset_id": null,
+      "asset_type": "calculation",
+      "authority": "derived",
+      "access_method": "calculation",
+      "format": "JSON and GeoJSON",
+      "terms_url": "https://opendata.cityofnewyork.us/overview/#termsofuse",
+      "attribution": "Derived from NYC BUILDING",
+      "refresh_target": "after building snapshot or method changes",
+      "source_updated_at": null,
+      "retrieved_at": "2026-08-15T20:41:35.219Z",
+      "last_successful_ingest": "2026-08-15T20:41:35.219Z",
+      "snapshot_hash": null,
+      "geometry_type": "Polygon and edge samples",
+      "source_crs": "EPSG:4326",
+      "pilot_bbox": {
+        "south": 40.726,
+        "west": -74.006,
+        "north": 40.736,
+        "east": -73.988
+      },
+      "pilot_coverage": 1,
+      "derived_from": [
+        "nyc-building-footprints",
+        "openstreetmap"
+      ],
+      "method_version": "building-shadow-sampling-v1",
+      "known_limitations": [
+        "Uses a solar approximation pending SPA-library review",
+        "Samples straight graph-edge chords every 8 meters",
+        "Convex shadow hulls may overstate shadows for concave footprints",
+        "Does not model trees, clouds, facade detail, or measured temperature"
+      ],
+      "allowed_claims": [
+        "Estimated direct-sun exposure",
+        "Projected building shade"
+      ],
+      "prohibited_claims": [
+        "Measured temperature",
+        "Guaranteed shade",
+        "Cooler street"
+      ],
+      "validation_status": "pending"
+    },
+    {
+      "asset_type": "dataset",
+      "authority": "official",
+      "access_method": "socrata_api",
+      "format": "GeoJSON",
+      "terms_url": "https://opendata.cityofnewyork.us/overview/#termsofuse",
+      "refresh_target": "deliberate pilot refresh",
+      "source_updated_at": null,
+      "retrieved_at": "2026-08-15T20:52:03.393Z",
+      "last_successful_ingest": "2026-08-15T20:52:03.393Z",
+      "source_crs": "EPSG:4326",
+      "pilot_bbox": {
+        "south": 40.726,
+        "west": -74.006,
+        "north": 40.736,
+        "east": -73.988
+      },
+      "derived_from": [],
+      "validation_status": "pending",
+      "source_id": "nyc-forestry-tree-points",
+      "publisher": "NYC Department of Parks and Recreation",
+      "dataset_name": "Forestry Tree Points",
+      "dataset_url": "https://data.cityofnewyork.us/d/hn5i-inap",
+      "canonical_url": "https://data.cityofnewyork.us/d/hn5i-inap",
+      "dataset_id": "hn5i-inap",
+      "attribution": "NYC Parks",
+      "snapshot_hash": "sha256:281be0f804fa164aecace173d003da78f02edcfeb07e10e371f5fe62faadfab4",
+      "geometry_type": "Point",
+      "pilot_coverage": 1,
+      "method_version": "nyc-tree-crop-v1",
+      "known_limitations": [
+        "A mapped tree does not establish canopy size, present condition, or shade"
+      ],
+      "allowed_claims": [
+        "Nearby mapped trees",
+        "Greener ranking input"
+      ],
+      "prohibited_claims": [
+        "Tree canopy",
+        "Current tree shade",
+        "Current tree health"
+      ]
+    },
+    {
+      "asset_type": "dataset",
+      "authority": "official",
+      "access_method": "socrata_api",
+      "format": "GeoJSON",
+      "terms_url": "https://opendata.cityofnewyork.us/overview/#termsofuse",
+      "refresh_target": "deliberate pilot refresh",
+      "source_updated_at": null,
+      "retrieved_at": "2026-08-15T20:52:03.393Z",
+      "last_successful_ingest": "2026-08-15T20:52:03.393Z",
+      "source_crs": "EPSG:4326",
+      "pilot_bbox": {
+        "south": 40.726,
+        "west": -74.006,
+        "north": 40.736,
+        "east": -73.988
+      },
+      "derived_from": [],
+      "validation_status": "pending",
+      "source_id": "nyc-parks-properties",
+      "publisher": "NYC Department of Parks and Recreation",
+      "dataset_name": "Parks Properties",
+      "dataset_url": "https://data.cityofnewyork.us/d/enfh-gkve",
+      "canonical_url": "https://data.cityofnewyork.us/d/enfh-gkve",
+      "dataset_id": "enfh-gkve",
+      "attribution": "NYC Parks",
+      "snapshot_hash": "sha256:91a758b359debbcd2e7591f42fdf8a6b62059e2bd15531557b57014d3ce938f0",
+      "geometry_type": "MultiPolygon",
+      "pilot_coverage": 1,
+      "method_version": "nyc-park-crop-v1",
+      "known_limitations": [
+        "A property boundary does not prove current access, hours, or entrance location"
+      ],
+      "allowed_claims": [
+        "Adjacent to a mapped park property"
+      ],
+      "prohibited_claims": [
+        "Park is open",
+        "Entrance is accessible"
+      ]
+    },
+    {
+      "asset_type": "calculation",
+      "authority": "derived",
+      "access_method": "calculation",
+      "format": "GeoJSON",
+      "terms_url": "https://opendata.cityofnewyork.us/overview/#termsofuse",
+      "refresh_target": "deliberate pilot refresh",
+      "source_updated_at": null,
+      "retrieved_at": "2026-08-15T20:52:03.393Z",
+      "last_successful_ingest": "2026-08-15T20:52:03.393Z",
+      "source_crs": "EPSG:4326",
+      "pilot_bbox": {
+        "south": 40.726,
+        "west": -74.006,
+        "north": 40.736,
+        "east": -73.988
+      },
+      "derived_from": [
+        "nyc-forestry-tree-points",
+        "nyc-parks-properties",
+        "openstreetmap"
+      ],
+      "validation_status": "pending",
+      "source_id": "greenery-edge-model",
+      "publisher": "Happy Path",
+      "dataset_name": "Pilot tree and park adjacency",
+      "dataset_url": "https://data.cityofnewyork.us/d/hn5i-inap",
+      "canonical_url": "https://data.cityofnewyork.us/d/hn5i-inap",
+      "dataset_id": null,
+      "attribution": "Derived from NYC Parks data",
+      "snapshot_hash": null,
+      "geometry_type": "edge metrics",
+      "pilot_coverage": 1,
+      "method_version": "tree-park-adjacency-v1",
+      "known_limitations": [
+        "Tree adjacency is not canopy or shade",
+        "Park proximity does not prove an open entrance"
+      ],
+      "allowed_claims": [
+        "More mapped tree and park adjacency than baseline"
+      ],
+      "prohibited_claims": [
+        "Shadier",
+        "Cooler",
+        "Park access guaranteed"
+      ]
+    }
+  ]
+}
