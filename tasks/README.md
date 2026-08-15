@@ -27,5 +27,6 @@ Allowed statuses are `ready`, `in-progress`, `blocked`, and `done`.
 | [001 — Define the first user and problem](001-define-user-and-problem.md) | Ready | Unassigned |
 | [002 — Research NYC path data](002-research-nyc-path-data.md) | Done | codex |
 | [003 — Explore path qualities](003-explore-path-qualities.md) | Ready | Unassigned |
+| [004 — Define map visual language and icon system](004-define-map-visual-language.md) | Ready | Unassigned |
 
 Project-specific collaboration lessons are kept in [lessons.md](lessons.md).

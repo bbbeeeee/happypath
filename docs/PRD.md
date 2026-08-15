@@ -194,6 +194,8 @@ The result contains:
 
 Every stop has an editable dwell estimate. Candidate generation enforces both the walking budget and, when present, the total outing budget across walking and dwell time.
 
+The default map shows one visually dominant Happy Path. Estimated shade appears as an ambient layer; discrete route-relevant amenities, constraints, and anchors appear as icons. The first view prioritizes required stops and evidence that materially affected the recommendation, then shows other significant request-relevant evidence when it fits without collisions. Secondary or overlapping detail moves to optional toggles or the route receipt. Intelligence may propose semantic display priority, while deterministic layout rules control density and overlap.
+
 ### 5.2 Route receipt
 
 ```text
