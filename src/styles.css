@@ -51,6 +51,7 @@ main { position: relative; width: 100vw; height: 100dvh; overflow: hidden; backg
 .icon-button svg { width: 19px; height: 19px; }
 
 .sheet { position: absolute; z-index: 4; left: 20px; top: 78px; bottom: 20px; width: min(430px, calc(100vw - 40px)); display: flex; flex-direction: column; padding: 25px; overflow: auto; overscroll-behavior: contain; border: 1px solid rgba(216,212,202,.92); border-radius: 24px; background: rgba(255,253,248,.96); box-shadow: var(--shadow); backdrop-filter: blur(16px); animation: sheet-in .35s cubic-bezier(.22,.8,.2,1); }
+.sheet > * { flex-shrink: 0; }
 .sheet-handle { display: none; width: 40px; height: 4px; border-radius: 99px; background: #d4d0c6; margin: -10px auto 14px; }
 @keyframes sheet-in { from { transform: translateY(8px); opacity: .6; } }
 .eyebrow { color: #8d5f48; font-size: 10px; line-height: 1.2; font-weight: 700; text-transform: uppercase; letter-spacing: 1.25px; }
