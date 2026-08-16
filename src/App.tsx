@@ -244,9 +244,15 @@ function ResultSheet({ brief, route, result, assets, delta, onBack, onRefine, on
 }) {
   const [refinement, setRefinement] = useState("");
   const primary = brief.priorities[0] ?? "shade";
-  const headline = primary === "shade" ? "A little longer, less direct sun" : primary === "greenery" ? "A greener way through" : assets.length ? "Useful stops, kept close" : "A considered way through";
   const sunSaved = result.baseline ? Math.max(0, result.baseline.directSunMinutes - route.directSunMinutes) : null;
   const greenGain = result.baseline ? Math.max(0, route.greeneryPercent - result.baseline.greeneryPercent) : null;
+  const headline = primary === "shade"
+    ? route.directSunMinutes < 0.05
+      ? "No direct sun expected at this time"
+      : sunSaved !== null && sunSaved >= 0.05
+        ? "A little longer, less direct sun"
+        : "Shade checked, without an extra detour"
+    : primary === "greenery" ? "A greener way through" : assets.length ? "Useful stops, kept close" : "A considered way through";
   const submit = (event: FormEvent) => { event.preventDefault(); if (!refinement.trim()) return; onRefine(refinement); setRefinement(""); };
   return <section className="sheet result-sheet" aria-label="Your Happy Path">
     <div className="sheet-handle" />
@@ -254,7 +260,7 @@ function ResultSheet({ brief, route, result, assets, delta, onBack, onRefine, on
     {delta && <div className="route-delta"><SparkIcon />Route updated · {delta}</div>}
     <div className="result-lead"><p>{headline}</p><h2>{brief.shape === "loop" ? `${Math.round(route.durationMinutes)}-minute loop` : brief.shape === "wander" ? `A ${Math.round(route.durationMinutes)}-minute wander` : `${Math.round(route.durationMinutes)} minutes · ${Math.round(route.extraMinutesVsBaseline ?? 0)} longer`}</h2></div>
     <div className="benefit-list">
-      {sunSaved !== null && brief.priorities.includes("shade") && <button type="button" onClick={onShowWhy}><SunIcon /><span><strong>{sunSaved.toFixed(1)} fewer min</strong><small>in estimated direct sun</small></span><ChevronIcon /></button>}
+      {brief.priorities.includes("shade") && <button type="button" onClick={onShowWhy}><SunIcon /><span>{route.directSunMinutes < 0.05 ? <><strong>Nighttime departure</strong><small>No modeled direct sun at {formatClock(brief.departureHour)}</small></> : sunSaved !== null && sunSaved >= 0.05 ? <><strong>{sunSaved.toFixed(1)} fewer min</strong><small>in estimated direct sun</small></> : <><strong>{route.shadePercent.toFixed(0)}% estimated shade</strong><small>along this route at {formatClock(brief.departureHour)}</small></>}</span><ChevronIcon /></button>}
       {greenGain !== null && brief.priorities.includes("greenery") && <button type="button" onClick={onShowWhy}><LeafIcon /><span><strong>{greenGain.toFixed(0)} points greener</strong><small>from mapped trees and parks</small></span><ChevronIcon /></button>}
       {assets.slice(0, 2).map((asset) => <button type="button" key={asset.id} onClick={onShowWhy}><AssetIcon kind={asset.kind} /><span><strong>{asset.name}</strong><small>mapped nearby · operation unverified</small></span><ChevronIcon /></button>)}
       {brief.avoidMappedSteps && <button type="button" onClick={onShowWhy}><StairsIcon /><span><strong>Avoids mapped steps</strong><small>Not an accessibility guarantee</small></span><ChevronIcon /></button>}
@@ -263,7 +269,7 @@ function ResultSheet({ brief, route, result, assets, delta, onBack, onRefine, on
     {result.baseline && <button type="button" className="text-action" onClick={() => setShowBaseline(!showBaseline)}><span className="baseline-swatch" />{showBaseline ? "Hide" : "Compare with"} fastest · {formatMinutes(result.baseline.durationMinutes)}</button>}
     {brief.unsupported.length > 0 && <div className="request-limit" role="status"><strong>Kept out of the route score</strong><span>{brief.unsupported.join(" · ")}. You can still use the mapped evidence above.</span></div>}
     <button type="button" className="data-action" onClick={onShowData}><LayersIcon /><span><strong>City data used</strong><small>{Object.keys(civicFixture.sources).length + 4} mapped and derived sources</small></span><ChevronIcon /></button>
-    {detourScenario && <button type="button" className="detour-action" onClick={onShowDetour}><span className="detour-mark">D</span><span><strong>Detour planning proof</strong><small>What if one exposed block had more shade?</small></span><ChevronIcon /></button>}
+    {detourScenario && detourScenario.avoidedDirectSunMinutes >= 0.05 && <button type="button" className="detour-action" onClick={onShowDetour}><span className="detour-mark">D</span><span><strong>Detour planning proof</strong><small>What if one exposed block had more shade?</small></span><ChevronIcon /></button>}
     <form className="refine-box" onSubmit={submit}><SparkIcon /><input value={refinement} onChange={(event) => setRefinement(event.target.value)} placeholder="Shorter, but keep the bathroom…" aria-label="Refine this route" /><button disabled={busy || !refinement.trim()} aria-label="Update route"><ArrowIcon /></button></form>
     {modelFallback && <p className="status-message subtle">Language service is unavailable, so Happy Path used its built-in trip controls.</p>}
   </section>;
