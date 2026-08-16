@@ -1,259 +1,328 @@
-# Happy Path — Core UX and Map Specification
+# Happy Path — Core UX and Product Language
 
-> Companion to the [PRD](PRD.md). This document defines the resident-facing interaction and presentation model.
+> Companion to the [PRD](PRD.md). This document defines how Happy Path should feel, speak, and behave for residents.
 
-## 1. Experience goal
+## 1. Experience standard
 
-Happy Path should feel like an intelligent map, not a chatbot with a map attached and not a GIS dashboard.
+Happy Path should feel like a thoughtful consumer product, not a technical demonstration, GIS dashboard, or chatbot with a map attached.
 
-The shortest useful interaction is:
+The visible experience is simple:
 
-> **Say one sentence → inspect the Trip Brief → receive one route → understand why → refine it naturally.**
+> **Say what kind of walk you want → check what Happy Path understood → get one considered route → see why it fits → refine it naturally.**
 
-Complexity belongs in the routing, evidence, and layer systems. The visible experience should remain decisive and calm.
+The complexity may be substantial underneath. The user should experience that complexity as care:
 
-## 2. Information hierarchy
+- the route appears considered rather than merely different;
+- the map shows only what matters now;
+- the explanation sounds human and useful;
+- public data feels relevant rather than bureaucratic;
+- uncertainty is honest without overwhelming the experience;
+- refinements feel immediate and predictable.
 
-The interface should answer these questions in order:
+### Demo quality bar
 
-1. Where does this route go?
-2. How long will it take?
-3. Why does it better fit my request?
-4. What did the detour cost and buy?
-5. What evidence supports the result?
-6. What remains uncertain?
-7. How can I change it?
+The hackathon build should feel like a real, coherent product inside its supported Manhattan area.
 
-The route should remain visible while the user inspects details or edits the request.
+That means:
 
-## 3. Core screen states
+- use real NYC and open data for route facts wherever practical;
+- preprocess and clean data so the interaction is fast and visually calm;
+- prepare strong, validated journeys without reducing the demo to a fake animation;
+- remove debug language, raw IDs, schemas, and implementation jargon from the resident UI;
+- make loading, empty, partial-data, and failure states feel intentional;
+- use friendly product copy throughout;
+- prefer one polished end-to-end experience over many unfinished controls.
+
+Synthetic or manually configured information may be used only for a clearly labeled scenario, such as a hypothetical Detour intervention. It must not be presented as an observed City fact.
+
+## 2. The magical moments
+
+The experience should create five clear moments.
+
+### 2.1 Happy Path understands me
+
+A short request becomes a useful Trip Brief without a long interview.
+
+> “A green 25-minute loop with places to sit.”
+
+Becomes:
+
+```text
+25-minute loop
+Greener streets
+Places to rest along the way
+Starting and ending here
+```
+
+### 2.2 The route visibly changes for a reason
+
+The recommended route should be materially different when the request supports a better alternative.
+
+The user should be able to see and understand the difference within a few seconds.
+
+### 2.3 The extra time feels worth it
+
+Happy Path should answer:
+
+> **What did the detour buy me?**
+
+Examples:
+
+- 11 fewer estimated minutes in direct sun;
+- a shorter longest exposed stretch;
+- three mapped places to sit;
+- a restroom with published hours near the midpoint;
+- fewer blocks with active sidewalk-shed records.
+
+### 2.4 The map responds to the moment
+
+Changing the time, route need, or constraint should produce an understandable change in the route or evidence.
+
+Later, relevant live context such as weather, alerts, or verified observations may influence the same interaction.
+
+### 2.5 Refinement feels conversational, not procedural
+
+> “A little shorter, but keep the bathroom.”
+
+The route updates and explains the delta without asking the user to rebuild the request.
+
+## 3. Core experience
 
 ### 3.1 Compose
 
 Required elements:
 
-- origin;
-- destination;
-- departure time;
-- natural-language input;
-- extra-time allowance;
-- route action.
+- current or editable origin;
+- optional destination or end condition;
+- natural-language request;
+- walking-time or extra-time allowance;
+- departure time, defaulting to now;
+- one clear action.
 
 Primary prompt:
 
-> **How do you want this walk to feel?**
+> **Where and how would you like to walk?**
 
-Suggested examples should demonstrate supported requests rather than imply unsupported general intelligence.
+Suggested prompts should demonstrate supported value:
 
-Recommended examples:
+- “Less direct sun to Bryant Park, up to five minutes longer.”
+- “A green 20-minute loop with somewhere to sit.”
+- “Walk north for about 35 minutes and finish near a subway.”
+- “Avoid mapped steps and pass a restroom if possible.”
 
-- “Less direct sun, up to five minutes longer.”
-- “Avoid mapped steps and pass somewhere to sit.”
-- “Greener streets, with a restroom near the middle.”
-
-Quick controls are secondary and synchronized with the same Trip Brief. P0 controls may include:
-
-- Cooler;
-- Greener;
-- Avoid mapped steps;
-- Seating;
-- Restroom;
-- fastest / +5 / +10 minutes.
-
-Do not show every cataloged city layer as a control.
+Quick controls are secondary. They edit the same Trip Brief and should never grow into a large layer panel.
 
 ### 3.2 Interpret
 
-After submission, display a compact Trip Brief before or alongside route generation:
+Show a compact, editable Trip Brief before or alongside route generation:
 
 ```text
-Going to
-Washington Square Park
+Your walk
+25-minute loop
 
-Priorities
-Less direct sun · seating nearby
+Looking for
+Greener streets · places to sit
 
 Avoid
 Mapped steps
 
-Flexible by
-Up to 5 minutes
-
 Leaving
-3:15 PM
+Now
 ```
 
-Each tag can be removed or edited. Unsupported and uncertain interpretations remain visible.
+Each material assumption is editable.
 
-The system asks at most one question before routing. Examples:
+The system asks at most one question before routing, and only when the answer changes the journey shape, endpoint, time budget, or hard requirement.
 
-- “Should every mapped-step segment be excluded?”
-- “Is the bathroom required, or just preferred?”
+Good:
 
-Do not ask preference questions that do not materially change the route.
+> “Should every mapped-step segment be avoided?”
+
+Avoid:
+
+> “Tell us more about your ideal walking vibe.”
 
 ### 3.3 Loading
 
-Loading should explain useful progress without exposing internal agent behavior:
+Loading should feel purposeful and short.
 
-```text
-Comparing practical routes
-Checking shade, greenery, and requested amenities
-```
+Preferred copy:
 
-If some layers are unavailable, continue with supported evidence and show the limitation in the result.
+> **Finding a better way**  
+> Comparing practical routes for shade, greenery, and the things you asked for.
+
+Avoid exposing internal agent steps, dataset calls, chain-of-thought, or technical progress logs.
+
+When a layer is unavailable, continue with supported evidence when possible and explain the limitation after the route appears.
 
 ### 3.4 Result
 
 The default result contains:
 
 - one visually dominant Happy Path;
-- origin and destination;
-- total time and extra minutes;
-- two to four important improvements;
-- one meaningful tradeoff when present;
-- confidence summary;
-- refinement composer;
-- control to compare the fastest route.
+- origin and destination, loop, or end condition;
+- total time and relevant baseline;
+- two to four meaningful benefits;
+- one material tradeoff when present;
+- a short confidence summary;
+- a refinement field;
+- an optional fastest or direct comparison.
 
-Example receipt:
+Example:
 
 ```text
 YOUR HAPPY PATH
 
-22 minutes · 4 minutes longer
+22 min · 4 min longer
 
-11 fewer estimated minutes in direct sun
-Longest exposed stretch: 3 min instead of 8
-3 mapped seating locations along the way
-No mapped-step segments
+A little longer, a lot shadier
+• about 11 fewer minutes in direct sun
+• longest exposed stretch: 3 min instead of 8
+• 3 mapped places to sit along the way
 
-Tradeoff
-One busier avenue block near the destination
+One tradeoff
+A busier final block near the park
 
-Confidence
-High for route and time · Medium for shade
+Good confidence for route and time
+Shade is an estimate
 ```
 
-The first view should not display a long source list. A compact **City data used** row opens evidence details.
+The result should read like a recommendation from a considerate product, not a model report.
 
 ### 3.5 Compare
 
-The fastest route is available on demand or displayed in a subdued state.
+The fastest or most-direct route is available on demand or in a subdued comparison state.
 
-Comparison should show:
+Show:
 
-- route geometry;
+- geometry;
 - time difference;
-- primary metric difference;
-- major gain and loss;
-- whether both routes satisfy hard requirements.
+- primary benefit difference;
+- important gain and loss;
+- whether both satisfy hard requirements.
 
-Do not present several undifferentiated alternatives. Show at most one meaningful alternative when it illustrates a real tradeoff.
+Do not show a wall of similar alternatives.
 
 ### 3.6 Inspect
 
-Tapping a route segment or receipt claim opens a detail sheet:
+Tapping a route segment or receipt claim opens **Why this way?**
+
+Example:
 
 ```text
-WHY THIS STREET?
+WHY THIS WAY?
 
-Estimated building shade at 3:20 PM
-Less direct sun than the parallel avenue
-Two mapped benches within five minutes
-No active sidewalk-shed record on this segment
+This block is likely shadier at 3:20 PM.
+It also keeps you close to two mapped benches.
+The parallel avenue has less estimated shade.
 
-Evidence
-NYC BUILDING · derived shadow model
-NYC DOT Seating · official inventory
+Based on
+NYC building shapes and heights
+NYC DOT seating locations
 
-Confidence
-Medium-high
+Shade is estimated and some street details may be incomplete.
 ```
 
-The detail sheet distinguishes:
-
-- official fact;
-- deterministic derivation;
-- model inference;
-- recent observation;
-- unknown state.
+The technical provenance remains available, but the main explanation begins with the human reason.
 
 ### 3.7 Refine
 
-The composer stays available on the result:
+The composer remains available on the result:
 
-> “Shorten it, but keep the restroom.”
+- “Shorter, but keep most of the shade.”
+- “More greenery.”
+- “Keep the bathroom and avoid the shed blocks.”
+- “Make this a 30-minute loop.”
 
-> “A little greener.”
-
-> “Avoid the shed blocks.”
-
-The update should show a concise delta:
+Show a concise change summary:
 
 ```text
 Route updated
 
 2 minutes shorter
-3 additional minutes in estimated direct sun
-Restroom retained
-Mapped-step avoidance retained
+3 more minutes in estimated sun
+Bathroom retained
+Mapped steps still avoided
 ```
 
-When the request is unsatisfiable, explain the conflict and offer explicit choices.
+When the request cannot be satisfied, explain the conflict and present clear choices.
 
-### 3.8 Evidence and coverage
+### 3.8 City data used
 
-The evidence drawer should show:
+The initial result should not begin with a source list. A calm, expandable row can say:
 
-- city datasets used;
-- whether each layer affected routing, waypoint selection, warning, or explanation;
-- capability status;
-- source freshness;
-- coverage along the route;
-- important limitations.
+> **Built with 6 city and street data sources**
 
-Example:
+The expanded view shows:
 
 ```text
 CITY DATA USED
 
-Routing
-• NYC BUILDING — estimated shade
-• NYC Forestry Tree Points — greenery
-• OpenStreetMap — pedestrian paths and mapped steps
+For the route
+• NYC buildings — estimated shade
+• NYC Forestry Tree Points — greener streets
+• OpenStreetMap — walking paths and mapped steps
 
-Amenities
-• NYC DOT Seating — 3 mapped locations
-• NYC Public Restrooms — published hours only
+Along the way
+• NYC DOT seating — 3 mapped places
+• NYC public restrooms — published hours
 
 Context
-• DOB Sidewalk Sheds — current permit record, presence unverified
+• DOB sidewalk sheds — permit records; current presence may vary
 ```
 
-## 4. Map visual system
+Use plain language first. Dataset IDs, retrieval dates, coverage, and method versions belong one level deeper.
 
-### 4.1 Default hierarchy
+## 4. Journey shapes
+
+### Destination
+
+A fixed origin and destination with a better-fit route.
+
+### Loop
+
+A time-boxed walk returning near the start.
+
+### Wander
+
+A direction, area, end condition, or walking-time budget where Happy Path chooses the endpoint and route.
+
+All three should share the same visual language and Trip Brief. The user should not feel that they entered a separate feature.
+
+## 5. Map visual system
+
+### 5.1 Default hierarchy
 
 1. Happy Path route
-2. Origin and destination
+2. Origin, destination, or loop state
 3. Required waypoint or amenity
-4. Evidence supporting the primary route claim
+4. Evidence supporting the primary benefit
 5. Warning or hard constraint
 6. Secondary context
 
-### 4.2 Continuous conditions
+### 5.2 Clean by default
 
-Use ambient or route-segment treatments for:
+The default map should show:
 
-- estimated direct sun or shade;
+- one route;
+- one continuous evidence treatment at most;
+- only route-relevant assets and warnings;
+- a compact legend only when needed.
+
+Do not display every integrated City layer merely to prove it exists.
+
+### 5.3 Continuous conditions
+
+Use ambient or segment treatments for:
+
+- estimated shade or sun;
 - greenery;
 - grade;
 - experimental activity or noise context.
 
-The route line must remain readable above continuous layers.
+The route line must remain dominant and legible.
 
-### 4.3 Discrete assets
+### 5.4 Discrete assets
 
 Use icons for:
 
@@ -266,109 +335,161 @@ Use icons for:
 - sheds or obstructions;
 - selected stops.
 
-Display an asset by default when it is required, selected, materially affects the route, or explains a warning. Other nearby assets remain discoverable through a contextual layer toggle or detail view.
+Display an asset by default when it is required, selected, materially affected the route, or explains a warning.
 
-### 4.4 Layer selection
+### 5.5 Layer selection
 
 AI may propose which registered layers and claims are relevant. Deterministic presentation rules control:
 
+- styling;
 - collision;
 - density;
 - zoom thresholds;
-- visual styling;
 - required warnings;
 - maximum visible layers.
 
-Recommended P0 limit: one continuous evidence layer plus relevant discrete assets and warnings.
+P1 target: one continuous layer plus relevant discrete assets and warnings.
 
-### 4.5 Confidence and stale data
+### 5.6 Motion and responsiveness
 
-Do not cover the map in confidence badges. Show uncertainty:
+Use restrained motion to make recomputation understandable:
 
-- in the Route Receipt;
-- in the detail sheet;
-- with a subtle warning treatment when it affects the immediate decision.
+- the prior route softens;
+- the new route draws or settles into place;
+- receipt changes animate subtly;
+- the map reframes without disorienting the user.
 
-Absence of an asset must not be visually confused with absence of data.
+Avoid decorative animation that delays the answer.
 
-### 4.6 Icons
+## 6. Product language
 
-P0 should use a coherent existing icon library. A custom Happy Path icon family is a parallel or later visual-design task, not a blocker for the product flow.
+### 6.1 Voice
 
-## 5. Journey-shape progression
+Happy Path should sound:
 
-### P0: destination route
+- thoughtful;
+- friendly;
+- calm;
+- competent;
+- concise;
+- honest about uncertainty.
 
-Fixed origin and destination with an experiential route alternative.
+It should not sound:
 
-### Stretch: loop
+- bureaucratic;
+- overly technical;
+- robotic;
+- cutesy;
+- alarmist;
+- falsely certain.
 
-The user supplies a duration. Happy Path produces a route returning near the start and explains its experience metrics.
+### 6.2 Copy rules
 
-### Later: wander
+- Lead with the human benefit, then explain the evidence.
+- Use “mapped,” “estimated,” or “published” when those distinctions matter.
+- Prefer short sentences and familiar words.
+- Do not expose internal names such as `RouteCandidate`, `routing-ready`, or `validation_status` in the resident UI.
+- Do not use “optimal” when the route is a tradeoff.
+- Do not describe neighborhoods as good, bad, safe, unsafe, healthy, or unhealthy.
+- Do not claim accessibility where the product only avoids mapped steps or estimates grade.
 
-The user supplies a direction, area, endpoint type, or total outing budget. Happy Path selects both endpoint and path.
+### 6.3 Translation table
 
-Do not let loop or wander requirements complicate the destination-route UI before P0 is stable.
+| Internal or technical language | Resident-facing language |
+| --- | --- |
+| Derived solar-exposure metric | Estimated direct sun |
+| Mapped-step hard exclusion | Avoids steps shown in our map data |
+| Validation pending | Some street details may be incomplete |
+| Source temporarily unavailable | We couldn’t check one city data source right now |
+| No non-dominated candidate | We couldn’t find a meaningfully better route within your time |
+| Amenity inventory record | Mapped place to sit / mapped restroom |
+| Construction-friction proxy | Streets with recent construction or shed records |
+| Inference failure | We couldn’t interpret that request, but you can still choose what matters below |
 
-## 6. Demo flows
+### 6.4 Preferred product moments
 
-### Cooler Manhattan
+- “A little longer, a lot shadier.”
+- “We found a gentler way.”
+- “You’ll pass three mapped places to sit.”
+- “Most of the shade benefit comes from four extra minutes.”
+- “We couldn’t find a better option within five minutes, so we kept the direct route.”
+- “This restroom has published hours, but we can’t confirm that it’s open right now.”
 
-1. Select origin and destination.
-2. Ask for less direct sun with five extra minutes.
-3. Inspect the Trip Brief.
-4. Receive a route with a quantitative receipt.
-5. Change departure time and see the evidence update.
-6. Inspect a selected shaded segment.
+## 7. Data realism and demo curation
 
-### Taking my parents
+### 7.1 Real data by default
 
-1. Ask for mapped-step avoidance, places to rest, and a bathroom.
-2. Confirm whether mapped steps are a hard exclusion.
-3. Receive a route using seating, restroom, greenery, and access evidence.
-4. Inspect uncertainty and the distinction between mapped-step avoidance and accessibility.
+Resident route geometry, route metrics, assets, and source explanations should use actual pilot data wherever the claim implies current or historical reality.
 
-### Rain and construction
+### 7.2 Curated does not mean fake
 
-1. Ask for less exposed walking and fewer construction-friction blocks.
-2. Receive a route using shed and construction context.
-3. Show that likely cover is not a dryness guarantee.
+It is acceptable to:
 
-## 7. Required states
+- crop the geography;
+- preprocess and simplify geometry;
+- cache data;
+- choose strong demonstration journeys;
+- precompute expensive features;
+- hide unsupported locations or prompts;
+- use a scripted Detour intervention.
+
+It is not acceptable to:
+
+- invent a current amenity state;
+- show a fake live crowd level;
+- present a hypothetical intervention as built;
+- hard-code a numerical benefit that the route engine did not calculate.
+
+### 7.3 Supported-area behavior
+
+Inside the supported Manhattan area, the product should feel complete. Outside it, use friendly language:
+
+> **Happy Path is exploring Manhattan below Central Park for now.**
+
+Do not expose an arbitrary bounding box or developer error.
+
+## 8. Required states
 
 The UI must define:
 
 - first-use empty state;
 - geocoding loading and failure;
-- location outside pilot;
+- location outside supported area;
 - route unavailable;
 - hard requirement unsatisfied;
 - inference unavailable;
 - partial data coverage;
 - source temporarily unavailable;
-- no meaningful alternative to fastest;
+- no meaningful alternative to the baseline;
 - route updated after refinement;
 - mobile map loading and recovery.
 
-## 8. Accessibility and responsive behavior
+Every state should preserve a clear next action.
+
+## 9. Accessibility and responsive behavior
 
 - Use semantic controls and visible focus states.
 - Do not encode critical distinctions by color alone.
-- Keep route, receipt, and refinement usable on a phone without hiding required warnings.
+- Keep route, receipt, and refinement usable on a phone without hiding warnings.
 - Allow map and sheet sizes to change without losing route context.
 - Avoid small tap targets and dense icon clusters.
-- Use narrow claim language instead of implying guaranteed accessibility.
+- Respect reduced-motion preferences.
+- Use narrow claim language rather than implying guaranteed accessibility.
 
-## 9. UX acceptance criteria
+## 10. UX acceptance criteria
 
-1. A new user can create a supported route without opening a layer panel.
-2. The Trip Brief makes the system interpretation inspectable and editable.
-3. One route is visually dominant.
-4. The user can understand the primary benefit and cost within a few seconds.
-5. Every visible layer is relevant to the request or route explanation.
-6. A user can inspect which City sources supported a claim.
-7. A refinement changes the same Trip Brief rather than starting a separate chat.
-8. Hard requirements remain visible through the entire flow.
-9. Partial coverage and uncertainty are understandable without reading technical documentation.
-10. The three primary demo flows can be completed on a representative mobile viewport.
+1. A new user can create a supported walk without opening a layer panel.
+2. The product’s purpose is understandable within the first screen.
+3. The Trip Brief makes the interpretation inspectable and editable.
+4. Destination, loop, and wander use one coherent interaction model.
+5. One route is visually dominant.
+6. The primary benefit and cost are understandable within a few seconds.
+7. Every visible layer is relevant to the request, route, or warning.
+8. The product uses friendly resident language in all primary states.
+9. Technical data and provenance remain available without dominating the route.
+10. A refinement updates the same Trip Brief and visibly changes the route.
+11. Partial coverage and uncertainty are understandable without technical documentation.
+12. The interface feels complete on a representative mobile viewport.
+13. At least four rehearsed demos work from a clean session using real pilot data for resident claims.
+14. No resident-facing screen exposes raw dataset fields, internal schemas, debug logs, or unexplained technical jargon.
+15. A user can reach the first meaningful recommendation quickly enough for the interaction to feel immediate.
