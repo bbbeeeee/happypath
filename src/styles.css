@@ -152,7 +152,7 @@ main { position: relative; width: 100vw; height: 100dvh; overflow: hidden; backg
 .refine-box button:disabled { opacity: .35; }
 .refine-box button svg { width: 14px; height: 14px; transform: rotate(90deg); }
 
-.detail-panel { position: absolute; z-index: 8; left: 470px; top: 78px; width: min(370px, calc(100vw - 510px)); max-height: calc(100dvh - 98px); overflow: auto; padding: 25px; border: 1px solid var(--line); border-radius: 22px; background: rgba(255,253,248,.98); box-shadow: var(--shadow); animation: detail-in .25s ease-out; }
+.detail-panel { position: absolute; z-index: 8; left: 470px; top: 78px; width: min(370px, calc(100vw - 510px)); max-height: calc(100dvh - 98px); overflow: auto; padding: 25px; border: 1px solid var(--line); border-radius: 22px; background: var(--paper); box-shadow: var(--shadow); animation: detail-in .25s ease-out; }
 @keyframes detail-in { from { transform: translateX(-8px); opacity: 0; } }
 .detail-header { display: flex; justify-content: space-between; align-items: center; }
 .detail-header .icon-button { width: 34px; height: 34px; box-shadow: none; }
