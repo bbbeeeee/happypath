@@ -22,6 +22,62 @@ export interface AmenityOverviewOptions {
   minimumClusterSize?: number;
 }
 
+export interface AmenityViewport {
+  west: number;
+  south: number;
+  east: number;
+  north: number;
+  zoom: number;
+}
+
+/** Shrink overview clusters as the map moves from neighborhood to block scale. */
+export function amenityClusterCellMeters(zoom: number) {
+  if (!Number.isFinite(zoom)) return 96;
+  if (zoom >= 16.25) return 14;
+  return Math.max(28, Math.round(150 / 2 ** Math.max(0, zoom - 13.5)));
+}
+
+/** A small, category-balanced viewport sample for the ambient map. */
+export function amenitiesForViewport(
+  assets: readonly CivicAsset[],
+  viewport: AmenityViewport,
+  options: { prominentAssetIds?: readonly string[]; selectedAssetId?: string | null; maximumAssets?: number } = {},
+) {
+  const maximumAssets = Math.max(1, Math.floor(options.maximumAssets ?? 24));
+  const importantIds = new Set([
+    ...(options.prominentAssetIds ?? []),
+    ...(options.selectedAssetId ? [options.selectedAssetId] : []),
+  ]);
+  const center: readonly [number, number] = [
+    (viewport.west + viewport.east) / 2,
+    (viewport.south + viewport.north) / 2,
+  ];
+  const distance = (asset: CivicAsset) => (
+    (asset.coordinate[0] - center[0]) ** 2 + (asset.coordinate[1] - center[1]) ** 2
+  );
+  const important = assets.filter((asset) => importantIds.has(asset.id));
+  const visible = assets.filter((asset) => (
+    !importantIds.has(asset.id)
+    && asset.coordinate[0] >= viewport.west
+    && asset.coordinate[0] <= viewport.east
+    && asset.coordinate[1] >= viewport.south
+    && asset.coordinate[1] <= viewport.north
+  ));
+  const groups = new Map<CivicAssetKind, CivicAsset[]>();
+  for (const kind of Object.keys(amenityOverviewLegend) as CivicAssetKind[]) {
+    groups.set(kind, visible.filter((asset) => asset.kind === kind).sort((a, b) => distance(a) - distance(b) || a.id.localeCompare(b.id)));
+  }
+  const sampled: CivicAsset[] = [];
+  while (sampled.length + important.length < maximumAssets && [...groups.values()].some((group) => group.length)) {
+    for (const kind of Object.keys(amenityOverviewLegend) as CivicAssetKind[]) {
+      const asset = groups.get(kind)?.shift();
+      if (asset) sampled.push(asset);
+      if (sampled.length + important.length >= maximumAssets) break;
+    }
+  }
+  return [...new Map([...important, ...sampled].map((asset) => [asset.id, asset])).values()];
+}
+
 type AssetPointProperties = {
   featureType: "asset";
   id: string;

@@ -3,11 +3,11 @@ import * as maplibregl from "maplibre-gl";
 import type { GeoJSONSource, Map as MapLibreMap, MapLayerMouseEvent } from "maplibre-gl";
 import { defaultDestination, defaultOrigin, isInsidePilot, nearestGraphNode, pilotGraph } from "./data/cityGraph";
 import { findCivicAssetsNearRoute, loadCivicAssetFixture, type CivicAsset, type CivicAssetKind } from "./data/civicAssets";
-import { civicTaskActionLabel, createSessionCivicObservation, findCivicTasksNearRoute, listCivicTasks, loadCivicTaskFixture, type CivicTask, type SessionCivicObservation } from "./data/civicTasks";
+import { createSessionCivicObservation, findCivicTasksNearRoute, listCivicTasks, loadCivicTaskFixture, type CivicTask, type SessionCivicObservation } from "./data/civicTasks";
 import { getMapLayerDefinition } from "./data/mapLayerCatalog";
 import { sourceRegistryPresentation, type SourceRegistryPresentation } from "./data/sourceRegistry";
 import { getPilotTransitEndpointCandidates } from "./data/transitEndpoints";
-import { amenityOverviewGeoJSON } from "./amenityOverview";
+import { amenitiesForViewport, amenityClusterCellMeters, amenityOverviewGeoJSON, type AmenityViewport } from "./amenityOverview";
 import { rainPromptIntent, routeShadeSegmentsGeoJSON } from "./climatePresentation";
 import { buildShadeDetourScenario, evaluateShadeDetourScenario, type ShadeDetourScenario } from "./detour/shadeScenario";
 import { demoCoverGeoJSON, demoCoverShare, pickRainFriendlyRoute, routeCoverSegmentsGeoJSON, routeCoverShare } from "./demoCover";
@@ -21,6 +21,7 @@ import type { Coordinate, JourneyRoute, TripBrief as RoutingTripBrief } from "./
 import type { RouteCityInsight } from "../server/insights";
 import { assetAvailabilityCopy, assetMarkerSvg, assetsGeoJSON, assetTypeLabel, civicTaskMarkerSvg, civicTasksGeoJSON, endpointsGeoJSON, routeGeoJSON } from "./mapPresentation";
 import { civicAssetEvidence } from "./presentationEvidence";
+import { DEFAULT_MAP_OVERLAYS, toggledMapOverlay, type MapOverlays } from "./mapLayerState";
 import {
   ArrowIcon,
   BackIcon,
@@ -47,6 +48,7 @@ import {
 } from "./components/Icons";
 import { FallbackMap } from "./components/FallbackMap";
 import { useTypingPlaceholder } from "./components/useTypingPlaceholder";
+import { ThinkingStatus, type ThinkingMode } from "./components/ThinkingStatus";
 
 const MAP_STYLE = "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json";
 const nodeById = new Map(pilotGraph.nodes.map((node) => [node.id, node]));
@@ -66,20 +68,28 @@ const ambientCoverLayer = {
 };
 
 const EXAMPLE_REQUESTS = [
-  "Take me to Washington Square with less direct sun. I can add five minutes.",
-  "A green 20-minute loop with a place to sit halfway.",
-  "Wander west for about 30 minutes and finish near a train.",
-  "It’s raining. Find me a 25-minute walk with more likely cover.",
-  "Find me a 25-minute wander where I can help verify city data.",
+  "I have 20 minutes. Walk me to Washington Square with less direct sun.",
+  "I’m free for half an hour. Give me a green loop with somewhere to sit.",
+  "I have 30 minutes. Let me wander west and finish near a train.",
+  "It’s raining and I have 25 minutes. Find a walk with more cover.",
+  "I have 25 minutes. Find a walk where I can help verify city data.",
 ] as const;
 
 const EXAMPLE_SHORTCUTS = [
-  { label: "Somewhere", prompt: EXAMPLE_REQUESTS[0] },
-  { label: "Loop", prompt: EXAMPLE_REQUESTS[1] },
-  { label: "Wander", prompt: EXAMPLE_REQUESTS[2] },
-  { label: "Rain", prompt: EXAMPLE_REQUESTS[3] },
-  { label: "Help", prompt: EXAMPLE_REQUESTS[4] },
+  { label: "Get somewhere", prompt: EXAMPLE_REQUESTS[0] },
+  { label: "Take a loop", prompt: EXAMPLE_REQUESTS[1] },
+  { label: "Just wander", prompt: EXAMPLE_REQUESTS[2] },
+  { label: "Stay drier", prompt: EXAMPLE_REQUESTS[3] },
+  { label: "Help the map", prompt: EXAMPLE_REQUESTS[4] },
 ] as const;
+
+const INITIAL_MAP_VIEWPORT: AmenityViewport = {
+  west: -74.014,
+  south: 40.716,
+  east: -73.98,
+  north: 40.746,
+  zoom: 14.2,
+};
 
 type AppMode = "walk" | "planner";
 type MapLens = "route" | "shade" | "cover" | "amenities" | "tasks";
@@ -347,11 +357,12 @@ interface ComposeSheetProps {
   destinationText: string;
   setDestinationText: (value: string) => void;
   busy: boolean;
+  busyMode: ThinkingMode | null;
   error: string;
   onPlan: () => void;
 }
 
-function ComposeSheet({ brief, setBrief, prompt, setPrompt, originText, setOriginText, destinationText, setDestinationText, busy, error, onPlan }: ComposeSheetProps) {
+function ComposeSheet({ brief, setBrief, prompt, setPrompt, originText, setOriginText, destinationText, setDestinationText, busy, busyMode, error, onPlan }: ComposeSheetProps) {
   const [manualChanged, setManualChanged] = useState(false);
   const animatedPlaceholder = useTypingPlaceholder(EXAMPLE_REQUESTS);
   const setManualBrief = (nextBrief: UiTripBrief) => { setManualChanged(true); setBrief(nextBrief); };
@@ -359,17 +370,18 @@ function ComposeSheet({ brief, setBrief, prompt, setPrompt, originText, setOrigi
     <div className="sheet-handle" />
     <div className="compose-heading"><span className="eyebrow">Plan a better walk</span><h1>What are you up to?</h1></div>
     <div className="location-stack">
-      <label className="location-input"><span className="location-dot origin-dot" /><span className="field-label">From</span><input aria-label="Starting point" value={originText} onChange={(event) => setOriginText(event.target.value)} /></label>
-      <label className="location-input"><span className="location-dot destination-dot" /><span className="field-label">To</span><input aria-label="Destination" value={destinationText} onChange={(event) => { setDestinationText(event.target.value); setManualChanged(true); }} placeholder="Optional — or ask for a loop or wander" /></label>
+      <label className="location-input"><span className="location-dot origin-dot" /><span className="field-label">From</span><input aria-label="Starting point" value={originText} disabled={busy} onChange={(event) => setOriginText(event.target.value)} /></label>
+      <label className="location-input"><span className="location-dot destination-dot" /><span className="field-label">To</span><input aria-label="Destination" value={destinationText} disabled={busy} onChange={(event) => { setDestinationText(event.target.value); setManualChanged(true); }} placeholder="Optional — or ask for a loop or wander" /></label>
     </div>
     <label className="prompt-box">
       <SparkIcon />
-      <textarea aria-label="Describe your walk" value={prompt} onChange={(event) => setPrompt(event.target.value)} placeholder={animatedPlaceholder || EXAMPLE_REQUESTS[0]} rows={4} />
+      <textarea aria-label="Describe your walk" value={prompt} disabled={busy} onChange={(event) => setPrompt(event.target.value)} placeholder={animatedPlaceholder || EXAMPLE_REQUESTS[0]} rows={4} />
     </label>
-    <div className="prompt-shortcuts" aria-label="Example walk requests"><span>Try</span>{EXAMPLE_SHORTCUTS.map((example) => <button type="button" key={example.label} title={example.prompt} onClick={() => setPrompt(example.prompt)}>{example.label}</button>)}</div>
+    <div className="prompt-shortcuts" aria-label="Example walk requests"><span>Try</span>{EXAMPLE_SHORTCUTS.map((example) => <button type="button" key={example.label} title={example.prompt} disabled={busy} onClick={() => setPrompt(example.prompt)}>{example.label}</button>)}</div>
     <details className="manual-details"><summary>Choose the details instead</summary><WalkControls brief={brief} onChange={setManualBrief} destinationText={destinationText} onDestinationTextChange={(value) => { setManualChanged(true); setDestinationText(value); }} /></details>
     {error && <p className="status-message error" role="alert">{error}</p>}
-    <button type="button" className="primary-action" disabled={busy || (!prompt.trim() && !manualChanged && !destinationText.trim())} onClick={onPlan}><span>{busy ? "Finding a better way…" : "Find my path"}</span><ArrowIcon /></button>
+    {busy && <ThinkingStatus mode={busyMode ?? "plan"} />}
+    <button type="button" className="primary-action" disabled={busy || (!prompt.trim() && !manualChanged && !destinationText.trim())} onClick={onPlan}><span>{busy ? "Finding your path…" : "Find my path"}</span><ArrowIcon /></button>
     <p className="privacy-note">Your request and route aren’t saved.</p>
   </section>;
 }
@@ -407,7 +419,7 @@ async function registerCivicTaskMarkerImage(map: MapLibreMap) {
   });
 }
 
-function ResultSheet({ brief, route, result, assets, tasks, destinationText, setDestinationText, delta, error, onBack, onRefine, onAdjust, onShowWhy, onShowAsset, onShowTask, onShowData, onOpenPlanner, detourScenario, showBaseline, setShowBaseline, busy, modelFallback, rainContext }: {
+function ResultSheet({ brief, route, result, assets, tasks, destinationText, setDestinationText, delta, error, onBack, onRefine, onAdjust, onShowWhy, onShowAsset, onShowTask, onShowData, onOpenPlanner, detourScenario, showBaseline, setShowBaseline, busy, busyMode, modelFallback, rainContext }: {
   brief: UiTripBrief;
   route: JourneyRoute;
   result: PlannedJourneyResult;
@@ -418,7 +430,7 @@ function ResultSheet({ brief, route, result, assets, tasks, destinationText, set
   delta: string;
   error: string;
   onBack: () => void;
-  onRefine: (value: string) => void;
+  onRefine: (value: string) => Promise<boolean>;
   onAdjust: (brief: UiTripBrief) => Promise<boolean>;
   onShowWhy: () => void;
   onShowAsset: (asset: CivicAsset) => void;
@@ -429,6 +441,7 @@ function ResultSheet({ brief, route, result, assets, tasks, destinationText, set
   showBaseline: boolean;
   setShowBaseline: (value: boolean) => void;
   busy: boolean;
+  busyMode: ThinkingMode | null;
   modelFallback: boolean;
   rainContext: boolean;
 }) {
@@ -451,7 +464,7 @@ function ResultSheet({ brief, route, result, assets, tasks, destinationText, set
         ? "A little longer, less direct sun"
         : "Shade checked, without an extra detour"
     : primary === "greenery" ? "A greener way through" : assets.length ? "Useful stops, kept close" : "A considered way through";
-  const submit = (event: FormEvent) => { event.preventDefault(); if (!refinement.trim()) return; onRefine(refinement); setRefinement(""); };
+  const submit = async (event: FormEvent) => { event.preventDefault(); if (!refinement.trim()) return; if (await onRefine(refinement)) setRefinement(""); };
   const applyAdjustments = async () => { if (await onAdjust(draftBrief)) setShowAdjustments(false); };
   const summary = [...briefSummary(brief), rainContext ? "Rain-friendly" : null, `Leaving ${formatClock(brief.departureHour)}`].filter(Boolean) as string[];
   const roundedExtraMinutes = Math.round(route.extraMinutesVsBaseline ?? 0);
@@ -464,6 +477,7 @@ function ResultSheet({ brief, route, result, assets, tasks, destinationText, set
   return <section className="sheet result-sheet" aria-label="Your Happy Path">
     <div className="sheet-handle" />
     <div className="result-nav"><IconButton label="Plan a new walk" onClick={onBack}><BackIcon /></IconButton><span>Your Happy Path</span><span className="result-time">{formatMinutes(route.durationMinutes)}</span></div>
+    {busy && <ThinkingStatus mode={busyMode ?? "refine"} />}
     {delta && <div className="route-delta"><SparkIcon />Route updated · {delta}</div>}
     <div className="result-lead"><h1>{headline}</h1><p>{brief.shape === "loop" ? `${Math.round(route.durationMinutes)}-minute loop · about ${brief.walkingMinutes} minutes` : brief.shape === "wander" ? `${Math.round(route.durationMinutes)}-minute wander · ${brief.walkingTimeIntent === "maximum" ? `under ${brief.walkingMinutes} minutes` : `about ${brief.walkingMinutes} minutes`}` : destinationTiming}</p></div>
     {result.timing.status === "closest-feasible" && <div className="timing-note" role="status"><ClockIcon /><span><strong>Closest walk we could make</strong><small>{timingDifference} minutes {route.durationMinutes < (result.timing.requestedMinutes ?? 0) ? "shorter" : "longer"} than requested.</small></span></div>}
@@ -476,7 +490,7 @@ function ResultSheet({ brief, route, result, assets, tasks, destinationText, set
       {assets.slice(0, 2).map((asset) => <button type="button" key={asset.id} onClick={() => onShowAsset(asset)}><AssetIcon kind={asset.kind} /><span><strong>{asset.name}</strong><small>Mapped near your route · availability may have changed</small></span><ChevronIcon /></button>)}
       {brief.avoidMappedSteps && <button type="button" onClick={onShowWhy}><StairsIcon /><span><strong>Avoids mapped steps</strong><small>Not an accessibility guarantee</small></span><ChevronIcon /></button>}
     </div>
-    {tasks[0] && <button type="button" className="civic-task-card" onClick={() => onShowTask(tasks[0])}><span className="task-icon"><CivicTaskIcon task={tasks[0]} /></span><span><small>Optional · {tasks[0].estimatedMinutes} min</small><strong>{tasks[0].title}</strong><span>{tasks[0].locationLabel} · {civicTaskActionLabel(tasks[0].action)}</span></span><ChevronIcon /></button>}
+    {tasks[0] && <button type="button" className="civic-task-card" onClick={() => onShowTask(tasks[0])}><span className="task-icon"><CivicTaskIcon task={tasks[0]} /></span><span><small>Optional stop · {tasks[0].estimatedMinutes} min</small><strong>{tasks[0].title}</strong><span>{tasks[0].locationLabel}</span></span><ChevronIcon /></button>}
     {brief.civicTaskIntent && tasks.length === 0 && <div className="coverage-note task-miss"><strong>Your walk still works</strong><span>We couldn’t fit a published data check into this route and time. No task was invented to fill the gap.</span></div>}
     {missingAmenities.length > 0 && <div className="coverage-note"><strong>Not found near this route</strong><span>{missingAmenities.map((kind) => ({ seating: "mapped seating", restroom: "a mapped restroom", drinking_fountain: "a mapped drinking fountain", transit: "a mapped subway entrance" })[kind]).join(" or ")} within 90 meters. Inventory coverage and current operation may vary.</span></div>}
     <div className="confidence-row"><span className="confidence-dot" /><p><strong>Built from mapped walking paths</strong><small>{brief.priorities.includes("shade") ? "Shade is estimated from building shapes and the sun’s position." : "Some street and place details may be incomplete."}</small></p></div>
@@ -484,7 +498,7 @@ function ResultSheet({ brief, route, result, assets, tasks, destinationText, set
     {brief.unsupported.length > 0 && <div className="request-limit" role="status"><strong>What we can’t verify yet</strong><span>{brief.unsupported.map((item) => item.replace(/[.\s]+$/g, "")).join(" · ")}. The route still honors the supported choices in your plan.</span></div>}
     <button type="button" className="data-action" onClick={onShowData}><LayersIcon /><span><strong>Built with city and street data</strong><small>{usedSourceCount} linked {usedSourceCount === 1 ? "source" : "sources"} behind this walk</small></span><ChevronIcon /></button>
     {detourScenario && detourScenario.avoidedDirectSunMinutes >= 0.05 && <button type="button" className="detour-action" onClick={onOpenPlanner}><MapIcon /><span><strong>See what this walk is missing</strong><small>Explore shade, likely cover, amenities, and data checks in City what-if</small></span><ChevronIcon /></button>}
-    <form className="refine-box" onSubmit={submit}><SparkIcon /><input value={refinement} onChange={(event) => setRefinement(event.target.value)} placeholder="Shorter, but keep the bathroom…" aria-label="Refine this route" /><button disabled={busy || !refinement.trim()} aria-label="Update route"><ArrowIcon /></button></form>
+    <form className="refine-box" onSubmit={submit}><SparkIcon /><input value={refinement} disabled={busy} onChange={(event) => setRefinement(event.target.value)} placeholder="Shorter, but keep the bathroom…" aria-label="Refine this route" /><button disabled={busy || !refinement.trim()} aria-label="Update route"><ArrowIcon /></button></form>
     {error && <p className="status-message error" role="alert">{error}</p>}
     {modelFallback && <p className="status-message subtle">We used built-in trip understanding this time. You can adjust the details above.</p>}
   </section>;
@@ -531,17 +545,14 @@ function CivicTaskDetails({ task, observation, onComplete, onRemove }: {
   return <>
     <div className="asset-detail-title task-detail-title"><CivicTaskIcon task={task} /><span><span className="eyebrow">Optional city data check</span><h2>{task.title}</h2></span></div>
     <p>{task.locationLabel} · about {task.estimatedMinutes} {task.estimatedMinutes === 1 ? "minute" : "minutes"}</p>
-    <div className="task-evidence-stack">
-      <section><small>Published prompt</small><strong>{civicTaskFixture.publisher.name}</strong><p>{task.prompt}</p><span>Demo prompt, not an NYC request or a reported problem.</span></section>
-      <section><small>Why it helps</small><strong>{task.purpose}</strong><p>{task.downstreamUse}</p></section>
-      <section className="task-safety"><small>Check safely</small><strong>{task.safetyNote}</strong>{task.photoGuidance && <p>{task.photoGuidance}</p>}</section>
-    </div>
-    {observation ? <div className="task-thanks" role="status"><CheckCircleIcon /><span><strong>Thanks for taking a closer look.</strong><p>“{observation.response}” is a recent demo observation, not verified by NYC.</p><small>It stays in this browser session, is not submitted to the City, and expires {new Date(observation.expiresAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}.</small><button type="button" onClick={onRemove}>Remove my observation</button></span></div> : task.action === "photo" ? <div className="task-response photo-response">
+    <div className="task-prompt"><strong>{task.prompt}</strong></div>
+    <div className="task-safety"><small>Before you start</small><p>{task.safetyNote}</p>{task.photoGuidance && <p>{task.photoGuidance}</p>}</div>
+    {observation ? <div className="task-thanks" role="status"><CheckCircleIcon /><span><strong>Thanks—that helps.</strong><p>Saved for this demo session. Not sent to NYC.</p><button type="button" onClick={onRemove}>Remove my observation</button></span></div> : task.action === "photo" ? <div className="task-response photo-response">
       <label><CameraIcon /><span><strong>{photoName || "Choose a photo"}</strong><small>The file stays on this device and is discarded when this panel closes.</small></span><input type="file" accept="image/*" capture="environment" onChange={(event) => setPhotoName(event.target.files?.[0]?.name ?? "")} /></label>
       <button type="button" className="apply-adjustments" disabled={!photoName} onClick={() => onComplete(task.responseOptions[0])}>Use for this demo check</button>
     </div> : <div className="task-response"><span>What did you notice?</span>{task.responseOptions.map((response) => <button type="button" key={response} onClick={() => onComplete(response)}>{response}</button>)}</div>}
-    <div className="task-source-list"><small>Evidence behind this check</small>{sources.map((source) => <SourceRow key={source.id} source={source} />)}</div>
-    <p className="task-emergency-note">Don’t use Happy Path for hazards or emergencies. Use 311 for City service requests and 911 for immediate danger.</p>
+    <details className="task-about"><summary>Why this check is here</summary><div><strong>{task.purpose}</strong><p>{task.downstreamUse}</p><small>Demo check from {civicTaskFixture.publisher.name}. Not an NYC request, work order, or reported problem.</small>{observation && <small>This session observation expires {new Date(observation.expiresAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}.</small>}<div className="task-source-list">{sources.map((source) => <SourceRow key={source.id} source={source} />)}</div></div></details>
+    <p className="task-emergency-note">For hazards, use 311—or 911 in an emergency.</p>
   </>;
 }
 
@@ -642,7 +653,7 @@ function PlannerSheet({ route, scenario, insight, insightBusy, insightError, len
       {lens === "tasks" && <div className="planner-gap-list task-gap-list"><div><CheckCircleIcon /><span><strong>{allCivicTasks.length} published demo checks</strong><small>Partner-authored prompts can make missing ground truth visible without claiming a problem exists.</small></span></div><div><CameraIcon /><span><strong>Verify, observe, or add a focused photo</strong><small>Responses stay separate from official inventory and expire after a short evidence window.</small></span></div><div><LayersIcon /><span><strong>No neighborhood score</strong><small>Checks show discrete evidence needs, not a ranking of blocks or communities.</small></span></div></div>}
       {lens !== "tasks" && <div className="planner-insights">
         <div className="planner-insights-heading"><span><strong>Best next tests</strong><small>{insight?.generatedBy === "model" ? "AI-ranked from measured route facts" : "Ranked from measured route facts"}</small></span><SparkIcon /></div>
-        {insightBusy && <div className="planner-insight-loading"><span />Reading the route’s biggest gaps…</div>}
+        {insightBusy && <ThinkingStatus mode="planner" compact />}
         {!insightBusy && insightError && <p className="planner-insight-error">{insightError}</p>}
         {!insightBusy && insight?.interventions.map((idea) => <article key={idea.candidateId} className="planner-insight-card">
           <span className="insight-rank">{idea.rank}</span>
@@ -656,29 +667,27 @@ function PlannerSheet({ route, scenario, insight, insightBusy, insightError, len
   </section>;
 }
 
-function MapLensControl({ lens, onChange, hour, onHourChange, showCover, showTasks, planner, canEdit, editing, onEditingChange }: {
-  lens: MapLens;
-  onChange: (lens: MapLens) => void;
+function MapLensControl({ overlays, onToggle, hour, onHourChange, planner, hasRoute, canEdit, editing, onEditingChange }: {
+  overlays: MapOverlays;
+  onToggle: (layer: keyof MapOverlays) => void;
   hour: number;
   onHourChange: (hour: number) => void;
-  showCover: boolean;
-  showTasks: boolean;
   planner: boolean;
+  hasRoute: boolean;
   canEdit: boolean;
   editing: boolean;
   onEditingChange: (editing: boolean) => void;
 }) {
   return <div className="map-lens-control" aria-label="Map view">
-    <div><span>{lens === "tasks" ? <><CheckCircleIcon />City data checks</> : <><SunIcon />Sun &amp; cover</>}</span><output>{lens === "tasks" ? "Optional" : formatClock(hour)}</output></div>
+    <div><span><LayersIcon />Map layers</span><output>{overlays.shade ? formatClock(hour) : hasRoute ? "Path stays visible" : "Nearby now"}</output></div>
     <div className="map-lens-options">
-      <button type="button" className={lens === "route" ? "active" : ""} onClick={() => onChange("route")}>Path</button>
-      <button type="button" className={lens === "shade" ? "active" : ""} onClick={() => onChange("shade")}>Shade</button>
-      {(showCover || planner) && <button type="button" className={lens === "cover" ? "active" : ""} onClick={() => onChange("cover")}>Cover</button>}
-      {planner && <button type="button" className={lens === "amenities" ? "active" : ""} onClick={() => onChange("amenities")}>Places</button>}
-      {(showTasks || planner) && <button type="button" className={lens === "tasks" ? "active" : ""} onClick={() => onChange("tasks")}>Checks</button>}
+      <button type="button" aria-pressed={overlays.shade} className={overlays.shade ? "active" : ""} onClick={() => onToggle("shade")}>Shade</button>
+      <button type="button" aria-pressed={overlays.cover} className={overlays.cover ? "active" : ""} onClick={() => onToggle("cover")}>Cover</button>
+      <button type="button" aria-pressed={overlays.amenities} className={overlays.amenities ? "active" : ""} onClick={() => onToggle("amenities")}>Places</button>
+      <button type="button" aria-pressed={overlays.tasks} className={overlays.tasks ? "active" : ""} onClick={() => onToggle("tasks")}>Checks</button>
     </div>
-    {!planner && canEdit && <button type="button" className={`edit-path-control ${editing ? "active" : ""}`} onClick={() => onEditingChange(!editing)}><RouteIcon />{editing ? "Click the path to place a handle" : "Edit path on map"}</button>}
-    {lens === "shade" && <label><span>7 AM</span><input type="range" min="7" max="19" step="1" value={hour} onChange={(event) => onHourChange(Number(event.target.value))} aria-label="Shade time" /><span>7 PM</span></label>}
+    {!planner && hasRoute && canEdit && <button type="button" className={`edit-path-control ${editing ? "active" : ""}`} onClick={() => onEditingChange(!editing)}><RouteIcon />{editing ? "Click the path to place a handle" : "Edit path on map"}</button>}
+    {overlays.shade && <label><span>7 AM</span><input type="range" min="7" max="19" step="1" value={hour} onChange={(event) => onHourChange(Number(event.target.value))} aria-label="Shade time" /><span>7 PM</span></label>}
   </div>;
 }
 
@@ -691,6 +700,7 @@ export function App() {
   const dragEndpointRef = useRef<(kind: "origin" | "destination", coordinate: Coordinate) => void>(() => undefined);
   const routeSteerRef = useRef<(coordinate: Coordinate) => void>(() => undefined);
   const routeFeatureClickRef = useRef<(edgeId: string | null, coordinate: Coordinate) => void>(() => undefined);
+  const overlayVisibilityRef = useRef<MapOverlays>(DEFAULT_MAP_OVERLAYS);
   const [brief, setBrief] = useState<UiTripBrief>({ ...DEFAULT_BRIEF, priorities: [], departureHour: new Date().getHours() });
   const [prompt, setPrompt] = useState("");
   const [originNodeId, setOriginNodeId] = useState(defaultOrigin);
@@ -700,6 +710,7 @@ export function App() {
   const [result, setResult] = useState<PlannedJourneyResult | null>(null);
   const [route, setRoute] = useState<JourneyRoute | null>(null);
   const [busy, setBusy] = useState(false);
+  const [busyMode, setBusyMode] = useState<ThinkingMode | null>(null);
   const [error, setError] = useState("");
   const [showBaseline, setShowBaseline] = useState(false);
   const [detail, setDetail] = useState<DetailMode | null>(null);
@@ -716,6 +727,9 @@ export function App() {
   const [mapError, setMapError] = useState(false);
   const [appMode, setAppMode] = useState<AppMode>("walk");
   const [mapLens, setMapLens] = useState<MapLens>("route");
+  const [mapOverlays, setMapOverlays] = useState<MapOverlays>(DEFAULT_MAP_OVERLAYS);
+  const [mapViewport, setMapViewport] = useState<AmenityViewport>(INITIAL_MAP_VIEWPORT);
+  overlayVisibilityRef.current = mapOverlays;
   const [shadeHour, setShadeHour] = useState(Math.max(7, Math.min(19, new Date().getHours())));
   const [rainContext, setRainContext] = useState(false);
   const [plannerShadeTarget, setPlannerShadeTarget] = useState(80);
@@ -729,9 +743,9 @@ export function App() {
   const activeAssets = useMemo(() => route ? relevantAssets(route, brief) : [], [route, brief]);
   const routeTasks = useMemo(() => route ? relevantCivicTasks(route, brief) : [], [route, brief]);
   const visibleTasks = useMemo(() => {
-    const tasks = appMode === "planner" && mapLens === "tasks" ? allCivicTasks : routeTasks;
+    const tasks = mapOverlays.tasks && (appMode === "planner" || !route) ? allCivicTasks : routeTasks;
     return activeTask && !tasks.some((task) => task.id === activeTask.id) ? [activeTask, ...tasks] : tasks;
-  }, [activeTask, appMode, mapLens, routeTasks]);
+  }, [activeTask, appMode, mapOverlays.tasks, route, routeTasks]);
   const plannerNearbyAssets = useMemo(() => route
     ? findCivicAssetsNearRoute(route.coordinates, { maxDistanceMeters: 120, limit: 80 }).map((item) => item.asset)
     : [], [route]);
@@ -754,11 +768,17 @@ export function App() {
   }, [route, result, shadeHour, plannerShadeTarget, selectedPlannerEdgeId]);
   const shadeSegments = useMemo(() => routeShadeSegmentsGeoJSON(route, pilotGraph, shadeHour), [route, shadeHour]);
   const coverRouteSegments = useMemo(() => routeCoverSegmentsGeoJSON(route, pilotGraph), [route]);
-  const overviewAssets = useMemo(() => amenityOverviewGeoJSON(allMapAssets, {
+  const viewportAssets = useMemo(() => amenitiesForViewport(allMapAssets, mapViewport, {
     selectedAssetId: activeAsset?.id,
     prominentAssetIds: activeAssets.map((asset) => asset.id),
-    clusterCellMeters: appMode === "planner" ? 90 : 120,
-  }), [activeAsset?.id, activeAssets, appMode]);
+    maximumAssets: appMode === "planner" ? 36 : route ? 28 : 20,
+  }), [activeAsset?.id, activeAssets, appMode, mapViewport, route]);
+  const overviewAssets = useMemo(() => amenityOverviewGeoJSON(viewportAssets, {
+    selectedAssetId: activeAsset?.id,
+    prominentAssetIds: activeAssets.map((asset) => asset.id),
+    clusterCellMeters: amenityClusterCellMeters(mapViewport.zoom),
+    minimumClusterSize: mapViewport.zoom >= 16.25 ? Number.MAX_SAFE_INTEGER : 2,
+  }), [activeAsset?.id, activeAssets, mapViewport.zoom, viewportAssets]);
   const taskFeatures = useMemo(() => civicTasksGeoJSON(visibleTasks, {
     selectedTaskId: activeTask?.id,
     completedTaskIds: Object.keys(taskObservations),
@@ -794,7 +814,7 @@ export function App() {
     return nearestGraphNode(found.coordinate).id;
   }
 
-  async function compute(nextBrief: UiTripBrief, isRefinement = false, options: { rainFriendly?: boolean; originId?: string; destinationId?: string; wanderEndpointId?: string | null; preserveWaypoint?: boolean } = {}) {
+  async function compute(nextBrief: UiTripBrief, isRefinement = false, options: { rainFriendly?: boolean; originId?: string; destinationId?: string; originQuery?: string; destinationQuery?: string; wanderEndpointId?: string | null; preserveWaypoint?: boolean } = {}) {
     const oldRoute = route;
     const plannedBrief = nextBrief.priorities.includes("construction")
       ? mergeTripBrief(nextBrief, {
@@ -802,10 +822,10 @@ export function App() {
         unsupported: [...nextBrief.unsupported, "Current construction evidence is unavailable in this preview"],
       }, nextBrief.interpretedBy)
       : nextBrief;
-    const resolvedOrigin = options.originId ?? await resolveEndpoint(originText, originNodeId);
+    const resolvedOrigin = options.originId ?? await resolveEndpoint(options.originQuery ?? originText, originNodeId);
     let resolvedDestination = options.destinationId ?? destinationNodeId;
     if (plannedBrief.shape === "destination") {
-      const query = plannedBrief.destinationQuery ?? destinationText;
+      const query = plannedBrief.destinationQuery ?? options.destinationQuery ?? destinationText;
       if (!options.destinationId && !query.trim()) throw new Error("Add a destination so Happy Path knows where you’re headed.");
       if (!options.destinationId) resolvedDestination = await resolveEndpoint(query, destinationNodeId);
       if (query.trim()) setDestinationText(query);
@@ -863,7 +883,10 @@ export function App() {
 
   async function plan(value = prompt, isRefinement = false) {
     setBusy(true);
+    setBusyMode(isRefinement ? "refine" : "plan");
     setError("");
+    const requestOriginText = originText;
+    const requestDestinationText = destinationText;
     try {
       const rainIntent = rainPromptIntent(value);
       const nextRainContext = rainIntent === "on" ? true : rainIntent === "off" ? false : rainContext;
@@ -871,19 +894,24 @@ export function App() {
       const interpreted = !isRefinement ? withDestinationOverride(modelBrief, destinationText) : modelBrief;
       setModelFallback(Boolean(value.trim()) && interpreted.interpretedBy === "fallback");
       setRainContext(nextRainContext);
-      if (interpreted.civicTaskIntent) setMapLens("tasks");
-      else if (nextRainContext) setMapLens("cover");
-      else if (rainIntent === "off") setMapLens("route");
-      await compute(interpreted, isRefinement, { rainFriendly: nextRainContext });
+      if (interpreted.civicTaskIntent) { setMapLens("tasks"); setMapOverlays((current) => ({ ...current, tasks: true })); }
+      if (interpreted.priorities.includes("shade")) { setMapLens("shade"); setMapOverlays((current) => ({ ...current, shade: true })); }
+      if (nextRainContext) { setMapLens("cover"); setMapOverlays((current) => ({ ...current, cover: true })); }
+      else if (rainIntent === "off") setMapOverlays((current) => ({ ...current, cover: false }));
+      await compute(interpreted, isRefinement, { rainFriendly: nextRainContext, originQuery: requestOriginText, destinationQuery: requestDestinationText });
+      return true;
     } catch (caught) {
       setError(planningErrorMessage(caught));
+      return false;
     } finally {
       setBusy(false);
+      setBusyMode(null);
     }
   }
 
   async function adjust(nextBrief: UiTripBrief) {
     setBusy(true);
+    setBusyMode("adjust");
     setError("");
     try {
       await compute(nextBrief, true, { rainFriendly: rainContext });
@@ -893,6 +921,7 @@ export function App() {
       return false;
     } finally {
       setBusy(false);
+      setBusyMode(null);
     }
   }
 
@@ -913,6 +942,7 @@ export function App() {
     setModelFallback(false);
     setRainContext(false);
     setMapLens("route");
+    setMapOverlays(DEFAULT_MAP_OVERLAYS);
     setAppMode("walk");
     setSelectedPlannerEdgeId(null);
     setWaypointNodeId(null);
@@ -934,25 +964,28 @@ export function App() {
       destinationQuery: null,
     }, "controls");
     setBusy(true);
+    setBusyMode("planner");
     setError("");
     try {
       await compute(sample, false);
       setAppMode("planner");
       setMapLens("shade");
+      setMapOverlays((current) => ({ ...current, shade: true, amenities: true }));
     } catch (caught) {
       setError(planningErrorMessage(caught));
     } finally {
       setBusy(false);
+      setBusyMode(null);
     }
   }
 
   function handlePlannerPrompt(value: string) {
     const requestedShade = value.match(/\b(\d{2,3})\s*%?\s*shade\b/i)?.[1];
     if (requestedShade) setPlannerShadeTarget(Math.max(40, Math.min(95, Number(requestedShade))));
-    if (/verify|check|contribut|task|ground.?truth|city data/i.test(value)) setMapLens("tasks");
-    else if (/cover|rain|awning|shed/i.test(value)) setMapLens("cover");
-    else if (/seat|restroom|bathroom|water|amenit/i.test(value)) setMapLens("amenities");
-    else setMapLens("shade");
+    if (/verify|check|contribut|task|ground.?truth|city data/i.test(value)) { setMapLens("tasks"); setMapOverlays((current) => ({ ...current, tasks: true })); }
+    else if (/cover|rain|awning|shed/i.test(value)) { setMapLens("cover"); setMapOverlays((current) => ({ ...current, cover: true })); }
+    else if (/seat|restroom|bathroom|water|amenit/i.test(value)) { setMapLens("amenities"); setMapOverlays((current) => ({ ...current, amenities: true })); }
+    else { setMapLens("shade"); setMapOverlays((current) => ({ ...current, shade: true })); }
   }
 
   async function steerRoute(coordinate: Coordinate) {
@@ -1024,11 +1057,17 @@ export function App() {
     }
     map.addControl(new maplibregl.AttributionControl({ compact: true }), "bottom-right");
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "bottom-right");
+    const captureViewport = () => {
+      const bounds = map.getBounds();
+      setMapViewport({ west: bounds.getWest(), south: bounds.getSouth(), east: bounds.getEast(), north: bounds.getNorth(), zoom: map.getZoom() });
+    };
+    map.on("moveend", captureViewport);
     map.on("load", () => {
       setMapReady(true);
       setMapError(false);
+      captureViewport();
       map.addSource("building-shadows", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
-      map.addLayer({ id: "building-shadows", type: "fill", source: "building-shadows", paint: { "fill-color": "#566C91", "fill-opacity": 0.2 }, layout: { visibility: "none" } });
+      map.addLayer({ id: "building-shadows", type: "fill", source: "building-shadows", paint: { "fill-color": "#516785", "fill-opacity": 0.24, "fill-opacity-transition": { duration: 140, delay: 0 } }, layout: { visibility: "none" } });
       map.addSource("demo-cover", { type: "geojson", data: ambientCoverLayer });
       map.addLayer({ id: "demo-cover-casing", type: "line", source: "demo-cover", paint: { "line-color": "#FFFFFF", "line-width": 8, "line-opacity": 0.8 }, layout: { visibility: "none" } });
       map.addLayer({ id: "demo-cover", type: "line", source: "demo-cover", paint: { "line-color": "#536A91", "line-width": 4, "line-dasharray": [2, 1], "line-opacity": 0.82 }, layout: { visibility: "none" } });
@@ -1046,8 +1085,10 @@ export function App() {
       map.addSource("route-cover", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
       map.addLayer({ id: "route-cover", type: "line", source: "route-cover", paint: {
         "line-color": ["match", ["get", "coverBand"], "more", "#3D587F", "some", "#7284A2", "#E86248"],
-        "line-width": 6,
-        "line-opacity": 0.98,
+        "line-width": 5,
+        "line-offset": 4,
+        "line-dasharray": [1.2, 1],
+        "line-opacity": 0.9,
       }, layout: { visibility: "none", "line-cap": "round", "line-join": "round" } });
       map.addSource("planner-selection", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
       map.addLayer({ id: "planner-selection-casing", type: "line", source: "planner-selection", paint: { "line-color": "#FFFFFF", "line-width": 15, "line-opacity": 0.95 }, layout: { visibility: "none" } });
@@ -1077,14 +1118,14 @@ export function App() {
       } });
       map.addSource("overview-assets", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
       map.addLayer({ id: "amenity-coverage", type: "circle", source: "overview-assets", filter: ["==", ["get", "featureType"], "asset"], paint: {
-        "circle-radius": ["interpolate", ["linear"], ["zoom"], 13, 18, 16, 48],
+        "circle-radius": ["interpolate", ["linear"], ["zoom"], 13, 9, 16, 17],
         "circle-color": ["match", ["get", "kind"], "seating", "#6FA07C", "restroom", "#7586BB", "drinking_fountain", "#4D8797", "#D96A58"],
-        "circle-opacity": 0.1,
+        "circle-opacity": 0.08,
         "circle-stroke-width": 1,
         "circle-stroke-opacity": 0.18,
       }, layout: { visibility: "none" } });
       map.addLayer({ id: "overview-clusters", type: "circle", source: "overview-assets", filter: ["==", ["get", "featureType"], "cluster"], paint: {
-        "circle-radius": ["interpolate", ["linear"], ["get", "count"], 2, 15, 8, 21],
+        "circle-radius": ["interpolate", ["linear"], ["get", "count"], 2, 13, 8, 18],
         "circle-color": "#FFFDF8",
         "circle-stroke-color": ["match", ["get", "kind"], "seating", "#4F8963", "restroom", "#6478B8", "drinking_fountain", "#2E6F85", "#D94C3B"],
         "circle-stroke-width": 2,
@@ -1096,6 +1137,14 @@ export function App() {
         "text-font": ["Open Sans Bold"],
         visibility: "none",
       }, paint: { "text-color": "#1E2A24" } });
+      const expandAmenityCluster = (event: MapLayerMouseEvent) => {
+        map.easeTo({ center: event.lngLat, zoom: Math.min(17.2, Math.max(16.35, map.getZoom() + 1.8)), duration: 420 });
+      };
+      ["overview-clusters", "overview-cluster-count"].forEach((layer) => {
+        map.on("mouseenter", layer, () => { map.getCanvas().style.cursor = "zoom-in"; });
+        map.on("mouseleave", layer, () => { map.getCanvas().style.cursor = ""; });
+        map.on("click", layer, expandAmenityCluster);
+      });
       void registerAssetMarkerImages(map).then(() => {
         if (map.getLayer("asset-icons")) return;
         map.addLayer({ id: "asset-icons", type: "symbol", source: "assets", layout: {
@@ -1104,6 +1153,7 @@ export function App() {
           "icon-anchor": "bottom",
           "icon-allow-overlap": true,
           "icon-ignore-placement": true,
+          visibility: overlayVisibilityRef.current.amenities ? "visible" : "none",
         } });
         map.addLayer({ id: "overview-icons", type: "symbol", source: "overview-assets", filter: ["all", ["==", ["get", "featureType"], "asset"], ["!", ["get", "prominent"]]], layout: {
           "icon-image": ["match", ["get", "kind"], "seating", "asset-seating", "restroom", "asset-restroom", "transit", "asset-transit", "asset-drinking_fountain"],
@@ -1111,7 +1161,7 @@ export function App() {
           "icon-anchor": "bottom",
           "icon-allow-overlap": false,
           "icon-padding": 5,
-          visibility: "visible",
+          visibility: overlayVisibilityRef.current.amenities ? "visible" : "none",
         } });
         map.on("mouseenter", "asset-icons", () => { map.getCanvas().style.cursor = "pointer"; });
         map.on("mouseleave", "asset-icons", () => { map.getCanvas().style.cursor = ""; });
@@ -1122,7 +1172,7 @@ export function App() {
       }).catch(() => { /* The selectable marker hit areas remain available if icon art cannot load. */ });
       map.addSource("civic-tasks", { type: "geojson", data: civicTasksGeoJSON([]) });
       map.addLayer({ id: "civic-task-halo", type: "circle", source: "civic-tasks", paint: {
-        "circle-radius": ["interpolate", ["linear"], ["zoom"], 13, 18, 16, 38],
+        "circle-radius": ["interpolate", ["linear"], ["zoom"], 13, 9, 16, 16],
         "circle-color": ["case", ["get", "completed"], "#4F8963", civicTaskLayer.color],
         "circle-opacity": 0.12,
         "circle-stroke-width": 1,
@@ -1135,7 +1185,7 @@ export function App() {
         "circle-stroke-color": civicTaskLayer.color,
         "circle-stroke-width": ["case", ["get", "selected"], 3, 0],
         "circle-translate": [0, -23],
-      } });
+      }, layout: { visibility: "none" } });
       void registerCivicTaskMarkerImage(map).then(() => {
         if (map.getLayer("civic-task-icons")) return;
         map.addLayer({ id: "civic-task-icons", type: "symbol", source: "civic-tasks", layout: {
@@ -1144,6 +1194,7 @@ export function App() {
           "icon-anchor": "bottom",
           "icon-allow-overlap": true,
           "icon-ignore-placement": true,
+          visibility: overlayVisibilityRef.current.tasks ? "visible" : "none",
         } });
         map.on("mouseenter", "civic-task-icons", () => { map.getCanvas().style.cursor = "pointer"; });
         map.on("mouseleave", "civic-task-icons", () => { map.getCanvas().style.cursor = ""; });
@@ -1239,7 +1290,7 @@ export function App() {
 
   useEffect(() => {
     const map = mapRef.current;
-    if (!map?.isStyleLoaded()) return;
+    if (!mapReady || !map) return;
     (map.getSource("happy") as GeoJSONSource | undefined)?.setData(routeGeoJSON(route));
     (map.getSource("baseline") as GeoJSONSource | undefined)?.setData(routeGeoJSON(result?.baseline));
     (map.getSource("route-shade") as GeoJSONSource | undefined)?.setData(shadeSegments);
@@ -1249,22 +1300,25 @@ export function App() {
     (map.getSource("assets") as GeoJSONSource | undefined)?.setData(assetsGeoJSON(activeAssets, activeAsset?.id));
     (map.getSource("overview-assets") as GeoJSONSource | undefined)?.setData(overviewAssets);
     (map.getSource("civic-tasks") as GeoJSONSource | undefined)?.setData(taskFeatures);
-    map.setLayoutProperty("baseline", "visibility", showBaseline && result?.baseline && mapLens === "route" ? "visible" : "none");
-    map.setLayoutProperty("endpoints", "visibility", "none");
-    map.setLayoutProperty("happy", "visibility", mapLens === "route" || mapLens === "tasks" ? "visible" : "none");
-    map.setLayoutProperty("route-shade", "visibility", route && mapLens === "shade" ? "visible" : "none");
-    map.setLayoutProperty("route-cover", "visibility", route && mapLens === "cover" ? "visible" : "none");
-    map.setLayoutProperty("demo-cover", "visibility", mapLens === "cover" ? "visible" : "none");
-    map.setLayoutProperty("demo-cover-casing", "visibility", mapLens === "cover" ? "visible" : "none");
-    const showSelection = appMode === "planner" && mapLens === "shade" && Boolean(plannerScenario);
-    map.setLayoutProperty("planner-selection", "visibility", showSelection ? "visible" : "none");
-    map.setLayoutProperty("planner-selection-casing", "visibility", showSelection ? "visible" : "none");
-    const showAmenityClusters = appMode === "planner" && mapLens === "amenities";
-    ["overview-clusters", "overview-cluster-count"].forEach((layer) => map.getLayer(layer) && map.setLayoutProperty(layer, "visibility", showAmenityClusters ? "visible" : "none"));
-    if (map.getLayer("overview-icons")) map.setLayoutProperty("overview-icons", "visibility", appMode === "planner" && mapLens === "amenities" ? "visible" : "none");
-    map.setLayoutProperty("amenity-coverage", "visibility", appMode === "planner" && mapLens === "amenities" ? "visible" : "none");
-    map.setLayoutProperty("civic-task-halo", "visibility", mapLens === "tasks" ? "visible" : "none");
-  }, [route, result, showBaseline, activeAssets, activeAsset?.id, overviewAssets, taskFeatures, shadeSegments, coverRouteSegments, plannerScenario, mapLens, appMode, mapReady]);
+    const visibility = (layer: string, visible: boolean) => {
+      if (map.getLayer(layer)) map.setLayoutProperty(layer, "visibility", visible ? "visible" : "none");
+    };
+    const hasRoute = Boolean(route);
+    visibility("baseline", hasRoute && showBaseline && Boolean(result?.baseline));
+    visibility("endpoints", false);
+    visibility("happy-casing", hasRoute);
+    visibility("happy", hasRoute);
+    visibility("route-shade", hasRoute && mapOverlays.shade);
+    visibility("route-cover", hasRoute && mapOverlays.cover);
+    visibility("demo-cover", mapOverlays.cover);
+    visibility("demo-cover-casing", mapOverlays.cover);
+    const showSelection = appMode === "planner" && mapLens === "shade" && mapOverlays.shade && Boolean(plannerScenario);
+    visibility("planner-selection", showSelection);
+    visibility("planner-selection-casing", showSelection);
+    ["overview-clusters", "overview-cluster-count", "overview-icons", "assets", "asset-icons"].forEach((layer) => visibility(layer, mapOverlays.amenities));
+    visibility("amenity-coverage", appMode === "planner" && mapOverlays.amenities && mapLens === "amenities");
+    ["civic-task-halo", "civic-task-hit", "civic-task-icons"].forEach((layer) => visibility(layer, mapOverlays.tasks));
+  }, [route, result, showBaseline, activeAssets, activeAsset?.id, overviewAssets, taskFeatures, shadeSegments, coverRouteSegments, plannerScenario, mapLens, mapOverlays, appMode, mapReady]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -1273,21 +1327,21 @@ export function App() {
   }, [route?.candidateId, appMode, mapReady]);
 
   useEffect(() => {
-    if (mapLens !== "shade" || (!route && appMode !== "planner")) {
+    if (!mapOverlays.shade) {
       if (mapRef.current?.getLayer("building-shadows")) mapRef.current.setLayoutProperty("building-shadows", "visibility", "none");
       return;
     }
     const roundedHour = Math.max(7, Math.min(19, Math.round(shadeHour)));
     const load = shadowModules[`./data/shadows/hour-${roundedHour}.json`];
-    if (!load || !mapRef.current?.isStyleLoaded()) return;
+    if (!load || !mapRef.current?.getSource("building-shadows")) return;
     let cancelled = false;
-    load().then((module) => {
+    const timer = window.setTimeout(() => void load().then((module) => {
       if (cancelled) return;
       mapRef.current?.setLayoutProperty("building-shadows", "visibility", "visible");
       (mapRef.current?.getSource("building-shadows") as GeoJSONSource | undefined)?.setData((module as { default: never }).default);
-    });
-    return () => { cancelled = true; };
-  }, [route, shadeHour, mapLens, appMode, mapReady]);
+    }), 90);
+    return () => { cancelled = true; window.clearTimeout(timer); };
+  }, [shadeHour, mapOverlays.shade, mapReady]);
 
   const assetPopoverOpensLeft = Boolean(activeAssetPoint && activeAssetPoint.x > window.innerWidth - 320);
   const assetPopoverStyle = activeAssetPoint ? {
@@ -1316,22 +1370,35 @@ export function App() {
     setActiveCover(null);
     setActiveCoverPoint(null);
     setEditRoute(false);
-    setMapLens(mode === "planner" ? (route ? "shade" : "amenities") : rainContext ? "cover" : "route");
+    const nextLens: MapLens = mode === "planner" ? (route ? "shade" : "amenities") : rainContext ? "cover" : "route";
+    setMapLens(nextLens);
+    setMapOverlays((current) => ({ ...current, amenities: true, shade: mode === "planner" && Boolean(route) ? true : current.shade, cover: rainContext ? true : current.cover }));
+  };
+
+  const focusMapLens = (lens: MapLens) => {
+    setMapLens(lens);
+    if (lens !== "route") setMapOverlays((current) => ({ ...current, [lens]: true }));
+  };
+
+  const toggleMapOverlay = (layer: keyof MapOverlays) => {
+    setMapOverlays((current) => toggledMapOverlay(current, layer));
+    setMapLens(layer);
+    setEditRoute(false);
   };
 
   return <main className={`${route ? "has-result" : "is-compose"} mode-${appMode}`}>
-    <div className="map-shell"><div className="map" ref={mapContainer} /><div className="map-wash" />{mapError && <FallbackMap graph={pilotGraph} route={route} lens={mapLens} shadeSegments={shadeSegments} coverSegments={coverRouteSegments} ambientCover={ambientCoverLayer} selection={appMode === "planner" ? plannerScenario?.selection.geojson : null} assets={allMapAssets} prominentAssetIds={activeAssets.map((asset) => asset.id)} selectedAssetId={activeAsset?.id} onAssetClick={(asset) => { setActiveTask(null); setActiveTaskPoint(null); setActiveAsset(asset); setActiveAssetPoint({ x: Math.round(window.innerWidth * .68), y: 160 }); }} tasks={visibleTasks} selectedTaskId={activeTask?.id} completedTaskIds={Object.keys(taskObservations)} onTaskClick={(task) => { setActiveAsset(null); setActiveAssetPoint(null); setActiveTask(task); setActiveTaskPoint({ x: Math.round(window.innerWidth * .68), y: 160 }); }} />}</div>
+    <div className="map-shell"><div className="map" ref={mapContainer} /><div className="map-wash" />{mapError && <FallbackMap graph={pilotGraph} route={route} lens={mapLens} overlays={mapOverlays} shadeSegments={shadeSegments} coverSegments={coverRouteSegments} ambientCover={ambientCoverLayer} selection={appMode === "planner" ? plannerScenario?.selection.geojson : null} assets={viewportAssets} prominentAssetIds={activeAssets.map((asset) => asset.id)} selectedAssetId={activeAsset?.id} onAssetClick={(asset) => { setActiveTask(null); setActiveTaskPoint(null); setActiveAsset(asset); setActiveAssetPoint({ x: Math.round(window.innerWidth * .68), y: 160 }); }} tasks={visibleTasks} selectedTaskId={activeTask?.id} completedTaskIds={Object.keys(taskObservations)} onTaskClick={(task) => { setActiveAsset(null); setActiveAssetPoint(null); setActiveTask(task); setActiveTaskPoint({ x: Math.round(window.innerWidth * .68), y: 160 }); }} />}</div>
     <div className="top-bar"><div className="brand-cluster"><Brand /><nav className="mode-switch" aria-label="Happy Path mode"><button type="button" className={appMode === "walk" ? "active" : ""} onClick={() => switchMode("walk")}>Walk</button><button type="button" className={appMode === "planner" ? "active" : ""} onClick={() => switchMode("planner")}>City what-if</button></nav></div><div className="map-actions">{!mapError && <IconButton label="Center map" onClick={() => mapRef.current?.easeTo({ center: nodeById.get(originNodeId)?.coordinate, zoom: 14.5 })}><LocateIcon /></IconButton>}{route && appMode === "walk" && <IconButton label="Map details" onClick={() => { setActiveAsset(null); setActiveAssetPoint(null); setActiveTask(null); setActiveTaskPoint(null); setDetail("data"); }}><LayersIcon /></IconButton>}</div></div>
     {appMode === "planner"
-      ? <PlannerSheet route={route} scenario={plannerScenario} insight={plannerInsight} insightBusy={plannerInsightBusy} insightError={plannerInsightError} lens={mapLens} onLensChange={setMapLens} targetShade={plannerShadeTarget} onTargetShadeChange={setPlannerShadeTarget} onBack={() => switchMode("walk")} onUseSample={() => void usePlannerSample()} onPlannerPrompt={handlePlannerPrompt} />
+      ? <PlannerSheet route={route} scenario={plannerScenario} insight={plannerInsight} insightBusy={plannerInsightBusy} insightError={plannerInsightError} lens={mapLens} onLensChange={focusMapLens} targetShade={plannerShadeTarget} onTargetShadeChange={setPlannerShadeTarget} onBack={() => switchMode("walk")} onUseSample={() => void usePlannerSample()} onPlannerPrompt={handlePlannerPrompt} />
       : !route
-        ? <ComposeSheet brief={brief} setBrief={setBrief} prompt={prompt} setPrompt={setPrompt} originText={originText} setOriginText={setOriginText} destinationText={destinationText} setDestinationText={setDestinationText} busy={busy} error={error} onPlan={() => plan()} />
-        : result && <ResultSheet brief={brief} route={route} result={result} assets={activeAssets} tasks={routeTasks} destinationText={destinationText} setDestinationText={setDestinationText} delta={delta} error={error} onBack={startNewWalk} onRefine={(value) => plan(value, true)} onAdjust={adjust} onShowWhy={() => { setActiveAsset(null); setActiveAssetPoint(null); setActiveTask(null); setActiveTaskPoint(null); setDetail("why"); }} onShowAsset={(asset) => { setActiveTask(null); setActiveTaskPoint(null); setActiveAsset(asset); setActiveAssetPoint(null); setDetail("asset"); }} onShowTask={(task) => { setActiveAsset(null); setActiveAssetPoint(null); setActiveTask(task); setActiveTaskPoint(null); setDetail("task"); }} onShowData={() => { setActiveAsset(null); setActiveAssetPoint(null); setActiveTask(null); setActiveTaskPoint(null); setDetail("data"); }} onOpenPlanner={() => switchMode("planner")} detourScenario={detourScenario} showBaseline={showBaseline} setShowBaseline={setShowBaseline} busy={busy} modelFallback={modelFallback} rainContext={rainContext} />}
+        ? <ComposeSheet brief={brief} setBrief={setBrief} prompt={prompt} setPrompt={setPrompt} originText={originText} setOriginText={setOriginText} destinationText={destinationText} setDestinationText={setDestinationText} busy={busy} busyMode={busyMode} error={error} onPlan={() => void plan()} />
+        : result && <ResultSheet brief={brief} route={route} result={result} assets={activeAssets} tasks={routeTasks} destinationText={destinationText} setDestinationText={setDestinationText} delta={delta} error={error} onBack={startNewWalk} onRefine={(value) => plan(value, true)} onAdjust={adjust} onShowWhy={() => { setActiveAsset(null); setActiveAssetPoint(null); setActiveTask(null); setActiveTaskPoint(null); setDetail("why"); }} onShowAsset={(asset) => { setActiveTask(null); setActiveTaskPoint(null); setActiveAsset(asset); setActiveAssetPoint(null); setDetail("asset"); }} onShowTask={(task) => { setActiveAsset(null); setActiveAssetPoint(null); setActiveTask(task); setActiveTaskPoint(null); setDetail("task"); }} onShowData={() => { setActiveAsset(null); setActiveAssetPoint(null); setActiveTask(null); setActiveTaskPoint(null); setDetail("data"); }} onOpenPlanner={() => switchMode("planner")} detourScenario={detourScenario} showBaseline={showBaseline} setShowBaseline={setShowBaseline} busy={busy} busyMode={busyMode} modelFallback={modelFallback} rainContext={rainContext} />}
     {appMode === "walk" && detail && route && <DetailPanel mode={detail} brief={brief} route={route} assets={activeAssets} tasks={routeTasks} activeAsset={activeAsset} activeTask={activeTask} taskObservation={activeTask ? taskObservations[activeTask.id] ?? null : null} detourScenario={detourScenario} rainContext={rainContext} onCompleteTask={(response) => { if (!activeTask) return; setTaskObservations((current) => ({ ...current, [activeTask.id]: createSessionCivicObservation(activeTask, response) })); }} onRemoveTaskObservation={() => { if (!activeTask) return; setTaskObservations((current) => { const next = { ...current }; delete next[activeTask.id]; return next; }); }} onClose={() => { setDetail(null); if (detail === "asset") { setActiveAsset(null); setActiveAssetPoint(null); } if (detail === "task") { setActiveTask(null); setActiveTaskPoint(null); } }} />}
     {activeAsset && detail !== "asset" && <aside className={`asset-popover ${assetPopoverOpensLeft ? "opens-left" : ""}`} style={assetPopoverStyle} role="dialog" aria-label={assetTypeLabel(activeAsset)}><div><AssetIcon kind={activeAsset.kind} /><IconButton label="Close" onClick={() => { setActiveAsset(null); setActiveAssetPoint(null); }}><CloseIcon /></IconButton></div><span className="eyebrow">{appMode === "planner" ? "Mapped place" : "Near your walk"}</span><h3>{assetTypeLabel(activeAsset)}</h3><p>{activeAsset.locationLabel}</p><small>{assetAvailabilityCopy(activeAsset)}</small><small className="source-freshness">{civicAssetEvidence(activeAsset).freshnessLabel}</small>{appMode === "walk" && <button type="button" className="asset-more" onClick={() => setDetail("asset")}>See details</button>}</aside>}
-    {activeTask && detail !== "task" && <aside className={`asset-popover civic-task-popover ${taskPopoverOpensLeft ? "opens-left" : ""}`} style={taskPopoverStyle} role="dialog" aria-label={activeTask.title}><div><CivicTaskIcon task={activeTask} /><IconButton label="Close" onClick={() => { setActiveTask(null); setActiveTaskPoint(null); }}><CloseIcon /></IconButton></div><span className="eyebrow">Optional · {activeTask.estimatedMinutes} min</span><h3>{activeTask.title}</h3><p>{activeTask.locationLabel}</p><small>{civicTaskLayer.evidenceBoundary}</small>{taskObservations[activeTask.id] && <small className="task-complete-label"><CheckCircleIcon />Checked in this session</small>}{appMode === "walk" && <button type="button" className="asset-more" onClick={() => setDetail("task")}>{taskObservations[activeTask.id] ? "See observation" : "Open this check"}</button>}</aside>}
+    {activeTask && detail !== "task" && <aside className={`asset-popover civic-task-popover ${taskPopoverOpensLeft ? "opens-left" : ""}`} style={taskPopoverStyle} role="dialog" aria-label={activeTask.title}><div><CivicTaskIcon task={activeTask} /><IconButton label="Close" onClick={() => { setActiveTask(null); setActiveTaskPoint(null); }}><CloseIcon /></IconButton></div><span className="eyebrow">Optional · {activeTask.estimatedMinutes} min</span><h3>{activeTask.title}</h3><p>{activeTask.locationLabel}</p><small>A quick check that can help keep the map useful.</small>{taskObservations[activeTask.id] && <small className="task-complete-label"><CheckCircleIcon />Checked in this session</small>}{appMode === "walk" && <button type="button" className="asset-more" onClick={() => setDetail("task")}>{taskObservations[activeTask.id] ? "See observation" : "View check"}</button>}</aside>}
     {activeCover && <aside className="asset-popover cover-popover" style={coverPopoverStyle} role="dialog" aria-label="Simulated cover"><div><UmbrellaIcon /><IconButton label="Close" onClick={() => { setActiveCover(null); setActiveCoverPoint(null); }}><CloseIcon /></IconButton></div><span className="eyebrow">Simulated cover scenario</span><h3>{activeCover.label}</h3><p>{activeCover.street}</p><small>{activeCover.proofLabel}. A production route would need current shed, awning, arcade, and construction data.</small></aside>}
-    {(route || appMode === "planner") && <MapLensControl lens={mapLens} onChange={(lens) => { setMapLens(lens); setEditRoute(false); }} hour={shadeHour} onHourChange={setShadeHour} showCover={rainContext} showTasks={routeTasks.length > 0 || Boolean(brief.civicTaskIntent)} planner={appMode === "planner"} canEdit={!mapError} editing={editRoute} onEditingChange={(editing) => { setEditRoute(editing); if (editing) setMapLens("route"); }} />}
-    {route && <div className="map-key" aria-hidden="true">{mapLens === "route" ? <span><i className="route-key" />Happy Path</span> : mapLens === "shade" ? <><span><i className="shade-deep-key" />More shade</span><span><i className="sun-key" />More sun</span></> : mapLens === "cover" ? <><span><i className="cover-key" />Simulated cover</span><span><i className="sun-key" />No simulated cover</span></> : mapLens === "tasks" ? <><span><i className="route-key" />Happy Path</span><span><i className="task-key" />Optional data check</span></> : <span><i className="amenity-key" />Mapped places</span>}</div>}
+    <MapLensControl overlays={mapOverlays} onToggle={toggleMapOverlay} hour={shadeHour} onHourChange={setShadeHour} planner={appMode === "planner"} hasRoute={Boolean(route)} canEdit={!mapError} editing={editRoute} onEditingChange={(editing) => { setEditRoute(editing); if (editing) setMapLens("route"); }} />
+    <div className="map-key" aria-hidden="true">{route && <span><i className="route-key" />Happy Path</span>}{mapOverlays.shade && <span><i className="shade-deep-key" />Shade at {formatClock(shadeHour)}</span>}{mapOverlays.cover && <span><i className="cover-key" />Likely cover</span>}{mapOverlays.amenities && <span><i className="amenity-key" />Nearby places</span>}{mapOverlays.tasks && <span><i className="task-key" />Optional check</span>}</div>
   </main>;
 }

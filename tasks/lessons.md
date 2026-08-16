@@ -9,3 +9,10 @@
 - A basemap failure must still leave a convincing, useful route experience. The checked-in fallback needs streets, route evidence, real amenity icons, selection state, and accessible interaction—not a blank placeholder.
 - Prompts are not enforcement. Safety- and accessibility-relevant constraints need deterministic reconciliation after model output, even when a strict schema is used.
 - Separate sources that computed a fact from sources worth consulting next. A permit or curb-ramp catalog can guide a field audit without becoming evidence for simulated cover or an unsurveyed route.
+
+## 2026-08-16 — Ambient map layers and feedback
+
+- A map overview must react to map scale. Fixed-distance clusters do not become discoverable when the user zooms, so cluster size and record sampling should derive from the live viewport and clusters need an explicit expansion interaction.
+- Climate, place, and civic layers are context, not mutually exclusive destinations. Keep the route as the stable base and model supporting layers as independent toggles; reserve a separate focused state only for explanatory copy.
+- Natural example copy is part of the parser surface. Phrases such as “half an hour” need deterministic fallback coverage before they appear in the UI.
+- Loading polish should expose truthful activity, preserve the previous successful route during refinements, and retain failed input for an easy retry.

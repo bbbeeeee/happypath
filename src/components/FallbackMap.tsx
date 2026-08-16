@@ -13,10 +13,11 @@ interface LineCollection {
   features: LineFeature[];
 }
 
-export function FallbackMap({ graph, route, lens, shadeSegments, coverSegments, ambientCover, selection, assets, prominentAssetIds, selectedAssetId, onAssetClick, tasks, selectedTaskId, completedTaskIds, onTaskClick }: {
+export function FallbackMap({ graph, route, lens, overlays, shadeSegments, coverSegments, ambientCover, selection, assets, prominentAssetIds, selectedAssetId, onAssetClick, tasks, selectedTaskId, completedTaskIds, onTaskClick }: {
   graph: PilotGraph;
   route: JourneyRoute | null;
   lens: FallbackLens;
+  overlays: { shade: boolean; cover: boolean; amenities: boolean; tasks: boolean };
   shadeSegments: LineCollection;
   coverSegments: LineCollection;
   ambientCover: LineCollection;
@@ -51,8 +52,8 @@ export function FallbackMap({ graph, route, lens, shadeSegments, coverSegments, 
     .filter((edge, index, candidates) => candidates.findIndex((candidate) => candidate.street === edge.street) === index)
     .slice(0, 11);
   const visibleAssets = assets
-    .filter((asset) => asset.id === selectedAssetId || prominent.has(asset.id) || stableNumber(asset.id) % (lens === "amenities" ? 2 : 6) === 0)
-    .slice(0, lens === "amenities" ? 60 : 26);
+    .filter((asset) => overlays.amenities && (asset.id === selectedAssetId || prominent.has(asset.id) || stableNumber(asset.id) % 5 === 0))
+    .slice(0, 28);
   const completedTasks = new Set(completedTaskIds);
 
   return <div className="fallback-map" aria-label="Street map preview">
@@ -72,11 +73,11 @@ export function FallbackMap({ graph, route, lens, shadeSegments, coverSegments, 
         return <text key={edge.id} x={x} y={y}>{edge.street}</text>;
       })}</g>
 
-      {lens === "shade" && <g className="fallback-evidence-lines shade-lines">{shadeSegments.features.map((feature, index) => <polyline key={`${String(feature.properties.edgeId)}-${index}`} className={String(feature.properties.shadeBand)} points={points(feature.geometry.coordinates)}><title>{String(feature.properties.label)}</title></polyline>)}</g>}
-      {lens === "cover" && <g className="ambient-cover-lines">{ambientCover.features.map((feature, index) => <polyline key={`${String(feature.properties.edgeId)}-${index}`} className={Number(feature.properties.coverShare) >= .7 ? "more" : "some"} points={points(feature.geometry.coordinates)}><title>{String(feature.properties.label)}</title></polyline>)}</g>}
-      {lens === "cover" && <g className="fallback-evidence-lines cover-lines">{coverSegments.features.map((feature, index) => <polyline key={`${String(feature.properties.edgeId)}-${index}`} className={String(feature.properties.coverBand)} points={points(feature.geometry.coordinates)}><title>{String(feature.properties.label)}</title></polyline>)}</g>}
-      {route && lens !== "shade" && lens !== "cover" && <g className="fallback-route" filter="url(#route-shadow)"><polyline className="route-casing" points={points(route.coordinates)} /><polyline className="route-line" points={points(route.coordinates)} /></g>}
-      {selection && <g className="fallback-selection">{selection.features.map((feature, index) => <polyline key={`${String(feature.properties.edgeId)}-${index}`} points={points(feature.geometry.coordinates)} />)}</g>}
+      {route && <g className="fallback-route" filter="url(#route-shadow)"><polyline className="route-casing" points={points(route.coordinates)} /><polyline className="route-line" points={points(route.coordinates)} /></g>}
+      {overlays.shade && <g className="fallback-evidence-lines shade-lines">{shadeSegments.features.map((feature, index) => <polyline key={`${String(feature.properties.edgeId)}-${index}`} className={String(feature.properties.shadeBand)} points={points(feature.geometry.coordinates)}><title>{String(feature.properties.label)}</title></polyline>)}</g>}
+      {overlays.cover && <g className="ambient-cover-lines">{ambientCover.features.map((feature, index) => <polyline key={`${String(feature.properties.edgeId)}-${index}`} className={Number(feature.properties.coverShare) >= .7 ? "more" : "some"} points={points(feature.geometry.coordinates)}><title>{String(feature.properties.label)}</title></polyline>)}</g>}
+      {overlays.cover && <g className="fallback-evidence-lines cover-lines">{coverSegments.features.map((feature, index) => <polyline key={`${String(feature.properties.edgeId)}-${index}`} className={String(feature.properties.coverBand)} points={points(feature.geometry.coordinates)}><title>{String(feature.properties.label)}</title></polyline>)}</g>}
+      {selection && lens === "shade" && overlays.shade && <g className="fallback-selection">{selection.features.map((feature, index) => <polyline key={`${String(feature.properties.edgeId)}-${index}`} points={points(feature.geometry.coordinates)} />)}</g>}
 
       <g className="fallback-assets">{visibleAssets.map((asset) => {
         const [x, y] = point(asset.coordinate as Coordinate);
@@ -88,7 +89,7 @@ export function FallbackMap({ graph, route, lens, shadeSegments, coverSegments, 
           <title>{asset.name}</title>
         </g>;
       })}</g>
-      <g className="fallback-tasks">{tasks.map((task) => {
+      {overlays.tasks && <g className="fallback-tasks">{tasks.map((task) => {
         const [x, y] = point(task.coordinate as Coordinate);
         const selected = task.id === selectedTaskId;
         const completed = completedTasks.has(task.id);
@@ -97,7 +98,7 @@ export function FallbackMap({ graph, route, lens, shadeSegments, coverSegments, 
           <path d="m-5 0 3.2 3.2L5-4" />
           <title>{task.title}</title>
         </g>;
-      })}</g>
+      })}</g>}
       {route && <g className="fallback-endpoints"><circle cx={point(route.coordinates[0])[0]} cy={point(route.coordinates[0])[1]} r="9" />{route.journeyShape !== "loop" && <rect x={point(route.coordinates.at(-1)!)[0] - 8} y={point(route.coordinates.at(-1)!)[1] - 8} width="16" height="16" rx="3" />}</g>}
     </svg>
     <span className="fallback-map-note">Map preview mode · routes and city data still work</span>

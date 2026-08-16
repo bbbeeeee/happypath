@@ -22,6 +22,27 @@ describe("compileTripBrief", () => {
     expect(brief.walkingMinutes).toBe(DEFAULT_BRIEF.walkingMinutes);
   });
 
+  it("understands the conversational examples shown in the composer", () => {
+    expect(compileTripBrief("I have 20 minutes. Walk me to Washington Square with less direct sun.")).toMatchObject({
+      shape: "destination",
+      destinationQuery: "Washington Square",
+      priorities: ["shade"],
+    });
+    expect(compileTripBrief("I’m free for half an hour. Give me a green loop with somewhere to sit.")).toMatchObject({
+      shape: "loop",
+      walkingMinutes: 30,
+      priorities: expect.arrayContaining(["greenery", "rest"]),
+    });
+    expect(compileTripBrief("I have 30 minutes. Let me wander west and finish near a train.")).toMatchObject({
+      shape: "wander",
+      walkingMinutes: 30,
+      direction: "west",
+      endCondition: "transit",
+    });
+    expect(compileTripBrief("It’s raining and I have 25 minutes. Find a walk with more cover.")).toMatchObject({ shape: "wander", walkingMinutes: 25 });
+    expect(compileTripBrief("I have 25 minutes. Find a walk where I can help verify city data.")).toMatchObject({ shape: "wander", walkingMinutes: 25, civicTaskIntent: "verify" });
+  });
+
   it("keeps an optional civic check separate from destination and amenity preferences", () => {
     const brief = compileTripBrief("Take me to Washington Square Park and let me photograph a fountain for city data along the way. I can add five minutes.");
     expect(brief).toMatchObject({

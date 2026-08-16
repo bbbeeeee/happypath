@@ -67,6 +67,8 @@ function unique<T>(values: T[]) {
 function parseMinutes(prompt: string) {
   const numeric = prompt.match(/\b(\d{1,3})[\s-]*(?:minutes?|mins?)\b/i);
   if (numeric) return Number(numeric[1]);
+  if (/\b(?:half (?:an )?hour|half-hour)\b/i.test(prompt)) return 30;
+  if (/\b(?:an hour|one hour|the next hour)\b/i.test(prompt)) return 60;
   const compact = prompt.toLowerCase().replace(/[ -]/g, "");
   const word = Object.entries(numberWords).find(([candidate]) => compact.includes(`${candidate}minute`));
   return word?.[1] ?? null;
