@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { compileTripBrief, DEFAULT_BRIEF, mergeTripBrief } from "./tripBrief";
+import { briefSummary, compileTripBrief, DEFAULT_BRIEF, mergeTripBrief } from "./tripBrief";
 
 describe("compileTripBrief", () => {
   it.each([
@@ -54,5 +54,16 @@ describe("compileTripBrief", () => {
     expect(merged.walkingMinutes).toBe(60);
     expect(merged.departureHour).toBe(0);
     expect(merged.detourMinutes).toBe(5);
+  });
+
+  it("makes wander constraints visible in the plan summary", () => {
+    const brief = compileTripBrief("Wander north for 25 minutes and finish near a train. Avoid mapped steps.");
+    expect(briefSummary(brief)).toEqual([
+      "Wander for up to 25 minutes",
+      "Head north",
+      "Finish near transit",
+      "Less direct sun",
+      "Avoid mapped steps",
+    ]);
   });
 });

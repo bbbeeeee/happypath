@@ -156,5 +156,17 @@ export function briefSummary(brief: TripBrief) {
     : brief.shape === "loop"
       ? `${brief.walkingMinutes}-minute loop`
       : `Wander for up to ${brief.walkingMinutes} minutes`;
-  return [journey, ...brief.priorities.map((priority) => ({ shade: "Less direct sun", greenery: "Greener streets", rest: "Places to rest", water: "Water nearby", restroom: "Restroom nearby", construction: "Less construction friction" })[priority])];
+  const direction = brief.shape === "wander" && brief.direction
+    ? `Head ${brief.direction}`
+    : null;
+  const endCondition = brief.shape === "wander" && brief.endCondition
+    ? brief.endCondition === "transit" ? "Finish near transit" : "Finish near a park"
+    : null;
+  return [
+    journey,
+    direction,
+    endCondition,
+    ...brief.priorities.map((priority) => ({ shade: "Less direct sun", greenery: "Greener streets", rest: "Places to rest", water: "Water nearby", restroom: "Restroom nearby", construction: "Less construction friction" })[priority]),
+    brief.avoidMappedSteps ? "Avoid mapped steps" : null,
+  ].filter((item): item is string => Boolean(item));
 }
