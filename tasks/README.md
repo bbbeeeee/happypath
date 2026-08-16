@@ -1,32 +1,93 @@
-# Tasks
+# Happy Path task board
 
-This folder is a lightweight, file-based task board. Each task lives in its own Markdown file so people can claim and complete work in parallel with fewer editing conflicts.
+This folder is the execution source of truth for Happy Path. Work is organized by **product work package**, not by permanent team. Packages are designed so different people or agents can work in parallel and meet through documented contracts.
 
-## Workflow
+## Status vocabulary
 
-1. Create a task from [TEMPLATE.md](TEMPLATE.md), using the next number and a short name: `004-example-task.md`.
-2. Set `owner` to your GitHub handle and `status` to `in-progress` before starting.
-3. List dependencies and acceptance criteria before doing substantial work.
-4. Keep notes and links in the task file so another person can pick it up.
-5. Set `status` to `blocked` with a clear blocker, or `done` with the result and verification.
+- `proposed` — drafted but not approved for execution
+- `ready` — scoped and available to claim
+- `in-progress` — active work
+- `blocked` — cannot proceed until a named dependency or decision resolves
+- `review` — deliverable exists and needs approval or verification
+- `done` — acceptance criteria and verification are complete
+- `later` — intentionally outside the current milestone
 
-Allowed statuses are `ready`, `in-progress`, `blocked`, and `done`.
+## Current board
 
-## Collaboration rules
+| ID | Work package | Phase | Status | Depends on | Can run in parallel with |
+| --- | --- | --- | --- | --- | --- |
+| [001](001-product-and-prototype-alignment.md) | Product and prototype alignment | M0 | Review | — | — |
+| [002](002-data-platform-and-pilot-audit.md) | Data platform and pilot audit | M1 | Ready | 001 | 003, 004, 005 |
+| [003](003-routing-and-route-metrics.md) | Routing and route metrics | M2 | Ready | 001; data fixtures from 002 | 004, 005, 006 |
+| [004](004-core-ux-and-map-presentation.md) | Core UX and map presentation | M3 | Ready | 001 | 002, 003, 005 |
+| [005](005-ai-trip-brief-and-explanations.md) | AI Trip Brief and explanations | M3 | Ready | 001; fixture contracts | 002, 003, 004 |
+| [006](006-civic-data-layers-and-amenities.md) | Civic data layers and amenities | M1–M3 | Ready | 002 | 003, 004, 005 |
+| [007](007-integration-quality-and-performance.md) | Integration, quality, and performance | M4 | Blocked | 002–006 | QA can begin early |
+| [008](008-demo-deployment-and-submission.md) | Demo, deployment, and submission | M4 | Blocked | 007 | 009 only if core is stable |
+| [009](009-detour-planning-extension.md) | Detour planning extension | Later / stretch | Later | 003, 006, stable 007 contracts | May spike without blocking P0 |
+| [010](010-civic-assets-and-contributions.md) | Civic Assets & Actions | Later | Later | 006, 009 | — |
 
-- One owner at a time per task.
-- Keep tasks independently useful and reasonably small.
-- Prefer touching your task file plus its deliverable; avoid unrelated cleanup.
-- Coordinate section ownership before multiple people edit the PRD.
-- Make dependencies explicit rather than assuming a particular work order.
+## Dependency shape
 
-## Initial tasks
+```text
+001 Product alignment
+        │
+        ├─────────────┬─────────────┬─────────────┐
+        ↓             ↓             ↓             ↓
+002 Data platform  003 Routing   004 Core UX   005 AI
+        │             │             │             │
+        └──────┬──────┴──────┬──────┴─────────────┘
+               ↓             ↓
+       006 Civic layers   shared fixtures
+               └──────┬──────┘
+                      ↓
+             007 Integration and QA
+                      ↓
+             008 Demo and deployment
 
-| Task | Status | Owner |
-| --- | --- | --- |
-| [001 — Define the first user and problem](001-define-user-and-problem.md) | Ready | Unassigned |
-| [002 — Research NYC path data](002-research-nyc-path-data.md) | Done | codex |
-| [003 — Explore path qualities](003-explore-path-qualities.md) | Ready | Unassigned |
-| [004 — Define map visual language and icon system](004-define-map-visual-language.md) | Ready | Unassigned |
+009 Detour reuses stable route and layer contracts.
+010 Civic Assets & Actions follows Detour and trusted task sources.
+```
 
-Project-specific collaboration lessons are kept in [lessons.md](lessons.md).
+## How to claim and run work
+
+1. Read the [PRD](../docs/PRD.md), relevant companion docs, and the full work-package file.
+2. Set the package owner and status before substantial work begins.
+3. Split implementation into independently reviewable pull requests where possible.
+4. Record decisions, test evidence, source versions, and blockers in the package file or linked deliverable.
+5. Do not broaden scope without updating the PRD and affected acceptance criteria.
+6. Update the package front matter and this board in the same pull request when status changes.
+7. Mark a package `done` only after its verification section is complete.
+
+## Task boundaries
+
+- The PRD defines **what** the product must do.
+- Companion docs define **how the system should behave**.
+- Task files define **the work required to get there**.
+- Prototype branches provide reusable assets but do not supersede the docs.
+- A dataset being available does not make it routing-ready.
+- A visual layer being implemented does not make its claim validated.
+
+## Parallel work contract
+
+Parallel work should integrate through these shared schemas:
+
+- `LayerDefinition`
+- `TripBrief`
+- `RouteCandidate`
+- `RouteReceipt`
+- `MapPresentation`
+- `DetourScenario`
+
+Fixture examples should be committed early so UI, AI, routing, and data work do not block each other unnecessarily.
+
+## Adding or splitting work
+
+Use [TEMPLATE.md](TEMPLATE.md). Create a new work package only when it has:
+
+- a distinct outcome;
+- a clear owner or handoff;
+- explicit dependencies;
+- acceptance criteria that can be verified independently.
+
+Small implementation subtasks should normally remain inside their parent package or become GitHub issues linked from that file, rather than creating dozens of overlapping Markdown files.
