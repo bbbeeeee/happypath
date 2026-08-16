@@ -21,7 +21,7 @@ Data, routing, AI, and UX can be developed separately, but the demo only feels m
 
 ## Inputs and dependencies
 
-- approved documentation on `main`;
+- approved documentation;
 - validated Manhattan data layers and fixtures;
 - destination, loop, and wander engine;
 - Trip Brief and explanation services;
@@ -30,8 +30,8 @@ Data, routing, AI, and UX can be developed separately, but the demo only feels m
 
 ## Deliverables
 
-- integrated P1 application through focused PRs to `main`;
-- stable end-to-end contracts;
+- integrated P1 application;
+- stable end-to-end information contracts;
 - destination, loop, and wander flows;
 - automated and manual test suite;
 - resident-copy review;
@@ -44,8 +44,8 @@ Data, routing, AI, and UX can be developed separately, but the demo only feels m
 
 ### Integration
 
-- [ ] `007-A` — Land shared contracts and realistic fixtures on `main`.
-- [ ] `007-B` — Integrate reusable prototype code only through focused reviewable changes.
+- [ ] `007-A` — Establish shared contracts and realistic fixtures in the chosen implementation.
+- [ ] `007-B` — Integrate any reusable historical prototype work only where it genuinely reduces risk.
 - [ ] `007-C` — Connect compose and Trip Brief to destination, loop, and wander generation.
 - [ ] `007-D` — Connect route metrics to the receipt, map, City data used view, and segment inspection.
 - [ ] `007-E` — Connect refinements to deterministic rerouting and route-change summaries.
@@ -66,17 +66,18 @@ Data, routing, AI, and UX can be developed separately, but the demo only feels m
 - [ ] `007-N` — Run full product-copy review for warmth, clarity, consistency, and useful uncertainty.
 - [ ] `007-O` — Polish loading, map transitions, route changes, empty states, and recovery.
 - [ ] `007-P` — Verify all visible layers are relevant to the current journey.
-- [ ] `007-Q` — Review destination, loop, and wander for coherent visual and interaction behavior.
+- [ ] `007-Q` — Verify the base map remains complete and legible when optional evidence coverage is sparse or uneven.
+- [ ] `007-R` — Review destination, loop, and wander for coherent visual and interaction behavior.
 
 ### Performance and validation
 
-- [ ] `007-R` — Define route, inference, first-load, map-render, and refinement budgets.
-- [ ] `007-S` — Partition, compress, cache, or lazy-load graph, shadow, and asset data.
-- [ ] `007-T` — Test clean desktop and representative mobile browsers.
-- [ ] `007-U` — Review at least ten destination routes plus representative loops and wanders.
-- [ ] `007-V` — Review at least twenty blocks or assets across Lower and Midtown Manhattan.
-- [ ] `007-W` — Test the four primary demo prompts and several failure variants.
-- [ ] `007-X` — Remove noncritical unstable features rather than leaving them misleading.
+- [ ] `007-S` — Define route, inference, first-load, map-render, and refinement budgets.
+- [ ] `007-T` — Partition, compress, cache, or lazy-load graph, shadow, and asset data.
+- [ ] `007-U` — Test clean desktop and representative mobile browsers.
+- [ ] `007-V` — Review at least ten destination routes plus representative loops and wanders.
+- [ ] `007-W` — Review at least twenty blocks or assets across Lower and Midtown Manhattan.
+- [ ] `007-X` — Test the four primary demo prompts and several failure variants.
+- [ ] `007-Y` — Remove noncritical unstable features rather than leaving them misleading.
 
 ## Acceptance criteria
 
@@ -89,10 +90,11 @@ Data, routing, AI, and UX can be developed separately, but the demo only feels m
 - [ ] Partial or missing evidence is visible in friendly language.
 - [ ] The application remains useful when inference is unavailable.
 - [ ] Primary screens contain no unexplained technical jargon or debug output.
+- [ ] The base map remains visually complete across the supported geography regardless of optional evidence coverage.
 - [ ] The product feels coherent and responsive on a representative phone.
 - [ ] Data payload and interaction budgets are met.
 - [ ] Attribution and privacy requirements are implemented.
-- [ ] Resident route facts use real pilot data rather than hard-coded demo claims.
+- [ ] Resident route facts use real supported-area data rather than hard-coded demo claims.
 - [ ] Noncritical unstable features are removed or clearly deferred.
 
 ## Out of scope
@@ -102,7 +104,8 @@ Data, routing, AI, and UX can be developed separately, but the demo only feels m
 - mature production observability;
 - full planning-workflow integration;
 - persistent personalization;
-- Civic Assets & Actions.
+- Civic Assets & Actions;
+- prescribing how the future team structures branches, issues, or releases.
 
 ## Risks and decisions
 
@@ -113,7 +116,7 @@ Data, routing, AI, and UX can be developed separately, but the demo only feels m
 
 ## Verification
 
-Record test commands, performance measurements, route-review results, product-copy review, source attributions, clean-session recordings, and a final P1 acceptance checklist.
+Record test results, performance measurements, route-review results, product-copy review, source attributions, clean-session recordings, and a final P1 acceptance checklist.
 
 ## Handoff
 
