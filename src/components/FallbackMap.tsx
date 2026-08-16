@@ -3,7 +3,7 @@ import type { CivicTask } from "../data/civicTasks";
 import type { AccessContextCollection } from "../data/accessContext";
 import type { CoolOptionsCollection } from "../data/coolOptions";
 import type { FloodContextCollection } from "../floodEvidence";
-import { civicTaskLayerVisible } from "../mapPresentation";
+import { civicTaskLayerVisible, type EndpointFeatureCollection } from "../mapPresentation";
 import type { RouteActivityLog } from "../routeActivity";
 import type { Coordinate, JourneyRoute, PilotGraph } from "../types";
 
@@ -47,9 +47,10 @@ export function fallbackMapCoordinate([x, y]: readonly [number, number], [south,
   return [west + x / 1200 * (east - west), south + (820 - y) / 820 * (north - south)];
 }
 
-export function FallbackMap({ graph, route, baseline, comparisonDelta, representativeRoutes, activity = [], showActivity = false, selectedActivityRouteId, lens, overlays, shadeSegments, greenerySegments, ambientGreenery, coverSegments, ambientCover, coverContext, floodContext, accessContext, coolOptions, selection, assets, prominentAssetIds, selectedAssetId, onMapClick, onAssetClick, tasks, selectedTaskId, completedTaskIds, onTaskClick, onActivityRouteClick }: {
+export function FallbackMap({ graph, route, setupEndpoints, baseline, comparisonDelta, representativeRoutes, activity = [], showActivity = false, selectedActivityRouteId, lens, overlays, shadeSegments, greenerySegments, ambientGreenery, coverSegments, ambientCover, coverContext, floodContext, accessContext, coolOptions, selection, assets, prominentAssetIds, selectedAssetId, onMapClick, onAssetClick, tasks, selectedTaskId, completedTaskIds, onTaskClick, onActivityRouteClick }: {
   graph: PilotGraph;
   route: JourneyRoute | null;
+  setupEndpoints?: EndpointFeatureCollection;
   baseline?: JourneyRoute | null;
   comparisonDelta?: LineCollection;
   representativeRoutes?: LineCollection;
@@ -80,7 +81,11 @@ export function FallbackMap({ graph, route, baseline, comparisonDelta, represent
   onActivityRouteClick?: (routeId: string) => void;
 }) {
   const activityCoordinates = showActivity ? activity.flatMap((item) => item.coordinates) : [];
+  const setupEndpointCoordinates = !route && !showActivity
+    ? setupEndpoints?.features.map((feature) => feature.geometry.coordinates) ?? []
+    : [];
   const bbox = fallbackMapBounds(graph, showActivity ? null : route, [
+    ...(setupEndpointCoordinates.length > 1 ? setupEndpointCoordinates : []),
     ...(showActivity ? [] : representativeRoutes?.features.flatMap((feature) => feature.geometry.coordinates) ?? []),
     ...activityCoordinates,
   ]);
@@ -187,6 +192,17 @@ export function FallbackMap({ graph, route, baseline, comparisonDelta, represent
         </g>;
       })}</g>}
       {!showActivity && route && <g className="fallback-route" filter="url(#route-shadow)"><polyline className="route-casing" points={points(route.coordinates)} /><polyline className="route-line" points={points(route.coordinates)} /></g>}
+
+      {!showActivity && !route && setupEndpoints && <g className="fallback-setup-endpoints" aria-label="Selected route endpoints">{setupEndpoints.features.map((feature) => {
+        const kind = feature.properties.kind;
+        const [x, y] = point(feature.geometry.coordinates);
+        const label = kind === "origin" ? "F" : "T";
+        return <g key={kind} className={`fallback-setup-endpoint fallback-setup-endpoint-${kind} ${feature.properties.active ? "is-active" : ""}`} transform={`translate(${x} ${y})`} aria-label={kind === "origin" ? "From marker" : "To marker"}>
+          <path className="fallback-setup-pin-shape" d="M0 0C-5-7-13-14-13-24a13 13 0 1 1 26 0C13-14 5-7 0 0Z" />
+          <circle cx="0" cy="-24" r="7" />
+          <text x="0" y="-21.5" textAnchor="middle">{label}</text>
+        </g>;
+      })}</g>}
 
       {!showActivity && <g className="fallback-assets">{visibleAssets.map((asset) => {
         const [x, y] = point(asset.coordinate as Coordinate);

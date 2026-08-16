@@ -97,6 +97,19 @@ main { position: relative; width: 100vw; height: 100dvh; overflow: hidden; backg
 .fallback-tasks .task-focus-ring { fill: rgba(249,221,214,.78); stroke: #c65343; stroke-width: 5; filter: drop-shadow(0 3px 6px rgba(87,38,31,.25)); }
 .fallback-tasks .task-focus-label { fill: #8f3e33; stroke: #fffdf8; stroke-width: 4; paint-order: stroke fill; font-size: 12px; font-weight: 800; letter-spacing: .5px; text-transform: uppercase; pointer-events: none; }
 .fallback-tasks .completed { color: var(--moss); }
+.fallback-setup-endpoints { pointer-events: none; }
+.fallback-setup-endpoint { transition: filter .16s ease; }
+.fallback-setup-pin-shape { fill: var(--paper); stroke: var(--ink); stroke-width: 3; filter: drop-shadow(0 3px 3px rgba(30,42,36,.24)); transition: fill .16s ease, stroke .16s ease, stroke-width .16s ease; }
+.fallback-setup-endpoint circle { fill: var(--ink); }
+.fallback-setup-endpoint text { fill: var(--paper); font: 800 9px "DM Sans", sans-serif; }
+.fallback-setup-endpoint-destination .fallback-setup-pin-shape { fill: var(--ink); }
+.fallback-setup-endpoint-destination circle { fill: var(--paper); }
+.fallback-setup-endpoint-destination text { fill: var(--ink); }
+.fallback-setup-endpoint.is-active .fallback-setup-pin-shape,
+main:has(.location-input-origin:hover) .fallback-setup-endpoint-origin .fallback-setup-pin-shape,
+main:has(.location-input-origin:focus-within) .fallback-setup-endpoint-origin .fallback-setup-pin-shape,
+main:has(.location-input-destination:hover) .fallback-setup-endpoint-destination .fallback-setup-pin-shape,
+main:has(.location-input-destination:focus-within) .fallback-setup-endpoint-destination .fallback-setup-pin-shape { stroke: var(--coral); stroke-width: 5; }
 .fallback-endpoints circle { fill: #fffdf8; stroke: var(--ink); stroke-width: 4; }
 .fallback-endpoints rect { fill: var(--ink); stroke: #fff; stroke-width: 3; }
 .fallback-map-note { position: absolute; right: 18px; top: 68px; padding: 6px 9px; border: 1px solid rgba(211,214,208,.9); border-radius: 5px; background: rgba(255,254,250,.94); color: #6c756f; font-size: 9px; font-weight: 600; }
@@ -203,6 +216,17 @@ main { position: relative; width: 100vw; height: 100dvh; overflow: hidden; backg
 .location-suggestions button small { color: #7f8881; font-size: 9px; }
 .location-suggestion-status { padding: 12px; color: #778078; font-size: 10px; }
 .map-picking .maplibregl-canvas, .map-picking .fallback-map svg { cursor: crosshair; }
+.setup-endpoint-pin { width: 42px; height: 48px; pointer-events: none; }
+.setup-endpoint-pin-body { position: absolute; top: 4px; left: 8px; width: 26px; height: 26px; display: block; box-sizing: border-box; border: 3px solid var(--ink); border-radius: 50% 50% 50% 0; background: var(--paper); box-shadow: -2px 3px 7px rgba(30,42,36,.25); transform: rotate(-45deg); transition: background .16s ease, border-color .16s ease, box-shadow .16s ease, transform .16s ease; }
+.setup-endpoint-pin-body b { width: 100%; height: 100%; display: grid; place-items: center; color: var(--ink); font-size: 9px; line-height: 1; transform: rotate(45deg); }
+.setup-endpoint-pin-destination .setup-endpoint-pin-body { border-color: var(--paper); background: var(--ink); box-shadow: 0 0 0 2px var(--ink), -2px 3px 7px rgba(30,42,36,.3); }
+.setup-endpoint-pin-destination .setup-endpoint-pin-body b { color: var(--paper); }
+.setup-endpoint-pin.is-active { z-index: 4 !important; }
+.setup-endpoint-pin.is-active .setup-endpoint-pin-body,
+main:has(.location-input-origin:hover) .setup-endpoint-pin-origin .setup-endpoint-pin-body,
+main:has(.location-input-origin:focus-within) .setup-endpoint-pin-origin .setup-endpoint-pin-body,
+main:has(.location-input-destination:hover) .setup-endpoint-pin-destination .setup-endpoint-pin-body,
+main:has(.location-input-destination:focus-within) .setup-endpoint-pin-destination .setup-endpoint-pin-body { border-color: var(--coral); box-shadow: 0 0 0 4px rgba(240,90,71,.2), -2px 4px 10px rgba(30,42,36,.3); transform: rotate(-45deg) scale(1.14); }
 
 .prompt-box { display: grid; grid-template-columns: 22px minmax(0,1fr); gap: 9px; align-items: start; margin-top: 10px; padding: 13px 14px; border: 1px solid #aeb4ad; border-radius: 9px; background: white; box-shadow: 0 1px 0 rgba(255,255,255,.6); }
 .prompt-box:focus-within { border-color: var(--indigo); box-shadow: 0 0 0 3px rgba(100,120,184,.13); }

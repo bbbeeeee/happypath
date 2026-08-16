@@ -320,6 +320,14 @@ function routeHandleElement(kind: "origin" | "destination" | "waypoint") {
   return element;
 }
 
+function setupEndpointPinElement(kind: EndpointKind) {
+  const element = document.createElement("div");
+  element.className = `setup-endpoint-pin setup-endpoint-pin-${kind}`;
+  element.setAttribute("aria-hidden", "true");
+  element.innerHTML = `<span class="setup-endpoint-pin-body"><b>${kind === "origin" ? "F" : "T"}</b></span>`;
+  return element;
+}
+
 function routePriorityKinds(priorities: RoutePriority[]) {
   const kinds: CivicAssetKind[] = [];
   if (priorities.includes("rest")) kinds.push("seating");
@@ -567,7 +575,7 @@ function LocationCombobox({ id, label, ariaLabel, kind, value, placeholder, disa
     void onSelect(suggestion);
   };
 
-  return <div className={`location-input ${mapSelectionActive ? "map-selection-active" : ""}`} onBlur={(event) => {
+  return <div className={`location-input location-input-${kind} ${mapSelectionActive ? "map-selection-active" : ""}`} onBlur={(event) => {
     if (!event.currentTarget.contains(event.relatedTarget)) setFocused(false);
   }}>
     <span className={`location-dot ${kind}-dot`} />
@@ -1131,6 +1139,8 @@ function MapLensControl({ overlays, onToggle, hour, onHourChange, weather, plann
 export function App() {
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
+  const composeOriginMarkerRef = useRef<maplibregl.Marker | null>(null);
+  const composeDestinationMarkerRef = useRef<maplibregl.Marker | null>(null);
   const originMarkerRef = useRef<maplibregl.Marker | null>(null);
   const destinationMarkerRef = useRef<maplibregl.Marker | null>(null);
   const waypointMarkerRef = useRef<maplibregl.Marker | null>(null);
@@ -1147,10 +1157,19 @@ export function App() {
   const [destinationNodeId, setDestinationNodeId] = useState(defaultDestination);
   const [originText, setOriginText] = useState(endpointName(defaultOrigin));
   const [destinationText, setDestinationText] = useState("");
+  const [composeEndpointCoordinates, setComposeEndpointCoordinates] = useState<Record<EndpointKind, Coordinate | null>>(() => ({
+    origin: graphNodeById(defaultOrigin)?.coordinate ?? null,
+    destination: null,
+  }));
   const selectedEndpointRef = useRef<Record<EndpointKind, { nodeId: string; text: string } | null>>({ origin: null, destination: null });
   const endpointEditVersionRef = useRef<Record<EndpointKind, number>>({ origin: 0, destination: 0 });
   const [mapEndpointSelection, setMapEndpointSelection] = useState<"origin" | "destination" | null>(null);
   mapEndpointSelectionRef.current = mapEndpointSelection;
+  const setupEndpointPresentation = useMemo(() => endpointsGeoJSON(null, {
+    origin: composeEndpointCoordinates.origin,
+    destination: composeEndpointCoordinates.destination,
+    active: mapEndpointSelection,
+  }), [composeEndpointCoordinates, mapEndpointSelection]);
   const [result, setResult] = useState<PlannedJourneyResult | null>(null);
   const [route, setRoute] = useState<JourneyRoute | null>(null);
   const [routeActivity, setRouteActivity] = useState<RouteActivityLog[]>(() => loadRouteActivity());
@@ -1355,6 +1374,7 @@ export function App() {
   function changeEndpointText(kind: EndpointKind, value: string) {
     endpointEditVersionRef.current[kind] += 1;
     selectedEndpointRef.current[kind] = null;
+    setComposeEndpointCoordinates((current) => ({ ...current, [kind]: null }));
     if (kind === "origin") setOriginText(value);
     else setDestinationText(value);
   }
@@ -1374,6 +1394,7 @@ export function App() {
       const node = nearestGraphNodeWithin(suggestion.coordinate);
       if (!node) throw new Error("That location is inside the preview area, but it is not close enough to the checked walking network yet.");
       selectedEndpointRef.current[kind] = { nodeId: node.id, text: suggestion.label.trim() };
+      setComposeEndpointCoordinates((current) => ({ ...current, [kind]: node.coordinate }));
       if (kind === "origin") setOriginNodeId(node.id);
       else {
         setDestinationNodeId(node.id);
@@ -1401,6 +1422,7 @@ export function App() {
   async function selectEndpointFromMap(kind: "origin" | "destination", coordinate: Coordinate) {
     endpointEditVersionRef.current[kind] += 1;
     selectedEndpointRef.current[kind] = null;
+    setComposeEndpointCoordinates((current) => ({ ...current, [kind]: null }));
     setMapEndpointSelection(null);
     setError("");
     setDetail(null);
@@ -1419,6 +1441,7 @@ export function App() {
       if (!node) throw new Error("Choose a place a little closer to a mapped walking street.");
       const label = endpointName(node.id);
       selectedEndpointRef.current[kind] = { nodeId: node.id, text: label };
+      setComposeEndpointCoordinates((current) => ({ ...current, [kind]: node.coordinate }));
       if (kind === "origin") {
         setOriginNodeId(node.id);
         setOriginText(label);
@@ -1479,6 +1502,10 @@ export function App() {
     }).route;
     setOriginNodeId(resolvedOrigin);
     setDestinationNodeId(resolvedDestination);
+    setComposeEndpointCoordinates({
+      origin: graphNodeById(resolvedOrigin)?.coordinate ?? null,
+      destination: plannedBrief.shape === "destination" ? graphNodeById(resolvedDestination)?.coordinate ?? null : null,
+    });
     setBrief(plannedBrief);
     const selectedResult = resultWithSelectedRoute(nextResult, nextRoute);
     setResult(selectedResult);
@@ -1557,12 +1584,14 @@ export function App() {
         selectedEndpointRef.current.origin = null;
         setOriginNodeId(origin.id);
         setOriginText(endpointName(origin.id));
+        setComposeEndpointCoordinates((current) => ({ ...current, origin: origin.coordinate }));
       }
       if (!preserveDestination) {
         endpointEditVersionRef.current.destination += 1;
         selectedEndpointRef.current.destination = null;
         setDestinationNodeId(destination?.id ?? defaultDestination);
         setDestinationText(destination ? endpointName(destination.id) : "");
+        setComposeEndpointCoordinates((current) => ({ ...current, destination: destination?.coordinate ?? null }));
       }
       setPrompt(examplePromptForSelectedDestination(example, preserveDestination ? destinationText : ""));
       setBrief({ ...DEFAULT_BRIEF, priorities: [], departureHour: brief.departureHour });
@@ -1597,6 +1626,7 @@ export function App() {
     endpointEditVersionRef.current.destination += 1;
     selectedEndpointRef.current.destination = null;
     setDestinationText("");
+    setComposeEndpointCoordinates((current) => ({ ...current, destination: null }));
     setMapEndpointSelection(null);
     setRoute(null);
     setResult(null);
@@ -1685,6 +1715,7 @@ export function App() {
     endpointEditVersionRef.current[kind] += 1;
     const endpointLabel = endpointName(node.id);
     selectedEndpointRef.current[kind] = { nodeId: node.id, text: endpointLabel };
+    setComposeEndpointCoordinates((current) => ({ ...current, [kind]: node.coordinate }));
     if (kind === "origin") {
       setOriginNodeId(node.id);
       setOriginText(endpointLabel);
@@ -2147,6 +2178,42 @@ export function App() {
 
   useEffect(() => {
     const map = mapRef.current;
+    const removeComposeMarkers = () => {
+      composeOriginMarkerRef.current?.remove();
+      composeDestinationMarkerRef.current?.remove();
+      composeOriginMarkerRef.current = null;
+      composeDestinationMarkerRef.current = null;
+    };
+    if (!mapReady || !map || route || appMode !== "walk") {
+      removeComposeMarkers();
+      return;
+    }
+
+    const syncPin = (
+      kind: EndpointKind,
+      coordinate: Coordinate | null,
+      ref: typeof composeOriginMarkerRef,
+    ) => {
+      if (!coordinate) {
+        ref.current?.remove();
+        ref.current = null;
+        return;
+      }
+      if (!ref.current) {
+        ref.current = new maplibregl.Marker({ element: setupEndpointPinElement(kind), anchor: "bottom" })
+          .setLngLat(coordinate)
+          .addTo(map);
+      }
+      ref.current.setLngLat(coordinate);
+      ref.current.getElement().classList.toggle("is-active", mapEndpointSelection === kind);
+    };
+
+    syncPin("origin", composeEndpointCoordinates.origin, composeOriginMarkerRef);
+    syncPin("destination", composeEndpointCoordinates.destination, composeDestinationMarkerRef);
+  }, [appMode, composeEndpointCoordinates, mapEndpointSelection, mapReady, route]);
+
+  useEffect(() => {
+    const map = mapRef.current;
     if (!mapReady || !map || !route || route.coordinates.length === 0) {
       originMarkerRef.current?.remove();
       destinationMarkerRef.current?.remove();
@@ -2219,7 +2286,7 @@ export function App() {
     (map.getSource("planner-selection") as GeoJSONSource | undefined)?.setData(appMode === "planner" ? representativeGap : plannerScenario?.selection.geojson ?? { type: "FeatureCollection", features: [] });
     (map.getSource("representative-routes") as GeoJSONSource | undefined)?.setData(representativeRoutes);
     (map.getSource("route-activity") as GeoJSONSource | undefined)?.setData(activityMapData);
-    (map.getSource("endpoints") as GeoJSONSource | undefined)?.setData(endpointsGeoJSON(route));
+    (map.getSource("endpoints") as GeoJSONSource | undefined)?.setData(route ? endpointsGeoJSON(route) : setupEndpointPresentation);
     (map.getSource("assets") as GeoJSONSource | undefined)?.setData(assetsGeoJSON(activeAssets, activeAsset?.id));
     (map.getSource("overview-assets") as GeoJSONSource | undefined)?.setData(overviewAssets);
     (map.getSource("civic-tasks") as GeoJSONSource | undefined)?.setData(taskFeatures);
@@ -2265,7 +2332,7 @@ export function App() {
     const showCivicTasks = civicTaskLayerVisible(mapOverlays.tasks, activeTask?.id);
     ["civic-task-halo", "civic-task-hit", "civic-task-icons"].forEach((layer) => visibility(layer, showCivicTasks));
     visibility("civic-task-focus-label", Boolean(activeTask));
-  }, [route, result, showBaseline, comparisonDelta, representativeGap, representativeRoutes, showRepresentativeIntervention, activityMapData, plannerView, activeAssets, activeAsset?.id, activeTask?.id, overviewAssets, taskFeatures, shadeSegments, ambientGreeneryLayer, greeneryRouteSegments, ambientCoverLayer, coverRouteSegments, coverContextLayer, coverContextVicinities, floodContextLayer, accessContextLayer, coolOptionsLayer, plannerScenario, mapLens, mapOverlays, appMode, mapReady]);
+  }, [route, result, showBaseline, comparisonDelta, representativeGap, representativeRoutes, showRepresentativeIntervention, activityMapData, plannerView, activeAssets, activeAsset?.id, activeTask?.id, overviewAssets, taskFeatures, shadeSegments, ambientGreeneryLayer, greeneryRouteSegments, ambientCoverLayer, coverRouteSegments, coverContextLayer, coverContextVicinities, floodContextLayer, accessContextLayer, coolOptionsLayer, plannerScenario, mapLens, mapOverlays, appMode, mapReady, setupEndpointPresentation]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -2445,7 +2512,7 @@ export function App() {
   };
 
   return <main className={`${route ? "has-result" : "is-compose"} mode-${appMode} ${mapEndpointSelection ? "map-picking" : ""}`}>
-    <div className="map-shell"><div className="map" ref={mapContainer} /><div className="map-wash" />{mapError && <FallbackMap graph={pilotGraph} route={route} baseline={showBaseline ? result?.baseline ?? null : null} comparisonDelta={comparisonDelta} representativeRoutes={representativeRoutes} activity={routeActivity} showActivity={appMode === "planner" && plannerView !== "what_if"} selectedActivityRouteId={selectedActivityRouteId} onActivityRouteClick={selectActivityRoute} lens={mapLens} overlays={mapOverlays} shadeSegments={shadeSegments} greenerySegments={greeneryRouteSegments} ambientGreenery={ambientGreeneryLayer} coverSegments={coverRouteSegments} ambientCover={ambientCoverLayer} coverContext={coverContextLayer} floodContext={floodContextLayer} accessContext={accessContextLayer} coolOptions={coolOptionsLayer} selection={appMode === "planner" ? representativeGap : null} assets={viewportAssets} prominentAssetIds={activeAssets.map((asset) => asset.id)} selectedAssetId={activeAsset?.id} onMapClick={mapEndpointSelection && !route && appMode === "walk" ? (coordinate) => void selectEndpointFromMap(mapEndpointSelection, coordinate) : undefined} onAssetClick={(asset) => { setActiveTask(null); setActiveTaskPoint(null); setActiveFlood(null); setActiveFloodPoint(null); setActiveAsset(asset); setActiveAssetPoint({ x: Math.round(window.innerWidth * .68), y: 160 }); }} tasks={visibleTasks} selectedTaskId={activeTask?.id} completedTaskIds={Object.keys(taskObservations)} onTaskClick={(task) => { setActiveAsset(null); setActiveAssetPoint(null); setActiveFlood(null); setActiveFloodPoint(null); setActiveTask(task); setActiveTaskPoint({ x: Math.round(window.innerWidth * .68), y: 160 }); }} />}</div>
+    <div className="map-shell"><div className="map" ref={mapContainer} /><div className="map-wash" />{mapError && <FallbackMap graph={pilotGraph} route={route} setupEndpoints={route ? undefined : setupEndpointPresentation} baseline={showBaseline ? result?.baseline ?? null : null} comparisonDelta={comparisonDelta} representativeRoutes={representativeRoutes} activity={routeActivity} showActivity={appMode === "planner" && plannerView !== "what_if"} selectedActivityRouteId={selectedActivityRouteId} onActivityRouteClick={selectActivityRoute} lens={mapLens} overlays={mapOverlays} shadeSegments={shadeSegments} greenerySegments={greeneryRouteSegments} ambientGreenery={ambientGreeneryLayer} coverSegments={coverRouteSegments} ambientCover={ambientCoverLayer} coverContext={coverContextLayer} floodContext={floodContextLayer} accessContext={accessContextLayer} coolOptions={coolOptionsLayer} selection={appMode === "planner" ? representativeGap : null} assets={viewportAssets} prominentAssetIds={activeAssets.map((asset) => asset.id)} selectedAssetId={activeAsset?.id} onMapClick={mapEndpointSelection && !route && appMode === "walk" ? (coordinate) => void selectEndpointFromMap(mapEndpointSelection, coordinate) : undefined} onAssetClick={(asset) => { setActiveTask(null); setActiveTaskPoint(null); setActiveFlood(null); setActiveFloodPoint(null); setActiveAsset(asset); setActiveAssetPoint({ x: Math.round(window.innerWidth * .68), y: 160 }); }} tasks={visibleTasks} selectedTaskId={activeTask?.id} completedTaskIds={Object.keys(taskObservations)} onTaskClick={(task) => { setActiveAsset(null); setActiveAssetPoint(null); setActiveFlood(null); setActiveFloodPoint(null); setActiveTask(task); setActiveTaskPoint({ x: Math.round(window.innerWidth * .68), y: 160 }); }} />}</div>
     <div className="top-bar"><div className="brand-cluster"><Brand /><PreferencesPopover preferences={preferences} onSave={savePreferences} onReset={resetPreferences} appliesNow={!route} /><div className="mode-switch" aria-label="Product view"><button type="button" className={appMode === "walk" ? "active" : ""} aria-pressed={appMode === "walk"} onClick={() => switchMode("walk")}>Walk</button><button type="button" className={appMode === "planner" ? "active" : ""} aria-pressed={appMode === "planner"} onClick={() => switchMode("planner")}>City view</button></div><a className="data-sources-nav-link" href="/datasources"><LayersIcon /><span>Data</span></a></div><div className="map-actions">{!mapError && <IconButton label="Center map" onClick={() => mapRef.current?.easeTo({ center: graphNodeById(originNodeId)?.coordinate, zoom: 14.5 })}><LocateIcon /></IconButton>}{route && appMode === "walk" && <IconButton label="Map details" onClick={() => { setActiveAsset(null); setActiveAssetPoint(null); setActiveTask(null); setActiveTaskPoint(null); setDetail("data"); }}><LayersIcon /></IconButton>}</div></div>
     {appMode === "planner"
       ? <RepresentativePlannerSheet scenario={representativeScenario} showIntervention={showRepresentativeIntervention} onShowIntervention={() => setShowRepresentativeIntervention(true)} onBack={() => switchMode("walk")} activity={routeActivity} activityPersisted={activityPersisted} view={plannerView} onViewChange={setPlannerView} selectedActivityRouteId={selectedActivityRouteId} onSelectActivityRoute={selectActivityRoute} onClearActivity={clearLocalRouteActivity} />

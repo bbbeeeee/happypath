@@ -46,6 +46,47 @@ describe("route presentation GeoJSON", () => {
     expect(routeGeoJSON().geometry.coordinates).toEqual([]);
   });
 
+  it("emits resolved setup endpoints before a route exists", () => {
+    const presentation = endpointsGeoJSON(null, {
+      origin: [-74, 40.73],
+      destination: [-73.99, 40.74],
+    });
+
+    expect(presentation.features.map((feature) => feature.properties)).toEqual([
+      { kind: "origin", active: false },
+      { kind: "destination", active: false },
+    ]);
+    expect(presentation.features.map((feature) => feature.geometry.coordinates)).toEqual([
+      [-74, 40.73],
+      [-73.99, 40.74],
+    ]);
+  });
+
+  it("omits an unresolved destination and marks only the active setup endpoint", () => {
+    const presentation = endpointsGeoJSON(null, {
+      origin: [-74, 40.73],
+      destination: null,
+      active: "origin",
+    });
+
+    expect(presentation.features).toHaveLength(1);
+    expect(presentation.features[0].properties).toEqual({ kind: "origin", active: true });
+  });
+
+  it("keeps route geometry authoritative after planning", () => {
+    const presentation = endpointsGeoJSON(route("destination"), {
+      origin: [-73.95, 40.78],
+      destination: [-73.94, 40.79],
+      active: "origin",
+    });
+
+    expect(presentation.features.map((feature) => feature.geometry.coordinates)).toEqual([
+      [-74, 40.73],
+      [-73.998, 40.732],
+    ]);
+    expect(presentation.features.every((feature) => !feature.properties.active)).toBe(true);
+  });
+
   it("uses one start-finish marker for a loop", () => {
     const presentation = endpointsGeoJSON(route("loop"));
     expect(presentation.features).toHaveLength(1);

@@ -1,7 +1,13 @@
 import type { CivicAsset, CivicAssetKind } from "./data/civicAssets";
 import type { CivicTask, CivicTaskAction } from "./data/civicTasks";
 import type { CoverContextKind } from "./coverEvidence";
-import type { JourneyRoute } from "./types";
+import type { Coordinate, JourneyRoute } from "./types";
+
+export interface SetupEndpoints {
+  origin: Coordinate | null;
+  destination?: Coordinate | null;
+  active?: "origin" | "destination" | null;
+}
 
 export function routeGeoJSON(route?: JourneyRoute | null) {
   return {
@@ -14,10 +20,18 @@ export function routeGeoJSON(route?: JourneyRoute | null) {
   };
 }
 
-export function endpointsGeoJSON(route?: JourneyRoute | null) {
+export function endpointsGeoJSON(route?: JourneyRoute | null, setup?: SetupEndpoints) {
   const coordinates = route?.coordinates ?? [];
   if (!route || coordinates.length === 0) {
-    return { type: "FeatureCollection" as const, features: [] };
+    const features = ([
+      ["origin", setup?.origin],
+      ["destination", setup?.destination],
+    ] as const).flatMap(([kind, coordinate]) => coordinate ? [{
+      type: "Feature" as const,
+      properties: { kind, active: setup?.active === kind },
+      geometry: { type: "Point" as const, coordinates: [...coordinate] as Coordinate },
+    }] : []);
+    return { type: "FeatureCollection" as const, features };
   }
 
   if (route.journeyShape === "loop") {
@@ -25,7 +39,7 @@ export function endpointsGeoJSON(route?: JourneyRoute | null) {
       type: "FeatureCollection" as const,
       features: [{
         type: "Feature" as const,
-        properties: { kind: "start_finish" as const },
+        properties: { kind: "start_finish" as const, active: false },
         geometry: { type: "Point" as const, coordinates: coordinates[0] },
       }],
     };
@@ -40,17 +54,19 @@ export function endpointsGeoJSON(route?: JourneyRoute | null) {
     features: [
       {
         type: "Feature" as const,
-        properties: { kind: "origin" as const },
+        properties: { kind: "origin" as const, active: false },
         geometry: { type: "Point" as const, coordinates: coordinates[0] },
       },
       {
         type: "Feature" as const,
-        properties: { kind: "destination" as const },
+        properties: { kind: "destination" as const, active: false },
         geometry: { type: "Point" as const, coordinates: coordinates.at(-1)! },
       },
     ],
   };
 }
+
+export type EndpointFeatureCollection = ReturnType<typeof endpointsGeoJSON>;
 
 export function assetsGeoJSON(assets: readonly CivicAsset[], selectedAssetId?: string | null) {
   return {
