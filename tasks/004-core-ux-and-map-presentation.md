@@ -13,7 +13,7 @@ last_updated: 2026-08-15
 
 ## Outcome
 
-Happy Path feels like a polished, friendly, intelligent consumer map. A user can describe a destination, loop, or wander; check what the product understood; receive one considered walk; understand why it fits; and refine it naturally.
+Footnote feels like a polished, friendly, intelligent consumer map. A user can describe a destination, loop, or wander; check what the product understood; receive one considered walk; understand why it fits; and refine it naturally.
 
 ## Why this package exists
 
@@ -50,7 +50,7 @@ The demo must feel real and magical, not like a technical proof. The interface h
 
 ### Route result
 
-- [ ] `004-E` — Implement one visually dominant Happy Path and an optional subdued baseline.
+- [ ] `004-E` — Implement one visually dominant Footnote and an optional subdued baseline.
 - [ ] `004-F` — Implement friendly Route Receipt language emphasizing human benefit and tradeoff.
 - [ ] `004-G` — Implement **Why this way?** segment and claim inspection.
 - [ ] `004-H` — Implement natural-language refinement and a clear route-change summary.

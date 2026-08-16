@@ -1,32 +1,69 @@
-# Happy Path
+# Footnote P1 MVP
 
-Happy Path helps people care about the journey, not only the destination.
+Footnote turns one plain-language request into a visible Trip Brief, one considered walk, and an evidence-backed route receipt. This branch is a fresh P1 implementation based on the current product documents; the earlier prototype was used only as a source of useful fixtures and technical lessons.
 
-A person says where and/or how they want to walk. Happy Path brings together NYC public data, computes a practical route or walk, and explains—in clear, friendly language—why that way fits the moment.
+The current preview supports:
 
-The product should feel simple and almost magical even though the work underneath is complex:
+- destination walks with a 0, 5, or 10 minute detour allowance;
+- time-boxed loops and directional wandering, including ending near mapped transit;
+- distance-shaped walk and run requests from 0.25 to 5 miles, without claiming a running pace;
+- time-aware building shade, mapped greenery, mapped steps, seating, restrooms, drinking fountains, and subway entrances;
+- a rain preference based only on sparse explicit mapped covered-way geometry, with permits and nearby records kept as context;
+- optional, partner-authored city-data checks that a resident can route toward, verify, or photograph locally without changing official data;
+- an editable Trip Brief, deterministic routing, baseline comparison, and natural-language refinement;
+- one explicitly hypothetical Detour shade-planning scenario using the same route evidence;
+- deterministic prompt interpretation by default, with optional OpenRouter interpretation behind a server-only API boundary.
 
-> **Say what you want → see what Happy Path understood → get a considered walk → adjust it naturally.**
+## Run locally
 
-The same city model also powers **Detour**, a planning extension for identifying where missing shade, access, amenities, or infrastructure make everyday journeys harder.
+```bash
+npm install
+npm run dev -- --host 127.0.0.1
+```
 
-## Start here
+Open `http://127.0.0.1:5173/`. No API key is required: the built-in interpreter covers the supported demo requests.
 
-- [Product requirements](docs/PRD.md)
-- [Core experience, map UX, and product language](docs/UX.md)
-- [Data and inference specification](docs/data-and-inference.md)
-- [Detour planning extension](docs/DETOUR.md)
-- [Build plan and dependencies](docs/BUILD.md)
-- [Prototype inventory](docs/PROTOTYPES.md)
-- [Project task board](tasks/README.md)
+For optional model interpretation, copy `.env.example` to `.env.local` and set:
 
-## Current direction
+```dotenv
+OPENROUTER_API_KEY=your_key_here
+OPENROUTER_MODEL=openai/gpt-5.6-luna
+```
 
-- **Geography:** Manhattan from the Battery through Midtown, approximately south of Central Park
-- **Journey types:** destination routes, time-boxed loops, and directional wandering
-- **Hero proof:** time-aware shade using NYC building geometry and solar position
-- **City layers:** greenery, sidewalk sheds and construction, mapped steps, elevation, seating, restrooms, water, public spaces, transit, and other validated data
-- **Experience:** one friendly request → an easy-to-check interpretation → one clear route → useful reasons → natural refinement
-- **Planning connection:** one Detour proof using the same data and route features
+The key is read only by the local Vite middleware and is never exposed through a `VITE_` browser variable. Model output may interpret the request into a typed brief, but it cannot create route facts; routing and receipts remain deterministic.
 
-This work establishes the product requirements and execution plan. Future implementation should build from these docs and may choose whatever technical and development workflow best satisfies them; no existing prototype branch or architecture is prescribed.
+## Verify
+
+```bash
+npm test
+npm run build
+npm run deploy:check
+```
+
+## Deploy the preview
+
+The production build includes a small Node server for the static app, same-origin model endpoints, health checks, caching, request limits, and graceful shutdown:
+
+```bash
+npm ci
+npm run deploy:package
+HOST=127.0.0.1 PORT=3000 npm start
+```
+
+The portable archive is written to `release/` and does not need `node_modules` at runtime. See [single-VM deployment](docs/DEPLOYMENT.md) for the environment contract, systemd service, HTTPS proxy, health checks, updates, rollback, and preview security boundary. No external environment is changed by these commands.
+
+## Refresh data
+
+The checked-in pilot snapshots make normal local development network-independent. Refresh commands intentionally contact upstream public-data services:
+
+```bash
+npm run data:refresh
+```
+
+The combined refresh runs the graph, buildings, greenery, shade, civic-asset, and cover-evidence generators in dependency order. The individual `data:*` commands remain available when only one checked-in snapshot needs to be rebuilt.
+
+## Scope
+
+The checked-in preview supports Manhattan from the Battery through 60th Street. A shared Manhattan polygon clips graph and evidence generation away from nearby boroughs, while six lazy routing/evidence partitions and smaller hourly shade tiles keep the expanded area within the preview payload budgets. Amenity inventory records do not prove current operation, mapped steps do not constitute an accessibility guarantee, and shade is a modeled estimate rather than measured temperature. Explicit mapped-cover geometry is route-affecting only where the graph has exact evidence; shed permits, POPS arcades, and construction records are context and do not prove a dry, present, passable, or covered path.
+
+See [P1 implementation status](docs/P1_IMPLEMENTATION_STATUS.md) for verified coverage, payloads, and remaining gates; [Product and demo audit](docs/PRODUCT_DEMO_AUDIT.md) for the cohesion diagnosis and next roadmap; [Civic data checks](docs/CIVIC_DATA_CHECKS.md) for the contribution and layer-extension contract; and [Deployment](docs/DEPLOYMENT.md) for the release runbook. The product authority remains [PRD](docs/PRD.md), [UX](docs/UX.md), [data and inference](docs/data-and-inference.md), and [Detour](docs/DETOUR.md).

@@ -1,18 +1,20 @@
-# Happy Path — Data and Inference Specification
+# Footnote — Data and Inference Specification
 
-> Companion to the [Happy Path PRD](PRD.md). The PRD owns product scope; this document owns source, feature, evidence, inference, validation, and data-delivery contracts.
+> Companion to the [Footnote PRD](PRD.md). The PRD owns product scope; this document owns source, feature, evidence, inference, validation, and data-delivery contracts.
 
 | Field | Decision |
 | --- | --- |
-| Supported geography | Manhattan from the Battery through Midtown, approximately south of Central Park |
+| Current preview geography | Lower Manhattan: `40.726,-74.006,40.736,-73.988` |
+| P1 target geography | Manhattan from the Battery through Midtown, approximately south of Central Park |
 | P1 journey shapes | Destination, loop, and wander |
+| Request targets | Walk or run framing; time or 0.25–5 mile distance for loop/wander |
 | First quantitative proof | Time-aware estimated direct-sun exposure |
 | Data strategy | Broad layer registry; route only on validated evidence |
 | Experience strategy | Clean and curate data so the product feels simple and fast |
 | Inference strategy | Interpret, select, and explain; never invent route or city facts |
 | Planning extension | Detour reuses the same graph, layers, metrics, and evidence |
 | Live-data direction | Add weather, alerts, and verified observations through the same layer contract |
-| Last updated | 2026-08-15 |
+| Last updated | 2026-08-16 |
 
 ## 1. Purpose
 
@@ -26,7 +28,7 @@ This document defines:
 6. how data is cleaned and packaged for a polished mobile demo;
 7. how future live inputs can enrich the product without redesigning it.
 
-The goal is not to expose every dataset as a filter. Happy Path should intelligently assemble the small set of evidence that matters for the current walk while maintaining a much broader city model underneath.
+The goal is not to expose every dataset as a filter. Footnote should intelligently assemble the small set of evidence that matters for the current walk while maintaining a much broader city model underneath.
 
 ## 2. Core rule
 
@@ -92,6 +94,22 @@ A source or derived layer advances through explicit states.
 
 A layer may have several capabilities. Sidewalk sheds, for example, may be visualizable and Detour-ready before their exact pedestrian effect is reliable enough for routing.
 
+### Current preview capability snapshot
+
+This table records runtime behavior, not the broader target registry. The implementation currently uses some layers whose registry validation remains `pending`; task 018 must reconcile those states so **used by routing** and **formally promoted to routing-ready** cannot disagree.
+
+| Layer | Current use | Capability boundary | Remaining gate |
+| --- | --- | --- | --- |
+| OpenStreetMap pedestrian graph | Route geometry, time, distance, loops, wanders, and mapped-step exclusion | Route-affecting | Broader topology and manual street review |
+| Building footprints + solar model | Time-aware shade ranking and receipt metrics | Route-affecting derived estimate | More field/visual shadow validation and wider geography |
+| Trees + parks | Greenery ranking and context | Route-affecting with bounded claim | Coverage calibration; tree points do not prove canopy or current shade |
+| Seating, restrooms, fountains, subway entrances | Waypoints, nearby assets, and endpoint candidates | Route-affecting inventory; current operation unknown | Network reach, hours, and manual operational checks |
+| Explicit OSM covered ways/building passages | Rain preference and mapped-cover meters | Experimental route-affecting evidence; expanded generated slice is under reconciliation | More exact geometry and manual review; missing tags remain unassessed |
+| Shed permits, POPS arcades, dated construction closures | Nearby cover/construction context and next-audit sources | Reference/display only | Exact current pedestrian geometry before any route effect |
+| DEP 2050 stormwater flood model | Opt-in planner map and measured route/polygon overlap | Static model context only; never routing or present-condition evidence | Live official alerts remain separate; no-overlap must never become a safety claim |
+| Civic data checks | Optional explicit-help waypoint and session observation | Simulated publisher; not official inventory or submission | Trusted publishing, moderation, persistence, and partner workflow |
+| City shade what-if | Fixed-route exposure comparison and bounded candidate ranking | Experimental planner visualization | Representative journey cohort, repeated-gap proof, and counterfactual rerouting |
+
 ### `LayerDefinition`
 
 ```yaml
@@ -141,12 +159,17 @@ freshness:
 ### 5.1 `TripBrief`
 
 ```yaml
+activity: walk | run
 journey_shape: destination | loop | wander
 origin: coordinates
 destination_or_end_condition: object | null
 departure_time: ISO-8601
 
 walking_budget_minutes: number | null
+distance_target:
+  value: number
+  unit: miles | kilometers
+  normalized_miles: number
 detour_allowance_minutes: number | null
 
 preferences:
@@ -177,7 +200,7 @@ clarification:
   material_reason: string | null
 ```
 
-Destination requests use a detour allowance relative to a direct baseline. Loops and wanders use a walking-time budget.
+Destination requests use a detour allowance relative to a direct baseline. Loops and wanders have exactly one active target: time or distance. Explicit distance replaces time, explicit minutes replace distance, and ordinary refinements retain the active target. `activity: run` changes framing and the distance-oriented default; it does not authorize a running-speed estimate.
 
 Persistent preference memory is not required for P1. Current-request taste anchors remain soft and cannot create hard requirements.
 
@@ -319,7 +342,7 @@ The source list should remain broad even when only part of it is routing-ready.
 | Mapped OpenStreetMap steps | — | Hard exclusion where tagged | Avoids steps shown in the graph; not an accessibility guarantee |
 | One-foot Digital Elevation Model | `dpc8-z3jc` | Grade, ascent, and gentler-route research | Terrain model does not represent temporary conditions |
 | Pedestrian Ramp Locations | `ufzp-rrqu` | Crossing context and Detour research | Measurements do not establish ADA compliance |
-| Sidewalk Sheds | `2jy7-cddj` | Construction friction and likely-cover context | Record does not prove presence, clear width, or dryness |
+| DOB NOW sidewalk-shed permits | `rbx6-tga4` | Construction and field-audit context | Permit does not prove installation, exact pedestrian geometry, clear width, cover, or dryness; `2jy7-cddj` is a related broken saved view |
 | Additional construction and closure sources | TBD | Temporary route friction | Do not infer obstruction without suitable current geometry or observation |
 
 ### 7.4 Amenities and endpoints
@@ -451,16 +474,29 @@ Use route-compatible network detour and published hours. Keep inventory, schedul
 
 ### 9.6 Construction friction and likely cover
 
-Possible metrics:
+The implemented cover ladder is:
+
+1. path-aligned OpenStreetMap `covered` or building-passage geometry may contribute mapped-cover meters and influence an experimental rain preference;
+2. shed permits, POPS arcade classifications, and dated construction closures may appear as nearby context or next-audit evidence;
+3. proximity from those contextual records never creates covered meters, current construction friction, dryness, passability, or protection;
+4. missing cover tags mean unassessed, not uncovered.
+
+Future construction metrics may include:
 
 - route length adjacent to current-enough shed or construction records;
 - number of affected blocks;
 - alternative route avoiding those records;
-- likely overhead-cover adjacency.
+- explicitly mapped overhead-cover length.
 
-Do not claim exact clear width or dryness unless a source supports it.
+Do not claim exact clear width, current presence, construction avoidance, or dryness unless a source supports it at the routed geometry and time.
 
-### 9.7 Expected activity or quietness
+### 9.7 Modeled stormwater flooding
+
+The preview may show DEP's moderate-rain scenario with projected 2050 sea-level rise and calculate how much route geometry intersects each model category. The layer stays off by default and loads only after an explicit flood request or toggle.
+
+It must not change route selection or imply current flooding, exact current or forecast depth, street passability, or a safe, dry, clear, low-risk, flood-free, or flood-avoiding route. No overlap means only that the route does not intersect the checked-in model snapshot. Current official alerts remain a separate external source.
+
+### 9.8 Expected activity or quietness
 
 These remain experimental composites from measured counters, events, establishments, traffic, construction, and historical reports.
 

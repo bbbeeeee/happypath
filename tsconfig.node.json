@@ -1,0 +1,13 @@
+{
+  "compilerOptions": {
+    "composite": true,
+    "skipLibCheck": true,
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "types": ["node"],
+    "outDir": ".vite-types",
+    "rootDir": ".",
+    "rewriteRelativeImportExtensions": true
+  },
+  "include": ["vite.config.ts", "vitest.config.ts", "server", "src/planning/tripBrief.ts", "src/exampleJourneys.ts", "src/preferenceNote.ts", "src/types.ts"]
+}

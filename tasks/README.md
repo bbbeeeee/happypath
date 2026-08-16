@@ -1,6 +1,6 @@
-# Happy Path task board
+# Footnote task board
 
-This folder is the execution plan for Happy Path. Work is organized by **product work package**, not permanent team. Packages may be owned by people or agents and are designed to proceed in parallel through shared contracts.
+This folder is the execution plan for Footnote. Work is organized by **product work package**, not permanent team. Packages may be owned by people or agents and are designed to proceed in parallel through shared contracts.
 
 The task plan defines outcomes, dependencies, and verification. It intentionally does not prescribe a branching strategy, issue structure, or development workflow for the future implementation team.
 
@@ -14,7 +14,9 @@ The task plan defines outcomes, dependencies, and verification. It intentionally
 - `done` — acceptance criteria and verification are complete
 - `later` — outside the current P1 delivery target
 
-## Current board
+## Umbrella packages
+
+These packages describe the broad P1 outcomes. A completed implementation slice below can advance part of an umbrella package without completing every acceptance criterion in that package.
 
 | ID | Work package | Milestone | Status | Depends on | Parallel work |
 | --- | --- | --- | --- | --- | --- |
@@ -26,8 +28,34 @@ The task plan defines outcomes, dependencies, and verification. It intentionally
 | [006](006-civic-data-layers-and-amenities.md) | Civic data layers and amenities | M1–M3 | Ready after 002 contract | 002 | 003, 004, 005 |
 | [007](007-integration-quality-and-performance.md) | Integration, quality, performance, and polish | M4 | Blocked | 002–006 | QA begins early |
 | [008](008-demo-deployment-and-submission.md) | Magical demo, deployment, and submission | M4 | Blocked | 007 | 009 when contracts stabilize |
-| [009](009-detour-planning-extension.md) | Detour planning proof | M4 / P1 | Planned | stable 003, 006, 007 contracts | May begin as a data spike |
+| [009](009-detour-planning-extension.md) | Detour planning proof | M4 / P1 | In progress | stable 003, 006, 007 contracts | Fixed-route slice exists; representative proof remains |
 | [010](010-civic-assets-and-contributions.md) | Civic Assets & Actions | Later | Later | 006, 009 | — |
+
+## Implementation slices and next work
+
+Slices record independently verified progress or tightly scoped next outcomes. `Builds on` describes the shared foundation; it does not imply that every umbrella package is complete.
+
+| ID | Slice | Priority | Status | Builds on |
+| --- | --- | --- | --- | --- |
+| [011](011-route-intelligence-data-and-polish.md) | Route intelligence, city evidence, and product polish | M4 / P1 | Done | 003, 005, 006, 009 |
+| [012](012-civic-data-checks.md) | Optional civic data checks and extensible map layer | M1 / P1 | Done | 006, 010, 011 |
+| [013](013-vm-deployment-readiness.md) | Single-VM deployment readiness | M4 | Done | 007, 008 |
+| [014](014-map-interaction-and-motion-polish.md) | Map interaction and motion polish | P1 | Done | 004, 006, 011 |
+| [015](015-distance-aware-routes.md) | Distance-aware routes | P1 | Done | 003, 005, 011 |
+| [016](016-delightful-copy-hierarchy.md) | Delightful copy hierarchy | P1 | Done | 004, 011, 014 |
+| [017](017-real-cover-evidence.md) | Real cover evidence | M1–M3 | Done | 002, 003, 011 |
+| [018](018-cover-data-checks.md) | Cover evidence data checks | M1–M3 | Review | 012, 017 |
+| [026](026-modeled-flood-context.md) | Modeled flood context | M1–M3 | Review | 002, 004, 017 |
+| [027](027-route-notes-and-local-planner-signals.md) | Route notes and local planner signals | M4 | Done | 009, 016 |
+| [028](028-data-sources-page.md) | Data sources audit and public page | M4 | Done | 002, 011, 017, 026 |
+| [029](029-weather-mobility-context.md) | Live weather and mobility context | M4 | Done | 019, 025, 028 |
+| [025](025-expanded-area-integration-gate.md) | Expanded-area integration gate | P0 | Done | 002, 007, 017, 018 |
+| [019](019-query-truth-and-evidence-reconciliation.md) | Query truth and evidence reconciliation | P0 | Review | 002, 003, 005, 017, 018, 025 |
+| [020](020-simplify-resident-demo.md) | Simplify the resident demo | P0 | Review | 004, 016, 019 |
+| [021](021-route-value-frontier.md) | Route value frontier and comparison | P0 | Review | 003, 020 |
+| [022](022-representative-journey-gap-analysis.md) | Representative-journey gap analysis | P0 | Review | 002, 003, 009, 019, 025 |
+| [023](023-intervention-simulation-and-handoff.md) | Intervention simulation and resident handoff | P0 | Review | 021, 022 |
+| [024](024-demo-freeze-and-rehearsal.md) | Cohesive demo freeze and rehearsal | P0 | Review | 020–023 |
 
 ## Dependency shape
 
@@ -50,6 +78,8 @@ The task plan defines outcomes, dependencies, and verification. It intentionally
                        009 Detour proof
 
 010 Civic Assets & Actions follows the resident and planning foundations.
+
+025 first restores a stable expanded-area baseline. 019 then reconciles query and evidence truth. 020–021 tighten the resident path story. 022–023 complete the representative Detour proof and handoff. 024 freezes and rehearses the integrated demo.
 ```
 
 ## Work philosophy

@@ -1,14 +1,14 @@
-# Happy Path — Core UX and Product Language
+# Footnote — Core UX and Product Language
 
-> Companion to the [PRD](PRD.md). This document defines how Happy Path should feel, speak, and behave for residents.
+> Companion to the [PRD](PRD.md). This document defines how Footnote should feel, speak, and behave for residents.
 
 ## 1. Experience standard
 
-Happy Path should feel like a thoughtful consumer product, not a technical demonstration, GIS dashboard, or chatbot with a map attached.
+Footnote should feel like a thoughtful consumer product, not a technical demonstration, GIS dashboard, or chatbot with a map attached.
 
 The visible experience is simple:
 
-> **Say what kind of walk you want → check what Happy Path understood → get one considered route → see why it fits → refine it naturally.**
+> **Say what kind of walk you want → check what Footnote understood → get one considered route → see why it fits → refine it naturally.**
 
 The complexity may be substantial underneath. The user should experience that complexity as care:
 
@@ -39,7 +39,7 @@ Synthetic or manually configured information may be used only for a clearly labe
 
 The experience should create five clear moments.
 
-### 2.1 Happy Path understands me
+### 2.1 Footnote understands me
 
 A short request becomes a useful Trip Brief without a long interview.
 
@@ -62,7 +62,7 @@ The user should be able to see and understand the difference within a few second
 
 ### 2.3 The extra time feels worth it
 
-Happy Path should answer:
+Footnote should answer:
 
 > **What did the detour buy me?**
 
@@ -85,6 +85,18 @@ Later, relevant live context such as weather, alerts, or verified observations m
 > “A little shorter, but keep the bathroom.”
 
 The route updates and explains the delta without asking the user to rebuild the request.
+
+### 2.6 One resident insight opens the planning story
+
+Detour should not compete with route planning on the first screen. It becomes relevant after Footnote has identified a concrete route burden.
+
+Preferred transition:
+
+> **See this gap across more journeys**
+>
+> This exposed stretch still affects your route. Check whether the same gap appears on similar public journeys.
+
+The transition carries the route segment, need, route metric, and evidence IDs into the planning surface. The user should not have to choose a fresh layer or restate the question.
 
 ## 3. Core experience
 
@@ -109,6 +121,11 @@ Suggested prompts should demonstrate supported value:
 - “A green 20-minute loop with somewhere to sit.”
 - “Walk north for about 35 minutes and finish near a subway.”
 - “Avoid mapped steps and pass a restroom if possible.”
+- “Map me a shaded two-mile run that loops back here.”
+
+Every visible example is a product contract. Each meaningful phrase must change a Trip Brief field, deterministic route behavior, ranking, receipt claim, or visible unsupported state. Decorative semantics are not allowed.
+
+For loops and wanders, explicit distance replaces the active time target; a later explicit time replaces distance. The preview supports 0.25–5 miles. A destination-free run defaults to a loop. Route distance is measured from geometry, while displayed duration remains a pedestrian-graph estimate and must not be presented as running pace.
 
 Quick controls are secondary. They edit the same Trip Brief and should never grow into a large layer panel.
 
@@ -159,7 +176,7 @@ When a layer is unavailable, continue with supported evidence when possible and 
 
 The default result contains:
 
-- one visually dominant Happy Path;
+- one visually dominant Footnote;
 - origin and destination, loop, or end condition;
 - total time and relevant baseline;
 - two to four meaningful benefits;
@@ -171,7 +188,7 @@ The default result contains:
 Example:
 
 ```text
-YOUR HAPPY PATH
+YOUR FOOTNOTE
 
 22 min · 4 min longer
 
@@ -273,6 +290,14 @@ Context
 
 Use plain language first. Dataset IDs, retrieval dates, coverage, and method versions belong one level deeper.
 
+For rain or cover, preferred summary copy is:
+
+> **Uses paths explicitly mapped as covered**
+>
+> Most streets have not been assessed, and mapped cover does not promise a dry or passable path.
+
+Shed permits, nearby POPS arcades, and dated construction records may appear in deeper context. They do not become covered-route meters because they are close to a path.
+
 ## 4. Journey shapes
 
 ### Destination
@@ -285,7 +310,7 @@ A time-boxed walk returning near the start.
 
 ### Wander
 
-A direction, area, end condition, or walking-time budget where Happy Path chooses the endpoint and route.
+A direction, area, end condition, or walking-time budget where Footnote chooses the endpoint and route.
 
 All three should share the same visual language and Trip Brief. The user should not feel that they entered a separate feature.
 
@@ -293,7 +318,7 @@ All three should share the same visual language and Trip Brief. The user should 
 
 ### 5.1 Default hierarchy
 
-1. Happy Path route
+1. Footnote route
 2. Origin, destination, or loop state
 3. Required waypoint or amenity
 4. Evidence supporting the primary benefit
@@ -376,7 +401,7 @@ Avoid decorative animation that delays the answer.
 
 ### 6.1 Voice
 
-Happy Path should sound:
+Footnote should sound:
 
 - thoughtful;
 - friendly;
@@ -455,7 +480,7 @@ It is not acceptable to:
 
 Inside the supported Manhattan area, the product should feel complete. Outside it, use friendly language:
 
-> **Happy Path is exploring Manhattan below Central Park for now.**
+> **Footnote is exploring Manhattan below Central Park for now.**
 
 Do not expose an arbitrary bounding box or developer error.
 
@@ -473,6 +498,7 @@ The UI must define:
 - source temporarily unavailable;
 - no meaningful alternative to the baseline;
 - route updated after refinement;
+- contextual resident-to-Detour handoff;
 - mobile map loading and recovery.
 
 Every state should preserve a clear next action.
@@ -503,6 +529,9 @@ Every state should preserve a clear next action.
 12. A refinement updates the same Trip Brief and visibly changes the route.
 13. Partial coverage and uncertainty are understandable without technical documentation.
 14. The interface feels complete on a representative mobile viewport.
-15. At least four rehearsed demos work from a clean session using real supported-area data for resident claims.
+15. One resident hero, one planner continuation, and up to two supporting proofs work from a clean session using real supported-area data for every displayed claim.
 16. No resident-facing screen exposes raw dataset fields, internal schemas, debug logs, or unexplained technical jargon.
 17. A user can reach the first meaningful recommendation quickly enough for the interaction to feel immediate.
+18. Every meaningful phrase in a displayed example has a visible interpretation or limitation.
+19. The primary receipt presents one benefit, one cost, and retained hard requirements before technical evidence.
+20. Detour opens from a route burden with the relevant segment, need, and evidence already selected.

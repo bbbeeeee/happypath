@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "id": "manhattan-south-of-60th-v1",
+  "label": "Manhattan below 60th Street",
+  "shortLabel": "Battery to 60th Street",
+  "envelope": {
+    "south": 40.699,
+    "west": -74.0195,
+    "north": 40.7708,
+    "east": -73.958
+  },
+  "polygon": [
+    [-74.0145, 40.699],
+    [-74.0195, 40.7],
+    [-74.0183, 40.7062],
+    [-74.0152, 40.7188],
+    [-74.013, 40.7284],
+    [-74.0115, 40.7385],
+    [-74.0102, 40.7487],
+    [-74.0065, 40.7588],
+    [-73.9995, 40.7708],
+    [-73.9785, 40.7666],
+    [-73.958, 40.759],
+    [-73.9605, 40.75],
+    [-73.969, 40.73],
+    [-73.974, 40.718],
+    [-73.981, 40.7085],
+    [-74.001, 40.703],
+    [-74.0145, 40.699]
+  ],
+  "defaultView": {
+    "center": [-73.9817, 40.7519],
+    "zoom": 12.4
+  },
+  "defaultJourney": {
+    "origin": [-73.9817, 40.7519],
+    "originLabel": "Stavros Niarchos Foundation Library (SNFL)",
+    "destination": [-73.9904, 40.7359]
+  },
+  "bootstrapBbox": {
+    "south": 40.728,
+    "west": -74.0025,
+    "north": 40.737,
+    "east": -73.988
+  },
+  "shadowTileLongitudeCuts": [-74.00925, -73.999, -73.98875, -73.9785, -73.96825],
+  "partitions": [
+    { "id": "fidi", "label": "FiDi and the Battery", "south": 40.699, "north": 40.713 },
+    { "id": "downtown", "label": "Downtown", "south": 40.713, "north": 40.728 },
+    { "id": "village", "label": "Village and Lower East Side", "south": 40.728, "north": 40.742 },
+    { "id": "chelsea", "label": "Chelsea and Gramercy", "south": 40.742, "north": 40.756 },
+    { "id": "midtown-south", "label": "Midtown South", "south": 40.756, "north": 40.766 },
+    { "id": "midtown-60", "label": "Midtown to 60th Street", "south": 40.766, "north": 40.7708 }
+  ]
+}

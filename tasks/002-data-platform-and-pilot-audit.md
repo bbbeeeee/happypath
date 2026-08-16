@@ -13,11 +13,11 @@ last_updated: 2026-08-15
 
 ## Outcome
 
-Happy Path has a reproducible, product-ready city-data foundation covering Manhattan from the Battery through Midtown, approximately south of Central Park. Routing, AI, UI, and Detour can consume compact, versioned layers with known coverage, freshness, claim boundaries, and confidence.
+Footnote has a reproducible, product-ready city-data foundation covering Manhattan from the Battery through Midtown, approximately south of Central Park. Routing, AI, UI, and Detour can consume compact, versioned layers with known coverage, freshness, claim boundaries, and confidence.
 
 ## Why this package exists
 
-The value of Happy Path depends on turning fragmented City data into information that feels coherent and trustworthy. Raw datasets are not a product. They must be cleaned, joined, simplified, labeled, validated, and delivered at a speed and scale appropriate for a polished mobile demo.
+The value of Footnote depends on turning fragmented City data into information that feels coherent and trustworthy. Raw datasets are not a product. They must be cleaned, joined, simplified, labeled, validated, and delivered at a speed and scale appropriate for a polished mobile demo.
 
 ## Inputs and dependencies
 

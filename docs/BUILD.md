@@ -1,20 +1,22 @@
-# Happy Path — Build Plan
+# Footnote — Build Plan
 
 > Detailed work packages live in [`tasks/`](../tasks/README.md). This document defines the delivery sequence, shared contracts, and quality gates without prescribing a particular engineering workflow.
 
 ## 1. Current phase
 
-The current work is documentation and planning only.
+The branch contains a working Lower Manhattan preview. The resident route engine, Trip Brief, map, route receipt, time- and distance-shaped journeys, evidence layers, refinement, fixed-route City what-if, deterministic fallbacks, tests, and deployable artifact already exist.
 
-The sequence is:
+The current phase is **cohesion and proof completion**:
 
-1. approve the key product and planning docs;
-2. use the work packages as the basis for implementation planning;
-3. build the P1 experience from real, cleaned Manhattan data;
-4. integrate and polish the resident experience;
-5. add one Detour planning proof using the same city model.
+1. reconcile product claims, layer capability, and implementation status;
+2. make three or four visible route queries fully truthful end to end;
+3. simplify the resident experience around one obvious request-to-route loop;
+4. make the route receipt answer what the extra time bought;
+5. connect one resident burden directly to a representative-journey Detour analysis;
+6. compare the same cohort before and after one intervention;
+7. freeze and rehearse one cohesive resident-to-planner demo.
 
-No prototype branch, technical stack, branching strategy, or implementation workflow is prescribed. Future builders should choose the approach that best satisfies the approved product, data, and quality requirements.
+Battery-to-59th-Street coverage, a general planning workspace, agency integration, and additional data breadth remain targets rather than current behavior. Implementation truth lives in [P1 implementation status](P1_IMPLEMENTATION_STATUS.md); product and demo findings live in [Product and demo audit](PRODUCT_DEMO_AUDIT.md).
 
 ## 2. Delivery goal
 
@@ -39,11 +41,12 @@ The underlying system should be broad enough to combine many NYC data layers and
 
 ### P1 planning target
 
-- one Detour analysis;
-- representative journeys;
-- one repeated route burden;
-- one hypothetical intervention;
-- before-and-after rerouting;
+- one question-led Detour analysis reached from a resident route burden;
+- an inspectable representative-journey cohort and weights;
+- one repeated route burden that is not merely asset density;
+- one hypothetical intervention and one intuitive comparison;
+- before-and-after rerouting of the same cohort;
+- changed, unchanged, and remaining burden;
 - clear assumptions and uncertainty.
 
 ## 3. Delivery principles
@@ -164,7 +167,7 @@ Exit conditions:
 - supported journeys are reviewed and polished;
 - mobile load, map rendering, and refinement meet explicit performance budgets;
 - loading and failure behavior is graceful;
-- at least four rehearsed scenarios use different City-data combinations;
+- one resident hero and one planner continuation are rehearsed end to end, with supporting scenarios kept secondary;
 - one Detour scenario works from the same feature registry;
 - the product feels coherent from a clean browser session.
 
@@ -243,7 +246,7 @@ The documentation deliberately does not prescribe:
 - whether existing prototype code is reused;
 - a particular issue or pull-request structure.
 
-Future builders should choose implementation details based on delivery speed, product quality, reproducibility, performance, and the evidence requirements above.
+Builders should choose implementation details based on delivery speed, product quality, reproducibility, performance, and the evidence requirements above.
 
 ## 9. Demo realism strategy
 

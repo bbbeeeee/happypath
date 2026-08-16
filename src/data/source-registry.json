@@ -1,0 +1,1331 @@
+{
+  "sources": [
+    {
+      "source_id": "openstreetmap",
+      "publisher": "OpenStreetMap contributors",
+      "dataset_name": "OpenStreetMap walking graph — Battery to 60th Street",
+      "dataset_url": "https://www.openstreetmap.org/export",
+      "canonical_url": "https://www.openstreetmap.org/copyright",
+      "dataset_id": null,
+      "asset_type": "dataset",
+      "authority": "community",
+      "access_method": "bulk_download",
+      "format": "Overpass JSON",
+      "terms_url": "https://www.openstreetmap.org/copyright",
+      "attribution": "© OpenStreetMap contributors",
+      "refresh_target": "deliberate pilot refresh",
+      "source_updated_at": null,
+      "retrieved_at": "2026-08-16T14:07:12.259Z",
+      "last_successful_ingest": "2026-08-16T14:07:12.259Z",
+      "snapshot_hash": "sha256:6983407aff4f7693ddc4df23ab42ceece18e534369160f85de8bd11eacf928bf",
+      "geometry_type": "ways, nodes, and edge LineStrings",
+      "source_crs": "EPSG:4326",
+      "pilot_bbox": {
+        "south": 40.699,
+        "west": -74.0195,
+        "north": 40.7708,
+        "east": -73.958
+      },
+      "supported_area_id": "manhattan-south-of-60th-v1",
+      "supported_area_polygon": [
+        [
+          -74.0145,
+          40.699
+        ],
+        [
+          -74.0195,
+          40.7
+        ],
+        [
+          -74.0183,
+          40.7062
+        ],
+        [
+          -74.0152,
+          40.7188
+        ],
+        [
+          -74.013,
+          40.7284
+        ],
+        [
+          -74.0115,
+          40.7385
+        ],
+        [
+          -74.0102,
+          40.7487
+        ],
+        [
+          -74.0065,
+          40.7588
+        ],
+        [
+          -73.9995,
+          40.7708
+        ],
+        [
+          -73.9785,
+          40.7666
+        ],
+        [
+          -73.958,
+          40.759
+        ],
+        [
+          -73.9605,
+          40.75
+        ],
+        [
+          -73.969,
+          40.73
+        ],
+        [
+          -73.974,
+          40.718
+        ],
+        [
+          -73.981,
+          40.7085
+        ],
+        [
+          -74.001,
+          40.703
+        ],
+        [
+          -74.0145,
+          40.699
+        ]
+      ],
+      "pilot_coverage": 0.9910236039902374,
+      "derived_from": [],
+      "method_version": "osm-pedestrian-graph-v3-supported-area-polygon",
+      "known_limitations": [
+        "Mapped access, crossings, and covered-way tags vary in completeness",
+        "Snapshot is not proof of legal completeness, current access, dryness, or step-free access",
+        "Turn restrictions are not yet modeled",
+        "Edge geometry preserves mapped OSM shape nodes but does not establish sidewalk-side topology",
+        "Covered-way mapping is incomplete and does not verify current access, lighting, usable width, or dryness"
+      ],
+      "allowed_claims": [
+        "Uses mapped pedestrian ways",
+        "Avoids mapped steps when the hard constraint is enabled",
+        "Identifies path-aligned covered ways when explicitly mapped"
+      ],
+      "prohibited_claims": [
+        "Legally complete",
+        "Accessible",
+        "Guaranteed step-free",
+        "Current or rainproof overhead cover",
+        "Complete covered-way inventory"
+      ],
+      "validation_status": "pending"
+    },
+    {
+      "source_id": "nyc-planning-geosearch",
+      "publisher": "NYC Department of City Planning",
+      "dataset_name": "NYC GeoSearch",
+      "dataset_url": "https://geosearch.planninglabs.nyc/",
+      "canonical_url": "https://geosearch.planninglabs.nyc/",
+      "dataset_id": null,
+      "asset_type": "api",
+      "authority": "official",
+      "access_method": "realtime_api",
+      "capability_status": "live_service",
+      "format": "Pelias GeoJSON",
+      "terms_url": "https://www.nyc.gov/home/terms-of-use.page",
+      "attribution": "NYC Department of City Planning",
+      "refresh_target": "on explicit address submission",
+      "source_updated_at": null,
+      "retrieved_at": "2026-08-15T20:30:00.000Z",
+      "last_successful_ingest": null,
+      "snapshot_hash": null,
+      "geometry_type": "Point",
+      "source_crs": "EPSG:4326",
+      "pilot_bbox": null,
+      "pilot_coverage": null,
+      "derived_from": [],
+      "method_version": "nyc-geosearch-submit-v1",
+      "known_limitations": [
+        "Search result must be inside the pilot",
+        "Result is snapped to the nearest routable graph node",
+        "Queries are sent only after explicit submission"
+      ],
+      "allowed_claims": [
+        "Address search result from NYC Planning GeoSearch"
+      ],
+      "prohibited_claims": [
+        "Exact building entrance",
+        "Exact routing origin without snapping"
+      ],
+      "validation_status": "pending"
+    },
+    {
+      "source_id": "nws-manhattan-weather",
+      "publisher": "National Weather Service / NOAA",
+      "dataset_name": "NWS Manhattan hourly and grid forecast",
+      "dataset_url": "https://api.weather.gov/gridpoints/OKX/34,45/forecast/hourly",
+      "canonical_url": "https://www.weather.gov/documentation/services-web-api",
+      "download_url": "https://api.weather.gov/gridpoints/OKX/34,45",
+      "dataset_id": null,
+      "asset_type": "live_context",
+      "authority": "official",
+      "access_method": "realtime_api",
+      "capability_status": "live_service",
+      "format": "GeoJSON / JSON-LD",
+      "terms_url": "https://www.weather.gov/disclaimer",
+      "attribution": "National Weather Service",
+      "refresh_target": "15-minute application cache",
+      "source_updated_at": null,
+      "retrieved_at": "2026-08-16T17:00:00.000Z",
+      "last_successful_ingest": null,
+      "snapshot_hash": null,
+      "geometry_type": "Representative 2.5 km forecast grid",
+      "source_crs": "EPSG:4326",
+      "pilot_bbox": null,
+      "pilot_coverage": null,
+      "derived_from": [],
+      "method_version": "nws-okx-34-45-v1",
+      "map_readiness": "live_nonspatial_context",
+      "freshness_statement": "Footnote requests the official forecast on demand and caches a successful response for 15 minutes.",
+      "coverage_statement": "One NWS forecast grid provides representative Manhattan weather context; it is not a block-level measurement.",
+      "known_limitations": [
+        "The forecast grid is representative of Manhattan and does not measure sidewalk temperature or block-level microclimate",
+        "HeatRisk is experimental and forecast values can change"
+      ],
+      "allowed_claims": [
+        "Representative NWS temperature, apparent temperature, rain probability, and HeatRisk forecast"
+      ],
+      "prohibited_claims": [
+        "Live block-level temperature",
+        "A route is cooler or safe in heat",
+        "Observed street condition"
+      ],
+      "validation_status": "pilot_context_only"
+    },
+    {
+      "source_id": "nyc-pedestrian-ramps",
+      "publisher": "NYC Department of Transportation",
+      "dataset_name": "Pedestrian Ramp Locations",
+      "dataset_url": "https://data.cityofnewyork.us/d/ufzp-rrqu",
+      "canonical_url": "https://data.cityofnewyork.us/d/ufzp-rrqu",
+      "download_url": "https://data.cityofnewyork.us/resource/ufzp-rrqu.geojson",
+      "dataset_id": "ufzp-rrqu",
+      "asset_type": "dataset",
+      "authority": "official",
+      "access_method": "socrata_api",
+      "format": "GeoJSON",
+      "terms_url": "https://opendata.cityofnewyork.us/overview/#termsofuse",
+      "attribution": "NYC Department of Transportation",
+      "refresh_target": "historical reference only",
+      "source_updated_at": "2021-10-27T15:26:30.000Z",
+      "retrieved_at": "2026-08-16T17:15:23.961Z",
+      "last_successful_ingest": "2026-08-16T17:15:23.961Z",
+      "snapshot_hash": null,
+      "geometry_type": "Point",
+      "source_crs": "EPSG:4326",
+      "pilot_bbox": null,
+      "pilot_coverage": null,
+      "derived_from": [],
+      "method_version": null,
+      "capability_status": "ingested",
+      "map_readiness": "pilot_points_ingested_context_only",
+      "freshness_statement": "Historical survey data captured from 2017 through January 2020; the official source last changed October 27, 2021.",
+      "coverage_statement": "217,679 citywide ramp points are published; Lower Manhattan coverage has not been cropped or validated for this demo.",
+      "known_limitations": [
+        "The source explicitly says its measurements do not establish ADA compliance",
+        "Current ramp condition and a connected step-free pedestrian path are not verified"
+      ],
+      "allowed_claims": [
+        "Officially mapped pedestrian-ramp survey point",
+        "Published measurements as captured by the historical survey"
+      ],
+      "prohibited_claims": [
+        "ADA compliant",
+        "Current ramp condition",
+        "Accessible or step-free journey"
+      ],
+      "validation_status": "pilot_context_only",
+      "pilot_record_count": 6892
+    },
+    {
+      "source_id": "nyc-ramp-program-progress",
+      "publisher": "NYC Department of Transportation",
+      "dataset_name": "Pedestrian Ramp Program Progress",
+      "dataset_url": "https://data.cityofnewyork.us/d/e7gc-ub6z",
+      "canonical_url": "https://data.cityofnewyork.us/d/e7gc-ub6z",
+      "download_url": "https://data.cityofnewyork.us/resource/e7gc-ub6z.geojson",
+      "dataset_id": "e7gc-ub6z",
+      "asset_type": "dataset",
+      "authority": "official",
+      "access_method": "socrata_api",
+      "format": "GeoJSON",
+      "terms_url": "https://opendata.cityofnewyork.us/overview/#termsofuse",
+      "attribution": "NYC Department of Transportation",
+      "refresh_target": "monthly pilot refresh",
+      "source_updated_at": "2026-08-01T00:00:00.000Z",
+      "retrieved_at": "2026-08-16T17:15:23.961Z",
+      "last_successful_ingest": "2026-08-16T17:15:23.961Z",
+      "snapshot_hash": null,
+      "geometry_type": "Point at a street corner",
+      "source_crs": "EPSG:4326",
+      "pilot_bbox": null,
+      "pilot_coverage": null,
+      "derived_from": [],
+      "method_version": "access-context-v1",
+      "capability_status": "ingested",
+      "map_readiness": "pilot_points_ingested_context_only",
+      "freshness_statement": "The official corner-level program source updates monthly and last changed August 1, 2026.",
+      "coverage_statement": "Program-status corner points will be cropped to the supported Manhattan pilot during ingest.",
+      "known_limitations": [
+        "A constructed or planned program status does not establish ADA compliance, current condition, or connection to a crossing"
+      ],
+      "allowed_claims": [
+        "Published NYC DOT curb-ramp program status at this corner"
+      ],
+      "prohibited_claims": [
+        "ADA compliant",
+        "Current ramp condition",
+        "Accessible or step-free journey"
+      ],
+      "validation_status": "pilot_context_only",
+      "pilot_record_count": 8533
+    },
+    {
+      "source_id": "nyc-accessible-pedestrian-signals",
+      "publisher": "NYC Department of Transportation",
+      "dataset_name": "Accessible Pedestrian Signal Locations",
+      "dataset_url": "https://data.cityofnewyork.us/d/de3m-c5p4",
+      "canonical_url": "https://data.cityofnewyork.us/d/de3m-c5p4",
+      "download_url": "https://data.cityofnewyork.us/resource/de3m-c5p4.geojson",
+      "dataset_id": "de3m-c5p4",
+      "asset_type": "dataset",
+      "authority": "official",
+      "access_method": "socrata_api",
+      "format": "GeoJSON",
+      "terms_url": "https://opendata.cityofnewyork.us/overview/#termsofuse",
+      "attribution": "NYC Department of Transportation",
+      "refresh_target": "monthly pilot refresh",
+      "source_updated_at": "2026-07-30T00:00:00.000Z",
+      "retrieved_at": "2026-08-16T17:15:23.961Z",
+      "last_successful_ingest": "2026-08-16T17:15:23.961Z",
+      "snapshot_hash": null,
+      "geometry_type": "Point at an intersection",
+      "source_crs": "EPSG:4326",
+      "pilot_bbox": null,
+      "pilot_coverage": null,
+      "derived_from": [],
+      "method_version": "access-context-v1",
+      "capability_status": "ingested",
+      "map_readiness": "pilot_points_ingested_context_only",
+      "freshness_statement": "The official source updates monthly and last changed July 30, 2026.",
+      "coverage_statement": "Intersection points will be cropped to the supported Manhattan pilot during ingest.",
+      "known_limitations": [
+        "A mapped installed signal does not verify crossing direction, live operation, or a continuous accessible path"
+      ],
+      "allowed_claims": [
+        "Officially mapped installed accessible pedestrian signal at this intersection"
+      ],
+      "prohibited_claims": [
+        "Signal is working now",
+        "Every crossing arm is served",
+        "Accessible journey"
+      ],
+      "validation_status": "pilot_context_only",
+      "pilot_record_count": 335
+    },
+    {
+      "source_id": "nyc-exclusive-pedestrian-signals",
+      "publisher": "NYC Department of Transportation",
+      "dataset_name": "Exclusive Pedestrian Signal Locations",
+      "dataset_url": "https://data.cityofnewyork.us/d/8kuj-2n3u",
+      "canonical_url": "https://data.cityofnewyork.us/d/8kuj-2n3u",
+      "download_url": "https://data.cityofnewyork.us/resource/8kuj-2n3u.geojson",
+      "dataset_id": "8kuj-2n3u",
+      "asset_type": "dataset",
+      "authority": "official",
+      "access_method": "socrata_api",
+      "format": "GeoJSON",
+      "terms_url": "https://opendata.cityofnewyork.us/overview/#termsofuse",
+      "attribution": "NYC Department of Transportation",
+      "refresh_target": "monthly pilot refresh",
+      "source_updated_at": "2026-07-15T00:00:00.000Z",
+      "retrieved_at": "2026-08-16T17:15:23.961Z",
+      "last_successful_ingest": "2026-08-16T17:15:23.961Z",
+      "snapshot_hash": null,
+      "geometry_type": "Point at an intersection",
+      "source_crs": "EPSG:4326",
+      "pilot_bbox": null,
+      "pilot_coverage": null,
+      "derived_from": [],
+      "method_version": "access-context-v1",
+      "capability_status": "ingested",
+      "map_readiness": "pilot_points_ingested_context_only",
+      "freshness_statement": "The official source updates monthly or as needed and last changed July 15, 2026.",
+      "coverage_statement": "Crossing-treatment points will be cropped to the supported Manhattan pilot during ingest.",
+      "known_limitations": [
+        "An exclusive phase does not imply a diagonal crossing, accessibility, or current signal operation"
+      ],
+      "allowed_claims": [
+        "Officially mapped exclusive pedestrian phase or crossing treatment"
+      ],
+      "prohibited_claims": [
+        "Safe crossing",
+        "Signal is working now",
+        "Accessible journey"
+      ],
+      "validation_status": "pilot_context_only",
+      "pilot_record_count": 141
+    },
+    {
+      "source_id": "mta-elevator-assets",
+      "publisher": "Metropolitan Transportation Authority",
+      "dataset_name": "MTA Elevator and Escalator Assets — elevators",
+      "dataset_url": "https://data.ny.gov/d/94fv-bak7",
+      "canonical_url": "https://data.ny.gov/d/94fv-bak7",
+      "download_url": "https://data.ny.gov/resource/94fv-bak7.geojson",
+      "dataset_id": "94fv-bak7",
+      "asset_type": "dataset",
+      "authority": "official",
+      "access_method": "socrata_api",
+      "format": "GeoJSON",
+      "terms_url": "https://www.mta.info/open-data",
+      "attribution": "Metropolitan Transportation Authority",
+      "refresh_target": "daily pilot refresh",
+      "source_updated_at": "2026-08-16T00:00:00.000Z",
+      "retrieved_at": "2026-08-16T17:15:23.961Z",
+      "last_successful_ingest": "2026-08-16T17:15:23.961Z",
+      "snapshot_hash": null,
+      "geometry_type": "Equipment Point",
+      "source_crs": "EPSG:4326",
+      "pilot_bbox": null,
+      "pilot_coverage": null,
+      "derived_from": [],
+      "method_version": "access-context-v1",
+      "capability_status": "ingested",
+      "map_readiness": "pilot_points_ingested_context_only",
+      "freshness_statement": "The official asset inventory publishes daily; its service status is not a minute-level outage feed.",
+      "coverage_statement": "Elevator assets will be cropped to the supported Manhattan pilot during ingest.",
+      "known_limitations": [
+        "A listed elevator and asset status do not prove a continuous street-to-platform path or current operation",
+        "Some journeys require multiple ordered elevators inside a station"
+      ],
+      "allowed_claims": [
+        "Published MTA elevator asset and inventory service status"
+      ],
+      "prohibited_claims": [
+        "Elevator is operating now",
+        "Step-free station journey",
+        "Accessible route"
+      ],
+      "validation_status": "pilot_context_only",
+      "pilot_record_count": 132
+    },
+    {
+      "source_id": "nyc-sidewalk-shed-permits",
+      "publisher": "NYC Department of Buildings",
+      "dataset_name": "DOB NOW: Build – currently dated sidewalk-shed permit candidates",
+      "dataset_url": "https://data.cityofnewyork.us/d/rbx6-tga4",
+      "canonical_url": "https://www.nyc.gov/assets/buildings/html/sidewalk-shed-map.html",
+      "download_url": "https://data.cityofnewyork.us/resource/rbx6-tga4.json?%24select=job_filing_number%2Cwork_permit%2Csequence_number%2Chouse_no%2Cstreet_name%2Cborough%2Cbin%2Cbbl%2Cwork_type%2Capproved_date%2Cissued_date%2Cexpired_date%2Cpermit_status%2Clatitude%2Clongitude%2Cjob_description&%24where=work_type%3D%22Sidewalk+Shed%22+AND+work_permit+like+%22%25-SH%22+AND+latitude+between+40.699+and+40.7708+AND+longitude+between+-74.0195+and+-73.958&%24order=work_permit%2Csequence_number+DESC%2Cissued_date+DESC%2Cjob_filing_number&%24limit=5000&%24offset=0",
+      "related_urls": [
+        "https://data.cityofnewyork.us/d/2jy7-cddj"
+      ],
+      "dataset_id": "rbx6-tga4",
+      "asset_type": "dataset",
+      "authority": "official",
+      "access_method": "socrata_api",
+      "format": "JSON with numeric latitude and longitude fields",
+      "terms_url": "https://opendata.cityofnewyork.us/overview/#termsofuse",
+      "source_updated_at": "2026-08-14T18:42:31.000Z",
+      "retrieved_at": "2026-08-16T14:21:01.628Z",
+      "last_successful_ingest": "2026-08-16T14:21:01.628Z",
+      "snapshot_hash": "sha256:73f19559a8cc3bb32bd5144c89244ec53c133b08592cf68a9d4a70d27c8f92d9",
+      "geometry_type": "Geocoded permit point",
+      "pilot_bbox": {
+        "south": 40.699,
+        "west": -74.0195,
+        "north": 40.7708,
+        "east": -73.958
+      },
+      "supported_area_id": "manhattan-south-of-60th-v1",
+      "pilot_coverage": null,
+      "pilot_record_count": 1589,
+      "capability_status": "ingested",
+      "map_readiness": "pilot_points_ingested",
+      "freshness_statement": "The checked-in pilot includes issued sidewalk-shed permits whose published expiration was on or after 2026-08-16.",
+      "coverage_statement": "1589 deduplicated permit locations fall inside the pilot bounds.",
+      "known_limitations": [
+        "A permit does not prove that a shed is installed, present today, above the mapped sidewalk, passable, or dry",
+        "The point represents a permit address and does not establish exact shed footprint or sidewalk side"
+      ],
+      "allowed_claims": [
+        "Currently dated official sidewalk-shed permit candidate near this point"
+      ],
+      "prohibited_claims": [
+        "Shed is present now",
+        "Covered or dry path",
+        "Clear or accessible sidewalk width"
+      ],
+      "validation_status": "pilot_ingested"
+    },
+    {
+      "source_id": "nyc-pops",
+      "publisher": "NYC Department of City Planning",
+      "dataset_name": "Privately Owned Public Spaces (POPS) – arcade candidates",
+      "dataset_url": "https://data.cityofnewyork.us/d/rvih-nhyn",
+      "canonical_url": "https://www.nyc.gov/pops",
+      "download_url": "https://data.cityofnewyork.us/resource/rvih-nhyn.json?%24select=pops_number%2Cbuilding_address_with_zip%2Cbuilding_constructed%2Cpublic_space_type%2Chour_of_access_required%2Camenities_required%2Clatitude%2Clongitude%2Cbin%2Cbbl&%24where=latitude+between+40.699+and+40.7708+AND+longitude+between+-74.0195+and+-73.958&%24order=pops_number&%24limit=1000",
+      "dataset_id": "rvih-nhyn",
+      "asset_type": "dataset",
+      "authority": "official",
+      "access_method": "socrata_api",
+      "format": "JSON",
+      "terms_url": "https://opendata.cityofnewyork.us/overview/#termsofuse",
+      "source_updated_at": "2025-10-14T16:23:32.000Z",
+      "retrieved_at": "2026-08-16T14:21:01.628Z",
+      "last_successful_ingest": "2026-08-16T14:21:01.628Z",
+      "snapshot_hash": "sha256:55eead7039c3d099918be7267fa98a67de1c18aeeb63c5c800dba3a946bcb04c",
+      "geometry_type": "Point at the development address",
+      "pilot_bbox": {
+        "south": 40.699,
+        "west": -74.0195,
+        "north": 40.7708,
+        "east": -73.958
+      },
+      "supported_area_id": "manhattan-south-of-60th-v1",
+      "pilot_coverage": null,
+      "pilot_record_count": 91,
+      "capability_status": "ingested",
+      "map_readiness": "filtered_pilot_points_ingested",
+      "freshness_statement": "The pilot snapshot filters official POPS records whose published public-space type names an arcade or covered pedestrian space.",
+      "coverage_statement": "91 arcade-like POPS records fall inside the supported area.",
+      "known_limitations": [
+        "The point represents the development, not the public-space entrance or arcade footprint",
+        "Required access hours and space type do not verify current access, path continuity, or rain protection"
+      ],
+      "allowed_claims": [
+        "Official POPS record lists an arcade-like public-space type at this development"
+      ],
+      "prohibited_claims": [
+        "Open now",
+        "Covered route segment",
+        "Accessible entrance or dry path"
+      ],
+      "validation_status": "pilot_ingested"
+    },
+    {
+      "source_id": "nyc-dot-pedestrian-plazas",
+      "publisher": "NYC Department of Transportation",
+      "dataset_name": "NYC DOT Pedestrian Plazas — Polygon",
+      "dataset_url": "https://data.cityofnewyork.us/d/k5k6-6jex",
+      "canonical_url": "https://data.cityofnewyork.us/d/k5k6-6jex",
+      "download_url": "https://data.cityofnewyork.us/resource/k5k6-6jex.geojson",
+      "dataset_id": "k5k6-6jex",
+      "asset_type": "dataset",
+      "authority": "official",
+      "access_method": "socrata_api",
+      "format": "GeoJSON",
+      "terms_url": "https://opendata.cityofnewyork.us/overview/#termsofuse",
+      "attribution": "NYC Department of Transportation",
+      "refresh_target": "monthly source review",
+      "source_updated_at": "2026-08-01T10:00:43.000Z",
+      "retrieved_at": "2026-08-16T05:58:14.000Z",
+      "last_successful_ingest": null,
+      "snapshot_hash": null,
+      "geometry_type": "MultiPolygon",
+      "source_crs": "EPSG:4326",
+      "pilot_bbox": null,
+      "pilot_coverage": null,
+      "derived_from": [],
+      "method_version": null,
+      "capability_status": "reference_only",
+      "map_readiness": "downloadable_not_ingested",
+      "freshness_statement": "The source updates monthly and last changed August 1, 2026.",
+      "coverage_statement": "93 DOT pedestrian-plaza polygons are published citywide; Lower Manhattan records are not bundled into this demo.",
+      "known_limitations": [
+        "A plaza polygon does not establish entrances, hours, shade, seating, or current programming"
+      ],
+      "allowed_claims": [
+        "Mapped NYC DOT pedestrian plaza boundary",
+        "Published plaza name and partner when supplied"
+      ],
+      "prohibited_claims": [
+        "Open now",
+        "Shaded or covered",
+        "Seating is available"
+      ],
+      "validation_status": "cataloged"
+    },
+    {
+      "source_id": "nyc-parks-spray-showers",
+      "publisher": "NYC Department of Parks and Recreation",
+      "dataset_name": "NYC Parks Spray Showers",
+      "dataset_url": "https://data.cityofnewyork.us/d/ckaz-6gaa",
+      "canonical_url": "https://data.cityofnewyork.us/d/ckaz-6gaa",
+      "download_url": "https://data.cityofnewyork.us/resource/ckaz-6gaa.geojson",
+      "dataset_id": "ckaz-6gaa",
+      "asset_type": "dataset",
+      "authority": "official",
+      "access_method": "socrata_api",
+      "format": "GeoJSON",
+      "terms_url": "https://opendata.cityofnewyork.us/overview/#termsofuse",
+      "attribution": "NYC Parks",
+      "refresh_target": "source review before warm-weather demos",
+      "source_updated_at": "2026-08-04T13:40:08.000Z",
+      "retrieved_at": "2026-08-16T05:58:14.000Z",
+      "last_successful_ingest": null,
+      "snapshot_hash": null,
+      "geometry_type": "Point",
+      "source_crs": "EPSG:4326",
+      "pilot_bbox": null,
+      "pilot_coverage": null,
+      "derived_from": [],
+      "method_version": null,
+      "capability_status": "reference_only",
+      "map_readiness": "downloadable_not_ingested",
+      "freshness_statement": "The source updates as needed and last changed August 4, 2026.",
+      "coverage_statement": "1,119 NYC Parks spray-shower points are published citywide; current operation is not included.",
+      "known_limitations": [
+        "A mapped spray shower does not prove that it is operating, available, or appropriate for the current user"
+      ],
+      "allowed_claims": [
+        "Mapped NYC Parks spray-shower location"
+      ],
+      "prohibited_claims": [
+        "Operating now",
+        "Water is available",
+        "Cooling guaranteed"
+      ],
+      "validation_status": "cataloged"
+    },
+    {
+      "source_id": "nyc-cool-options",
+      "publisher": "NYC Emergency Management and City of New York",
+      "dataset_name": "NYC Cool Options Finder",
+      "dataset_url": "https://services6.arcgis.com/yG5s3afENB5iO9fj/arcgis/rest/services/Cool_Options/FeatureServer/0",
+      "canonical_url": "https://finder.nyc.gov/coolingcenters/",
+      "download_url": "https://services6.arcgis.com/yG5s3afENB5iO9fj/arcgis/rest/services/Cool_Options/FeatureServer/0/query?where=Borough_name%3D%27Manhattan%27&outFields=*&returnGeometry=true&outSR=4326&f=geojson",
+      "dataset_id": null,
+      "asset_type": "live_context",
+      "authority": "official",
+      "access_method": "arcgis_feature_service",
+      "format": "GeoJSON from ArcGIS FeatureServer",
+      "terms_url": "https://www.nyc.gov/home/terms-of-use.page",
+      "attribution": "City of New York",
+      "refresh_target": "load on demand when the Cool options layer is opened",
+      "source_updated_at": "2026-08-11T00:00:00.000Z",
+      "retrieved_at": "2026-08-16T05:58:14.000Z",
+      "last_successful_ingest": null,
+      "snapshot_hash": null,
+      "geometry_type": "Point",
+      "source_crs": "EPSG:4326",
+      "pilot_bbox": null,
+      "pilot_coverage": null,
+      "derived_from": [],
+      "method_version": null,
+      "capability_status": "live_service",
+      "map_readiness": "live_points_context_only",
+      "freshness_statement": "Footnote loads the official finder feed on demand; the source data last changed August 11, 2026.",
+      "coverage_statement": "The official feed contains cooling centers, pools, spray showers, and other cool options; Footnote shows records inside the pilot.",
+      "known_limitations": [
+        "Cooling centers can be inactive outside a heat emergency",
+        "Hours, eligibility, accessibility, and pet policies vary by site and event"
+      ],
+      "allowed_claims": [
+        "Official place to check current NYC cooling options"
+      ],
+      "prohibited_claims": [
+        "Cooling center is active without checking the live finder",
+        "Open now",
+        "Accessible or available to every user"
+      ],
+      "validation_status": "pilot_context_only"
+    },
+    {
+      "source_id": "nyc-facilities-database",
+      "publisher": "NYC Department of City Planning",
+      "dataset_name": "Facilities Database",
+      "dataset_url": "https://data.cityofnewyork.us/d/ji82-xba5",
+      "canonical_url": "https://data.cityofnewyork.us/d/ji82-xba5",
+      "download_url": "https://data.cityofnewyork.us/resource/ji82-xba5.json",
+      "dataset_id": "ji82-xba5",
+      "asset_type": "dataset",
+      "authority": "official",
+      "access_method": "socrata_api",
+      "format": "JSON with numeric latitude and longitude fields",
+      "terms_url": "https://opendata.cityofnewyork.us/overview/#termsofuse",
+      "attribution": "NYC Department of City Planning",
+      "refresh_target": "semiannual source review",
+      "source_updated_at": "2026-07-16T17:33:28.000Z",
+      "retrieved_at": "2026-08-16T05:58:14.000Z",
+      "last_successful_ingest": null,
+      "snapshot_hash": null,
+      "geometry_type": "Numeric latitude and longitude fields",
+      "source_crs": "EPSG:4326 coordinates when supplied",
+      "pilot_bbox": null,
+      "pilot_coverage": null,
+      "derived_from": [],
+      "method_version": null,
+      "capability_status": "reference_only",
+      "map_readiness": "coordinates_available_not_ingested",
+      "freshness_statement": "The source updates every six months and last changed July 16, 2026.",
+      "coverage_statement": "34,446 citywide facility and program-site records are published; public access must be filtered and verified by facility type.",
+      "known_limitations": [
+        "Ownership, funding, licensing, or certification does not mean the public can walk in",
+        "Facility records are not live hours, capacity, accessibility, or cooling-center activation data"
+      ],
+      "allowed_claims": [
+        "Officially cataloged facility or program site",
+        "Potential public destination or planning-demand anchor after filtering"
+      ],
+      "prohibited_claims": [
+        "Open to the public now",
+        "Active cooling center",
+        "Accessible or available"
+      ],
+      "validation_status": "cataloged"
+    },
+    {
+      "source_id": "footnote-civic-checks-demo",
+      "publisher": "Footnote demo partner",
+      "dataset_name": "Civic data checks demo registry",
+      "dataset_url": "https://github.com/bbbeeeee/happypath/blob/main/tasks/010-civic-assets-and-contributions.md",
+      "canonical_url": "https://github.com/bbbeeeee/happypath/blob/main/tasks/010-civic-assets-and-contributions.md",
+      "dataset_id": null,
+      "asset_type": "task_registry",
+      "authority": "derived",
+      "access_method": "checked_in_fixture",
+      "format": "JSON",
+      "terms_url": "https://github.com/bbbeeeee/happypath",
+      "attribution": "Footnote proof of concept",
+      "refresh_target": "versioned with the demo code",
+      "source_updated_at": "2026-08-16T13:57:54.740Z",
+      "retrieved_at": "2026-08-16T13:57:54.740Z",
+      "last_successful_ingest": "2026-08-16T13:57:54.740Z",
+      "snapshot_hash": null,
+      "geometry_type": "Point",
+      "source_crs": "EPSG:4326",
+      "pilot_bbox": {
+        "south": 40.726,
+        "west": -74.006,
+        "north": 40.736,
+        "east": -73.988
+      },
+      "pilot_coverage": null,
+      "pilot_record_count": 9,
+      "derived_from": [
+        "nyc-dot-seating",
+        "nyc-public-restrooms",
+        "nyc-parks-drinking-fountains",
+        "openstreetmap",
+        "nyc-sidewalk-shed-permits",
+        "nyc-pops",
+        "nyc-street-construction-closures"
+      ],
+      "method_version": "civic-checks-demo-v2",
+      "capability_status": "derived",
+      "map_readiness": "demo_only",
+      "freshness_statement": "These are simulated partner-authored checks for the proof of concept, including four cover-evidence checks last reviewed August 16, 2026.",
+      "coverage_statement": "Nine hand-authored checks are bundled in the pilot; they do not measure neighborhood need.",
+      "known_limitations": [
+        "The publisher, tasks, and completion flow are simulated and are not NYC requests or work orders",
+        "A completed demo response is session-only and does not update an official dataset or OpenStreetMap feature",
+        "A cover response can flag one exact record for review but cannot establish complete, current, accessible, or dry route geometry"
+      ],
+      "allowed_claims": [
+        "Optional proof-of-concept city-data check",
+        "Route can pass a hand-authored demo check when explicitly requested",
+        "Cover checks cite an exact mapped way, permit, public-space, or construction record"
+      ],
+      "prohibited_claims": [
+        "Official NYC task or request",
+        "Verified current condition",
+        "Submitted to a City system"
+      ],
+      "validation_status": "pending"
+    },
+    {
+      "source_id": "nyc-street-construction-closures",
+      "publisher": "NYC Department of Transportation",
+      "dataset_name": "Street Closures due to Construction Activities by Block",
+      "dataset_url": "https://data.cityofnewyork.us/d/i6b5-j7bu",
+      "canonical_url": "https://data.cityofnewyork.us/d/i6b5-j7bu",
+      "download_url": "https://data.cityofnewyork.us/resource/i6b5-j7bu.geojson?%24select=the_geom%2Csegmentid%2Constreetname%2Cfromstreetname%2Ctostreetname%2Cwork_start_date%2Cwork_end_date%2Cuniqueid%2Cpurpose&%24where=within_box%28the_geom%2C40.7708%2C-74.0195%2C40.699%2C-73.958%29+AND+work_start_date+%3C%3D+%222026-08-16T23%3A59%3A59%22+AND+work_end_date+%3E%3D+%222026-08-16T00%3A00%3A00%22&%24limit=1000",
+      "related_urls": [
+        "https://data.cityofnewyork.us/d/tqtj-sjs8"
+      ],
+      "dataset_id": "i6b5-j7bu",
+      "asset_type": "dataset",
+      "authority": "official",
+      "access_method": "socrata_api",
+      "format": "GeoJSON",
+      "terms_url": "https://opendata.cityofnewyork.us/overview/#termsofuse",
+      "source_updated_at": "2026-08-10T12:19:17.000Z",
+      "retrieved_at": "2026-08-16T14:21:01.628Z",
+      "last_successful_ingest": "2026-08-16T14:21:01.628Z",
+      "snapshot_hash": "sha256:9cc266e17ebdd4e30e2927ceb221b171542bc25d4cb52c0244d8a547c6f409cc",
+      "geometry_type": "MultiLineString by street block",
+      "pilot_bbox": {
+        "south": 40.699,
+        "west": -74.0195,
+        "north": 40.7708,
+        "east": -73.958
+      },
+      "supported_area_id": "manhattan-south-of-60th-v1",
+      "pilot_coverage": null,
+      "pilot_record_count": 296,
+      "capability_status": "ingested",
+      "map_readiness": "dated_pilot_lines_ingested",
+      "freshness_statement": "The pilot snapshot includes records whose published work window contains 2026-08-16.",
+      "coverage_statement": "296 dated closure records intersect the pilot bounds.",
+      "known_limitations": [
+        "The source concerns closures to through traffic and may apply only during part of the published permit window",
+        "A record does not prove pedestrian closure, obstruction, exact active setup, or overhead cover"
+      ],
+      "allowed_claims": [
+        "Published construction-closure record whose date window includes the snapshot date"
+      ],
+      "prohibited_claims": [
+        "Sidewalk is closed",
+        "Pedestrians cannot pass",
+        "Covered route",
+        "Work is active at this moment"
+      ],
+      "validation_status": "pilot_ingested"
+    },
+    {
+      "source_id": "nyc-building-footprints",
+      "publisher": "NYC Office of Technology and Innovation",
+      "dataset_name": "BUILDING",
+      "dataset_url": "https://data.cityofnewyork.us/d/5zhs-2jue",
+      "canonical_url": "https://data.cityofnewyork.us/City-Government/BUILDING/5zhs-2jue",
+      "dataset_id": "5zhs-2jue",
+      "asset_type": "dataset",
+      "authority": "official",
+      "access_method": "socrata_api",
+      "format": "GeoJSON",
+      "terms_url": "https://opendata.cityofnewyork.us/overview/#termsofuse",
+      "attribution": "NYC OpenData",
+      "refresh_target": "deliberate pilot refresh",
+      "source_updated_at": "2026-08-14T14:19:28.000Z",
+      "retrieved_at": "2026-08-16T14:11:14.041Z",
+      "last_successful_ingest": "2026-08-16T14:11:14.041Z",
+      "snapshot_hash": "sha256:8ef6f554f298ab7ac65229c0e55d9dbdbf1ba4acbf11826b53015faec8969376",
+      "geometry_type": "MultiPolygon",
+      "source_crs": "EPSG:4326",
+      "pilot_bbox": {
+        "south": 40.699,
+        "west": -74.0195,
+        "north": 40.7708,
+        "east": -73.958
+      },
+      "supported_area_id": "manhattan-south-of-60th-v1",
+      "pilot_coverage": 0.9983324598599266,
+      "derived_from": [],
+      "method_version": "nyc-building-crop-v1",
+      "known_limitations": [
+        "Roof heights may be missing, zero, anomalous, or stale",
+        "Building geometry does not measure sidewalk temperature"
+      ],
+      "allowed_claims": [
+        "Estimated building shade after shadow-model validation"
+      ],
+      "prohibited_claims": [
+        "Measured temperature",
+        "Guaranteed shade",
+        "Cooler street"
+      ],
+      "validation_status": "pending"
+    },
+    {
+      "asset_type": "dataset",
+      "authority": "official",
+      "access_method": "socrata_api",
+      "format": "GeoJSON",
+      "terms_url": "https://opendata.cityofnewyork.us/overview/#termsofuse",
+      "refresh_target": "deliberate supported-area refresh",
+      "source_updated_at": null,
+      "retrieved_at": "2026-08-16T14:12:21.204Z",
+      "last_successful_ingest": "2026-08-16T14:12:21.204Z",
+      "source_crs": "EPSG:4326",
+      "pilot_bbox": {
+        "south": 40.699,
+        "west": -74.0195,
+        "north": 40.7708,
+        "east": -73.958
+      },
+      "supported_area_id": "manhattan-south-of-60th-v1",
+      "derived_from": [],
+      "validation_status": "pending",
+      "source_id": "nyc-forestry-tree-points",
+      "publisher": "NYC Department of Parks and Recreation",
+      "dataset_name": "Forestry Tree Points",
+      "dataset_url": "https://data.cityofnewyork.us/d/hn5i-inap",
+      "canonical_url": "https://data.cityofnewyork.us/d/hn5i-inap",
+      "dataset_id": "hn5i-inap",
+      "attribution": "NYC Parks",
+      "snapshot_hash": "sha256:b4e19d11d11d89529e59adc074fe14bf5d9c9dfa495fc37dd24cac2d92ec555c",
+      "geometry_type": "Point",
+      "pilot_coverage": 1,
+      "method_version": "nyc-tree-crop-v1",
+      "known_limitations": [
+        "A mapped tree does not establish canopy size, present condition, or shade"
+      ],
+      "allowed_claims": [
+        "Nearby mapped trees",
+        "Greener ranking input"
+      ],
+      "prohibited_claims": [
+        "Tree canopy",
+        "Current tree shade",
+        "Current tree health"
+      ]
+    },
+    {
+      "asset_type": "dataset",
+      "authority": "official",
+      "access_method": "socrata_api",
+      "format": "GeoJSON",
+      "terms_url": "https://opendata.cityofnewyork.us/overview/#termsofuse",
+      "refresh_target": "deliberate supported-area refresh",
+      "source_updated_at": null,
+      "retrieved_at": "2026-08-16T14:12:21.204Z",
+      "last_successful_ingest": "2026-08-16T14:12:21.204Z",
+      "source_crs": "EPSG:4326",
+      "pilot_bbox": {
+        "south": 40.699,
+        "west": -74.0195,
+        "north": 40.7708,
+        "east": -73.958
+      },
+      "supported_area_id": "manhattan-south-of-60th-v1",
+      "derived_from": [],
+      "validation_status": "pending",
+      "source_id": "nyc-parks-properties",
+      "publisher": "NYC Department of Parks and Recreation",
+      "dataset_name": "Parks Properties",
+      "dataset_url": "https://data.cityofnewyork.us/d/enfh-gkve",
+      "canonical_url": "https://data.cityofnewyork.us/d/enfh-gkve",
+      "dataset_id": "enfh-gkve",
+      "attribution": "NYC Parks",
+      "snapshot_hash": "sha256:e28098f47cab0f4e46d53111a676fde6f1f5e3361f1d3c4b5d64570b35dd0f6e",
+      "geometry_type": "MultiPolygon",
+      "pilot_coverage": 1,
+      "method_version": "nyc-park-crop-v1",
+      "known_limitations": [
+        "A property boundary does not prove current access, hours, or entrance location"
+      ],
+      "allowed_claims": [
+        "Adjacent to a mapped park property"
+      ],
+      "prohibited_claims": [
+        "Park is open",
+        "Entrance is accessible"
+      ]
+    },
+    {
+      "asset_type": "calculation",
+      "authority": "derived",
+      "access_method": "calculation",
+      "format": "GeoJSON",
+      "terms_url": "https://opendata.cityofnewyork.us/overview/#termsofuse",
+      "refresh_target": "deliberate supported-area refresh",
+      "source_updated_at": null,
+      "retrieved_at": "2026-08-16T14:12:21.204Z",
+      "last_successful_ingest": "2026-08-16T14:12:21.204Z",
+      "source_crs": "EPSG:4326",
+      "pilot_bbox": {
+        "south": 40.699,
+        "west": -74.0195,
+        "north": 40.7708,
+        "east": -73.958
+      },
+      "supported_area_id": "manhattan-south-of-60th-v1",
+      "derived_from": [
+        "nyc-forestry-tree-points",
+        "nyc-parks-properties",
+        "openstreetmap"
+      ],
+      "validation_status": "pending",
+      "source_id": "greenery-edge-model",
+      "publisher": "Footnote",
+      "dataset_name": "Pilot tree and park adjacency",
+      "dataset_url": "https://data.cityofnewyork.us/d/hn5i-inap",
+      "canonical_url": "https://data.cityofnewyork.us/d/hn5i-inap",
+      "dataset_id": null,
+      "attribution": "Derived from NYC Parks data",
+      "snapshot_hash": null,
+      "geometry_type": "edge metrics",
+      "pilot_coverage": 1,
+      "method_version": "tree-park-polyline-adjacency-v3-indexed",
+      "known_limitations": [
+        "Tree adjacency is not canopy or shade",
+        "Park proximity does not prove an open entrance",
+        "Edges without valid stored geometry receive no favorable greenery evidence"
+      ],
+      "allowed_claims": [
+        "More mapped tree and park adjacency than baseline"
+      ],
+      "prohibited_claims": [
+        "Shadier",
+        "Cooler",
+        "Park access guaranteed"
+      ]
+    },
+    {
+      "source_id": "nyc-dot-seating",
+      "publisher": "NYC Department of Transportation",
+      "dataset_name": "Seating Locations",
+      "dataset_url": "https://data.cityofnewyork.us/d/esmy-s8q5",
+      "canonical_url": "https://data.cityofnewyork.us/d/esmy-s8q5",
+      "dataset_id": "esmy-s8q5",
+      "asset_type": "dataset",
+      "authority": "official",
+      "access_method": "socrata_api",
+      "format": "JSON",
+      "terms_url": "https://opendata.cityofnewyork.us/overview/#termsofuse",
+      "attribution": "NYC Department of Transportation",
+      "refresh_target": "Monthly",
+      "source_updated_at": "2026-08-07T20:34:41.000Z",
+      "retrieved_at": "2026-08-16T14:15:28.373Z",
+      "last_successful_ingest": "2026-08-16T14:15:28.373Z",
+      "snapshot_hash": "sha256:4be9a94ad1ce16a189465de0b19851fe787e1dd0e5db1221555f182491ae757b",
+      "geometry_type": "Point",
+      "source_crs": "EPSG:4326",
+      "pilot_bbox": {
+        "south": 40.699,
+        "west": -74.0195,
+        "north": 40.7708,
+        "east": -73.958
+      },
+      "supported_area_id": "manhattan-south-of-60th-v1",
+      "pilot_coverage": null,
+      "pilot_record_count": 286,
+      "derived_from": [],
+      "method_version": "civic-asset-normalization-v1",
+      "capability_status": "ingested",
+      "current_operation_verified": false,
+      "known_limitations": [
+        "The inventory has no current operational field",
+        "A mapped installation does not prove the seat is still present or usable"
+      ],
+      "allowed_claims": [
+        "Mapped NYC DOT seating location",
+        "Published installation date and seating type when supplied"
+      ],
+      "prohibited_claims": [
+        "Seat is present, usable, or available now",
+        "Complete seating coverage",
+        "Accessible seating"
+      ],
+      "validation_status": "pending"
+    },
+    {
+      "source_id": "nyc-public-restrooms",
+      "publisher": "NYC Mayor's Office of Operations",
+      "dataset_name": "Public Restrooms",
+      "dataset_url": "https://data.cityofnewyork.us/d/i7jb-7jku",
+      "canonical_url": "https://data.cityofnewyork.us/d/i7jb-7jku",
+      "dataset_id": "i7jb-7jku",
+      "asset_type": "dataset",
+      "authority": "official",
+      "access_method": "socrata_api",
+      "format": "JSON",
+      "terms_url": "https://opendata.cityofnewyork.us/overview/#termsofuse",
+      "attribution": "NYC Mayor's Office of Operations",
+      "refresh_target": "As needed",
+      "source_updated_at": "2025-06-27T13:37:10.000Z",
+      "retrieved_at": "2026-08-16T14:15:28.373Z",
+      "last_successful_ingest": "2026-08-16T14:15:28.373Z",
+      "snapshot_hash": "sha256:e83cf4b2fac70301703576d3acf4a3cf7f90b1522f6a67e0bcd55dc67fc1f85d",
+      "geometry_type": "Point",
+      "source_crs": "EPSG:4326",
+      "pilot_bbox": {
+        "south": 40.699,
+        "west": -74.0195,
+        "north": 40.7708,
+        "east": -73.958
+      },
+      "supported_area_id": "manhattan-south-of-60th-v1",
+      "pilot_coverage": null,
+      "pilot_record_count": 99,
+      "derived_from": [],
+      "method_version": "civic-asset-normalization-v1",
+      "capability_status": "ingested",
+      "current_operation_verified": false,
+      "known_limitations": [
+        "Published status and hours can become stale and do not verify current operation",
+        "Facility accessibility does not establish an accessible journey to the restroom"
+      ],
+      "allowed_claims": [
+        "Mapped public restroom",
+        "Published inventory status, season, hours, operator, and facility details"
+      ],
+      "prohibited_claims": [
+        "Restroom is open or operational now",
+        "Published hours guarantee entry",
+        "An accessibility field proves an accessible route or facility",
+        "Complete restroom coverage"
+      ],
+      "validation_status": "pending"
+    },
+    {
+      "source_id": "nyc-parks-drinking-fountains",
+      "publisher": "NYC Department of Parks and Recreation",
+      "dataset_name": "NYC Parks Drinking Fountains",
+      "dataset_url": "https://data.cityofnewyork.us/d/qnv7-p7a2",
+      "canonical_url": "https://data.cityofnewyork.us/d/qnv7-p7a2",
+      "dataset_id": "qnv7-p7a2",
+      "asset_type": "dataset",
+      "authority": "official",
+      "access_method": "socrata_api",
+      "format": "JSON",
+      "terms_url": "https://opendata.cityofnewyork.us/overview/#termsofuse",
+      "attribution": "NYC Department of Parks and Recreation",
+      "refresh_target": "As needed",
+      "source_updated_at": "2024-07-15T14:41:58.000Z",
+      "retrieved_at": "2026-08-16T14:15:28.373Z",
+      "last_successful_ingest": "2026-08-16T14:15:28.373Z",
+      "snapshot_hash": "sha256:0939d63685a37d924fa1ccac30b77031de6d907a7ebc357138c340e8c6dad829",
+      "geometry_type": "Point",
+      "source_crs": "EPSG:4326",
+      "pilot_bbox": {
+        "south": 40.699,
+        "west": -74.0195,
+        "north": 40.7708,
+        "east": -73.958
+      },
+      "supported_area_id": "manhattan-south-of-60th-v1",
+      "pilot_coverage": null,
+      "pilot_record_count": 299,
+      "derived_from": [],
+      "method_version": "civic-asset-normalization-v1",
+      "capability_status": "ingested",
+      "current_operation_verified": false,
+      "known_limitations": [
+        "Published feature status is not a live operational check",
+        "Indoor fountains may depend on building access and hours"
+      ],
+      "allowed_claims": [
+        "Mapped NYC Parks drinking fountain",
+        "Published feature status and fountain details"
+      ],
+      "prohibited_claims": [
+        "Fountain is working or available now",
+        "Water availability or quality is verified now",
+        "Complete drinking-fountain coverage"
+      ],
+      "validation_status": "pending"
+    },
+    {
+      "source_id": "mta-subway-entrances-2024",
+      "publisher": "Metropolitan Transportation Authority",
+      "dataset_name": "MTA Subway Entrances and Exits: 2024",
+      "dataset_url": "https://data.ny.gov/d/i9wp-a4ja",
+      "canonical_url": "https://data.ny.gov/d/i9wp-a4ja",
+      "dataset_id": "i9wp-a4ja",
+      "asset_type": "dataset",
+      "authority": "official",
+      "access_method": "socrata_api",
+      "format": "JSON",
+      "terms_url": "https://www.mta.info/open-data",
+      "attribution": "Metropolitan Transportation Authority",
+      "refresh_target": "Static - Not Updated",
+      "source_updated_at": "2025-12-05T18:36:18.000Z",
+      "retrieved_at": "2026-08-16T14:15:28.373Z",
+      "last_successful_ingest": "2026-08-16T14:15:28.373Z",
+      "snapshot_hash": "sha256:fbd0b2a95c8f16ef81ffe2584e4decd5b5da10f6417f17d5976e9bab87d490f4",
+      "geometry_type": "Point",
+      "source_crs": "EPSG:4326",
+      "pilot_bbox": {
+        "south": 40.699,
+        "west": -74.0195,
+        "north": 40.7708,
+        "east": -73.958
+      },
+      "supported_area_id": "manhattan-south-of-60th-v1",
+      "pilot_coverage": null,
+      "pilot_record_count": 602,
+      "derived_from": [],
+      "method_version": "civic-asset-normalization-v1",
+      "capability_status": "ingested",
+      "current_operation_verified": false,
+      "known_limitations": [
+        "This is a static 2024 inventory and does not represent live service or entrance operation",
+        "An Elevator or Ramp entrance type does not prove that equipment works or that the full journey is accessible"
+      ],
+      "allowed_claims": [
+        "Mapped 2024 subway entrance or exit",
+        "Published entrance type, entry and exit permission, station identifiers, and weekday routes"
+      ],
+      "prohibited_claims": [
+        "Entrance is open, passable, or operating now",
+        "Subway service or elevator operation is live or verified",
+        "Entrance or journey is accessible or step-free",
+        "Complete or current entrance coverage"
+      ],
+      "validation_status": "pending"
+    },
+    {
+      "source_id": "building-shadow-model",
+      "publisher": "Footnote",
+      "dataset_name": "Pilot projected building shadows",
+      "dataset_url": "https://data.cityofnewyork.us/d/5zhs-2jue",
+      "canonical_url": "https://data.cityofnewyork.us/d/5zhs-2jue",
+      "dataset_id": null,
+      "asset_type": "calculation",
+      "authority": "derived",
+      "access_method": "calculation",
+      "format": "JSON and GeoJSON",
+      "terms_url": "https://opendata.cityofnewyork.us/overview/#termsofuse",
+      "attribution": "Derived from NYC BUILDING",
+      "refresh_target": "after building snapshot or method changes",
+      "source_updated_at": null,
+      "retrieved_at": "2026-08-16T14:30:48.223Z",
+      "last_successful_ingest": "2026-08-16T14:30:48.239Z",
+      "snapshot_hash": null,
+      "geometry_type": "Polygon and edge samples",
+      "source_crs": "EPSG:4326",
+      "pilot_bbox": {
+        "south": 40.699,
+        "west": -74.0195,
+        "north": 40.7708,
+        "east": -73.958
+      },
+      "supported_area_id": "manhattan-south-of-60th-v1",
+      "pilot_coverage": 1,
+      "derived_from": [
+        "nyc-building-footprints",
+        "openstreetmap"
+      ],
+      "method_version": "building-shadow-polyline-sampling-v4-coherent-partitions",
+      "known_limitations": [
+        "Uses a solar approximation pending SPA-library review",
+        "Samples preserved OSM edge polylines every 8 meters",
+        "Edges without valid stored geometry receive no favorable shade evidence",
+        "Convex shadow hulls may overstate shadows for concave footprints",
+        "Overlapping display polygons can appear darker even though route scoring treats shade as binary",
+        "Does not model trees, clouds, facade detail, or measured temperature"
+      ],
+      "allowed_claims": [
+        "Estimated direct-sun exposure",
+        "Projected building shade"
+      ],
+      "prohibited_claims": [
+        "Measured temperature",
+        "Guaranteed shade",
+        "Cooler street"
+      ],
+      "validation_status": "pending"
+    },
+    {
+      "source_id": "nyc-stormwater-flood-map-2050",
+      "publisher": "NYC Department of Environmental Protection",
+      "dataset_name": "NYC Stormwater Flood Map — moderate rain with 2050 sea-level rise",
+      "dataset_url": "https://data.cityofnewyork.us/d/9i7c-xyvv",
+      "canonical_url": "https://www.nyc.gov/stormwater-map",
+      "download_url": "https://services.arcgis.com/at3rDjch5X7i9Bag/arcgis/rest/services/Moderate_Flood_SLR_2050/FeatureServer/4/query?where=1%3D1&geometry=-74.0195%2C40.699%2C-73.958%2C40.7708&geometryType=esriGeometryEnvelope&inSR=4326&spatialRel=esriSpatialRelIntersects&outFields=OBJECTID%2CModel&returnGeometry=true&outSR=4326&maxAllowableOffset=0.00001&geometryPrecision=6&resultRecordCount=2000&f=geojson",
+      "related_urls": [
+        "https://services.arcgis.com/at3rDjch5X7i9Bag/arcgis/rest/services/Moderate_Flood_SLR_2050/FeatureServer/5/query?where=1%3D1&geometry=-74.0195%2C40.699%2C-73.958%2C40.7708&geometryType=esriGeometryEnvelope&inSR=4326&spatialRel=esriSpatialRelIntersects&outFields=OBJECTID%2CModel&returnGeometry=true&outSR=4326&maxAllowableOffset=0.00001&geometryPrecision=6&resultRecordCount=2000&f=geojson",
+        "https://www.arcgis.com/home/item.html?id=af6844bff1d74fbfa85597c32b6f34c4",
+        "https://www.nyc.gov/site/em/ready/flooding.page",
+        "https://a858-nycnotify.nyc.gov/notifynyc/"
+      ],
+      "dataset_id": "9i7c-xyvv",
+      "asset_type": "modeled_hazard_context",
+      "authority": "official",
+      "access_method": "arcgis_feature_service",
+      "format": "Supported-area-intersecting GeoJSON MultiPolygon",
+      "terms_url": "https://opendata.cityofnewyork.us/overview/#termsofuse",
+      "source_updated_at": "2025-01-17T21:07:16.423Z",
+      "retrieved_at": "2026-08-16T15:30:00.000Z",
+      "last_successful_ingest": "2026-08-16T15:30:00.000Z",
+      "snapshot_hash": "sha256:9d4002b6ea1248968b2df2c9603c1d68e61676ddead0c29a51c789f03e95f486",
+      "geometry_type": "MultiPolygon scenario areas",
+      "pilot_bbox": {
+        "south": 40.699,
+        "west": -74.0195,
+        "north": 40.7708,
+        "east": -73.958
+      },
+      "supported_area_id": "manhattan-south-of-60th-v1",
+      "pilot_coverage": null,
+      "pilot_record_count": 1065,
+      "capability_status": "ingested",
+      "map_readiness": "context_only",
+      "validation_status": "pilot_context_only",
+      "method_version": "stormwater-2050-v1",
+      "current_conditions_verified": false,
+      "scenario": {
+        "id": "moderate-rain-2050-sea-level-rise",
+        "label": "Moderate rain · 2050 sea-level rise",
+        "rainfallRateInchesPerHour": 2.13,
+        "seaLevelCondition": "2050_projection",
+        "modeled": true,
+        "live": false
+      },
+      "freshness_statement": "This is an annually updated planning model, not a live flood feed. The preview preserves the source update and retrieval times separately.",
+      "coverage_statement": "1065 modeled flood-area components intersect Manhattan below 60th Street.",
+      "known_limitations": [
+        "Modeled potential flooding does not report current water, exact depth at a point, passability, drainage blockages, or site-specific conditions",
+        "The layer models one 2.13-inch-per-hour rain scenario with projected 2050 sea-level rise and does not cover every cause or possible location of flooding",
+        "A route with no mapped overlap is not proven safe, dry, clear, passable, or flood-free"
+      ],
+      "allowed_claims": [
+        "Area included in DEP’s modeled moderate-rain stormwater scenario with projected 2050 sea-level rise",
+        "Route geometry intersects a modeled nuisance-ponding or deep-and-contiguous-flooding polygon"
+      ],
+      "prohibited_claims": [
+        "Flooded now",
+        "Exact current or forecast water depth",
+        "Safe, dry, clear, passable, low-risk, flood-free, or flood-avoiding route"
+      ]
+    },
+    {
+      "source_id": "nyc-permitted-events",
+      "publisher": "NYC Street Activity Permit Office",
+      "dataset_name": "NYC Permitted Event Information",
+      "dataset_url": "https://data.cityofnewyork.us/d/tvpp-9vvx",
+      "canonical_url": "https://data.cityofnewyork.us/d/tvpp-9vvx",
+      "dataset_id": "tvpp-9vvx",
+      "asset_type": "dataset",
+      "authority": "official",
+      "access_method": "socrata_api",
+      "format": "JSON",
+      "terms_url": "https://opendata.cityofnewyork.us/overview/#termsofuse",
+      "attribution": "NYC Street Activity Permit Office",
+      "refresh_target": "Daily during the preview window",
+      "source_updated_at": null,
+      "retrieved_at": "2026-08-16T18:26:46.685Z",
+      "last_successful_ingest": "2026-08-16T18:26:46.685Z",
+      "snapshot_hash": "sha256:9abf1a989203ca0ce972eada22cc218f3e5380ea049b6d8436436c52b00e28a3",
+      "geometry_type": "Graph edge runs resolved from permit street prose",
+      "source_crs": "EPSG:4326",
+      "supported_area_id": "manhattan-south-of-60th-v1",
+      "pilot_coverage": null,
+      "pilot_record_count": 161,
+      "derived_from": [
+        "openstreetmap"
+      ],
+      "method_version": "permit-block-run-resolution-v1",
+      "capability_status": "ingested",
+      "current_operation_verified": false,
+      "known_limitations": [
+        "A permit records an approved application, not an event that is set up or happening",
+        "Event extent is resolved from street prose onto graph edges, not from a surveyed closure boundary",
+        "Permits naming streets outside the supported area are dropped rather than approximated"
+      ],
+      "allowed_claims": [
+        "A permitted event is on record for a block this route uses",
+        "Published permit window, event type, and closure type"
+      ],
+      "prohibited_claims": [
+        "The event is happening now",
+        "The street is currently closed",
+        "Complete coverage of events in the area"
+      ],
+      "validation_status": "pending"
+    }
+  ]
+}

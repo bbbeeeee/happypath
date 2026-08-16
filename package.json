@@ -1,0 +1,49 @@
+{
+  "name": "footnote-mvp",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "engines": {
+    "node": ">=22.12"
+  },
+  "files": [
+    "dist",
+    "dist-server",
+    "docs/DEPLOYMENT.md",
+    "README.md",
+    ".env.example"
+  ],
+  "scripts": {
+    "data:osm": "node scripts/ingest-osm.mjs",
+    "data:buildings": "node scripts/ingest-buildings.mjs",
+    "data:civic": "node scripts/ingest-civic-assets.mjs",
+    "data:cover": "node scripts/ingest-cover-evidence.mjs",
+    "data:flood": "node scripts/ingest-flood-evidence.mjs",
+    "data:access": "node scripts/ingest-access-context.mjs",
+    "data:events": "node scripts/ingest-events.mjs",
+    "data:shade": "node scripts/derive-shade.mjs",
+    "data:greenery": "node scripts/derive-greenery.mjs",
+    "data:refresh": "npm run data:osm && npm run data:buildings && npm run data:greenery && npm run data:shade && npm run data:civic && npm run data:cover && npm run data:flood && npm run data:access && npm run data:events",
+    "dev": "vite",
+    "preview": "vite preview",
+    "build": "tsc -b && vite build && node scripts/check-bundle-budgets.mjs && tsc -p tsconfig.server.json",
+    "start": "node dist-server/server/production.js",
+    "deploy:check": "npm run build && node scripts/smoke-production.mjs",
+    "deploy:package": "npm run deploy:check && node scripts/package-release.mjs",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@vitejs/plugin-react": "latest",
+    "maplibre-gl": "latest",
+    "react": "latest",
+    "react-dom": "latest",
+    "vite": "latest"
+  },
+  "devDependencies": {
+    "@types/node": "^26.2.0",
+    "@types/react": "latest",
+    "@types/react-dom": "latest",
+    "typescript": "latest",
+    "vitest": "latest"
+  }
+}

@@ -1,6 +1,6 @@
 # Ideas
 
-This folder is a low-cost place to explore possible Happy Path features, experiences, and extensions. An idea is not committed product scope until it is promoted into the [PRD](../PRD.md).
+This folder is a low-cost place to explore possible Footnote features, experiences, and extensions. An idea is not committed product scope until it is promoted into the [PRD](../PRD.md).
 
 ## Statuses
 

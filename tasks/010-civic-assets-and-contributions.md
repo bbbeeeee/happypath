@@ -5,14 +5,14 @@ phase: later
 status: later
 depends_on: ["006", "009"]
 parallel_with: []
-last_updated: 2026-08-15
+last_updated: 2026-08-16
 ---
 
 # 010 — Civic Assets & Actions
 
 ## Outcome
 
-Happy Path and Detour can represent individual public assets, their official and recently observed state, responsible entity, open issue, and safe authorized action—without rating neighborhoods or outsourcing City responsibilities.
+Footnote and Detour can represent individual public assets, their official and recently observed state, responsible entity, open issue, and safe authorized action—without rating neighborhoods or outsourcing City responsibilities.
 
 Residents may optionally help improve ground truth along a walk through a quick confirmation, structured observation, or purpose-limited photo.
 
@@ -90,3 +90,7 @@ Review one end-to-end observation loop with a domain-appropriate partner or clea
 ## Handoff
 
 Future work may integrate authorized observations and actions with agency or partner workflows after governance and operational ownership are established.
+
+## P1 proof-of-concept slice
+
+Task 012 implements a bounded demo of this later package: five simulated partner-authored checks, explicit task-aware routing, a session-only structured observation, a no-upload photo selection path, a City what-if layer, and source/safety boundaries. It deliberately does not claim trusted production publishing, persistence, moderation, City submission, or a feedback loop into official routing evidence.

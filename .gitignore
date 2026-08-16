@@ -1,0 +1,20 @@
+node_modules/
+dist/
+dist-server/
+release/
+.vite-types/
+.env
+.env.*
+!.env.example
+*.tsbuildinfo
+vite.config.js
+vite.config.d.ts
+.DS_Store
+.gstack/qa-reports/
+.gstack/
+
+# Local build output, generated data, and tooling pins
+src/app/
+buildings.db
+synthetic_data/
+.python-version

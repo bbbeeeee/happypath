@@ -17,7 +17,7 @@ Natural language reliably becomes a typed, inspectable Trip Brief for destinatio
 
 ## Why this package exists
 
-AI should make Happy Path feel intuitive and considered. It is the interpretation and communication layer, not the source of route facts. The product needs enough intelligence to understand a short request without allowing the model to invent the city, expose technical jargon, or turn the interaction into a long chat.
+AI should make Footnote feel intuitive and considered. It is the interpretation and communication layer, not the source of route facts. The product needs enough intelligence to understand a short request without allowing the model to invent the city, expose technical jargon, or turn the interaction into a long chat.
 
 ## Inputs and dependencies
 

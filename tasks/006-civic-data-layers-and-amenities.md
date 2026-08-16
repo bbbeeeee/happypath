@@ -12,7 +12,7 @@ last_updated: 2026-08-15
 
 ## Outcome
 
-Happy Path integrates a broad, coherent set of NYC public-realm data across Manhattan south of Central Park. Selected layers improve routes, waypoints, explanations, and Detour analysis while remaining fast, clean, and honest about coverage.
+Footnote integrates a broad, coherent set of NYC public-realm data across Manhattan south of Central Park. Selected layers improve routes, waypoints, explanations, and Detour analysis while remaining fast, clean, and honest about coverage.
 
 ## Why this package exists
 
