@@ -2010,12 +2010,19 @@ export function App() {
       // Permitted events sit above the route line: the walk is already chosen,
       // and this marks the stretch of it the event is permitted for.
       map.addSource("route-events", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
-      map.addLayer({ id: "route-events", type: "line", source: "route-events", paint: {
-        "line-color": "#F05A47",
-        "line-width": 9,
-        "line-dasharray": [0.6, 0.9],
-        "line-opacity": 0.85,
+      // The route underneath is already coral, so a coral dash on its own would
+      // read as a slightly fatter route line. A paper casing gives the dashes a
+      // gap to register against, turning the block run into a highlighted ribbon.
+      map.addLayer({ id: "route-events-casing", type: "line", source: "route-events", paint: {
+        "line-color": "#FFFDF8",
+        "line-width": 15,
+        "line-opacity": 0.92,
       }, layout: { "line-cap": "round", "line-join": "round" } });
+      map.addLayer({ id: "route-events", type: "line", source: "route-events", paint: {
+        "line-color": "#D94C3B",
+        "line-width": 8,
+        "line-dasharray": [0.75, 0.7],
+      }, layout: { "line-cap": "butt", "line-join": "round" } });
       map.addSource("route-shade", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
       map.addLayer({ id: "route-shade", type: "line", source: "route-shade", paint: {
         "line-color": ["match", ["get", "shadeBand"], "mostly_shaded", "#294E43", "mixed", "#8A7C4A", "#E86248"],
@@ -2287,13 +2294,14 @@ export function App() {
         map.on("click", "civic-task-icons", showTaskPopover);
       }).catch(() => { /* The task hit area remains selectable if icon art cannot load. */ });
       map.on("click", "civic-task-hit", showTaskPopover);
-      // The stretch already walked, drawn under the route so the remaining path
-      // stays the brighter line.
+      // The stretch already walked. It paints over the route at the same width,
+      // so the covered ground goes quiet grey and the coral ahead of the arrow
+      // is what still reads as the walk.
       map.addSource("nav-trail", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
       map.addLayer({ id: "nav-trail", type: "line", source: "nav-trail", paint: {
-        "line-color": "#1E2A24",
+        "line-color": "#9AA29B",
         "line-width": 6,
-        "line-opacity": 0.28,
+        "line-opacity": 0.95,
       }, layout: { visibility: "none", "line-cap": "round", "line-join": "round" } });
       map.addSource("endpoints", { type: "geojson", data: endpointsGeoJSON() });
       // A loop has one combined start and finish, so it keeps the ring treatment.
@@ -2475,6 +2483,19 @@ export function App() {
   }, [mapPerspective, mapReady]);
 
   /**
+   * The arrow and trail redraw on every animation frame, so they get their own
+   * effect. Folding them into the main map-data effect would re-set every
+   * GeoJSON source sixty times a second.
+   */
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!mapReady || !map) return;
+    const walked = navigating ? route : null;
+    (map.getSource("nav-cursor") as GeoJSONSource | undefined)?.setData(navigationCursorGeoJSON(walked, navigationProgress));
+    (map.getSource("nav-trail") as GeoJSONSource | undefined)?.setData(navigationTrailGeoJSON(walked, navigationProgress));
+  }, [navigating, navigationProgress, route, mapReady]);
+
+  /**
    * Entering navigation lifts the camera to an aerial framing of the whole
    * walk, then advances the heading arrow along it on the demo clock.
    */
@@ -2586,8 +2607,6 @@ export function App() {
     (map.getSource("route-comparison-delta") as GeoJSONSource | undefined)?.setData(comparisonDelta);
     (map.getSource("route-shade") as GeoJSONSource | undefined)?.setData(shadeSegments);
     (map.getSource("route-events") as GeoJSONSource | undefined)?.setData(onRouteEventLayer);
-    (map.getSource("nav-cursor") as GeoJSONSource | undefined)?.setData(navigationCursorGeoJSON(navigating ? route : null, navigationProgress));
-    (map.getSource("nav-trail") as GeoJSONSource | undefined)?.setData(navigationTrailGeoJSON(navigating ? route : null, navigationProgress));
     (map.getSource("ambient-greenery") as GeoJSONSource | undefined)?.setData(ambientGreeneryLayer);
     (map.getSource("route-greenery") as GeoJSONSource | undefined)?.setData(greeneryRouteSegments);
     (map.getSource("mapped-cover") as GeoJSONSource | undefined)?.setData(ambientCoverLayer);
@@ -2619,6 +2638,9 @@ export function App() {
     visibility("nav-trail", navigating && Boolean(route));
     visibility("happy-casing", showCurrentRoute);
     visibility("happy", showCurrentRoute);
+    // An on-route event only means anything next to the route it sits on.
+    visibility("route-events-casing", showCurrentRoute && onRouteEventLayer.features.length > 0);
+    visibility("route-events", showCurrentRoute && onRouteEventLayer.features.length > 0);
     visibility("route-shade", showCurrentRoute && mapOverlays.shade);
     visibility("ambient-greenery", mapOverlays.greenery);
     visibility("route-greenery", showCurrentRoute && mapOverlays.greenery);
@@ -2649,7 +2671,7 @@ export function App() {
     const showCivicTasks = civicTaskLayerVisible(mapOverlays.tasks, activeTask?.id);
     ["civic-task-halo", "civic-task-hit", "civic-task-icons"].forEach((layer) => visibility(layer, showCivicTasks));
     visibility("civic-task-focus-label", Boolean(activeTask));
-  }, [route, result, showBaseline, comparisonDelta, representativeGap, representativeRoutes, showRepresentativeIntervention, activityMapData, plannerView, activeAssets, activeAsset?.id, activeTask?.id, overviewAssets, taskFeatures, shadeSegments, onRouteEventLayer, ambientGreeneryLayer, greeneryRouteSegments, ambientCoverLayer, coverRouteSegments, coverContextLayer, coverContextVicinities, floodContextLayer, accessContextLayer, coolOptionsLayer, plannerScenario, mapLens, mapOverlays, appMode, mapReady, setupEndpointPresentation, navigating, navigationProgress]);
+  }, [route, result, showBaseline, comparisonDelta, representativeGap, representativeRoutes, showRepresentativeIntervention, activityMapData, plannerView, activeAssets, activeAsset?.id, activeTask?.id, overviewAssets, taskFeatures, shadeSegments, onRouteEventLayer, ambientGreeneryLayer, greeneryRouteSegments, ambientCoverLayer, coverRouteSegments, coverContextLayer, coverContextVicinities, floodContextLayer, accessContextLayer, coolOptionsLayer, plannerScenario, mapLens, mapOverlays, appMode, mapReady, setupEndpointPresentation, navigating]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -2840,7 +2862,8 @@ export function App() {
 
   return <main className={`${route ? "has-result" : "is-compose"} mode-${appMode} perspective-${mapPerspective} ${mapEndpointSelection ? "map-picking" : ""}`}>
     <div className="map-shell"><div className="map" ref={mapContainer} /><div className="map-wash" />{navigating && route && <div className="navigation-readout"><NavigateIcon /><span><strong>{navigationProgressLabel(route, navigationProgress)}</strong><small>Following the planned walk. Not a device location.</small></span><i className="navigation-progress" aria-hidden="true"><b style={{ width: `${Math.round(navigationProgress * 100)}%` }} /></i></div>}{mapPerspective === "isometric" && !mapError && <div className="isometric-caption"><BuildingsIcon /><span><strong>Isometric city</strong><small>Brick, stone, and slate from NYC roof-height data</small></span><i className="isometric-swatches" aria-hidden="true"><b /><b /><b /><b /></i></div>}{mapError && <FallbackMap graph={pilotGraph} route={route} setupEndpoints={route ? undefined : setupEndpointPresentation} baseline={showBaseline ? result?.baseline ?? null : null} comparisonDelta={comparisonDelta} representativeRoutes={representativeRoutes} activity={routeActivity} showActivity={appMode === "planner" && plannerView !== "what_if"} selectedActivityRouteId={selectedActivityRouteId} onActivityRouteClick={selectActivityRoute} lens={mapLens} overlays={mapOverlays} shadeSegments={shadeSegments} greenerySegments={greeneryRouteSegments} ambientGreenery={ambientGreeneryLayer} coverSegments={coverRouteSegments} ambientCover={ambientCoverLayer} coverContext={coverContextLayer} floodContext={floodContextLayer} accessContext={accessContextLayer} coolOptions={coolOptionsLayer} selection={appMode === "planner" ? representativeGap : null} assets={viewportAssets} prominentAssetIds={activeAssets.map((asset) => asset.id)} selectedAssetId={activeAsset?.id} onMapClick={mapEndpointSelection && !route && appMode === "walk" ? (coordinate) => void selectEndpointFromMap(mapEndpointSelection, coordinate) : undefined} onAssetClick={(asset) => { setActiveTask(null); setActiveTaskPoint(null); setActiveFlood(null); setActiveFloodPoint(null); setActiveAsset(asset); setActiveAssetPoint({ x: Math.round(window.innerWidth * .68), y: 160 }); }} tasks={visibleTasks} selectedTaskId={activeTask?.id} completedTaskIds={Object.keys(taskObservations)} onTaskClick={(task) => { setActiveAsset(null); setActiveAssetPoint(null); setActiveFlood(null); setActiveFloodPoint(null); setActiveTask(task); setActiveTaskPoint({ x: Math.round(window.innerWidth * .68), y: 160 }); }} />}</div>
-    <div className="top-bar"><div className="brand-cluster"><Brand /><PreferencesPopover preferences={preferences} onSave={savePreferences} onReset={resetPreferences} appliesNow={!route} /><div className="mode-switch" aria-label="Product view"><button type="button" className={appMode === "walk" ? "active" : ""} aria-pressed={appMode === "walk"} onClick={() => switchMode("walk")}>Walk</button><button type="button" className={appMode === "planner" ? "active" : ""} aria-pressed={appMode === "planner"} onClick={() => switchMode("planner")}>City view</button></div><a className="data-sources-nav-link" href="/datasources"><LayersIcon /><span>Data</span></a></div><div className="map-actions"><CityStatusPill weather={weather} />{route && appMode === "walk" && !mapError && <button type="button" className={`navigate-toggle ${navigating ? "active" : ""}`} aria-pressed={navigating} onClick={() => setNavigating((current) => !current)}><NavigateIcon /><span>{navigating ? "Exit navigation" : "Start walk"}</span></button>}{!mapError && <button type="button" className={`perspective-toggle ${mapPerspective === "isometric" ? "active" : ""}`} aria-pressed={mapPerspective === "isometric"} onClick={() => setMapPerspective((current) => current === "street" ? "isometric" : "street")}><BuildingsIcon /><span>{mapPerspective === "isometric" ? "Street map" : "Isometric"}</span></button>}{!mapError && <IconButton label="Center map" onClick={() => mapRef.current?.easeTo({ center: graphNodeById(originNodeId)?.coordinate, zoom: 14.5 })}><LocateIcon /></IconButton>}{route && appMode === "walk" && <IconButton label="Map details" onClick={() => { setActiveAsset(null); setActiveAssetPoint(null); setActiveTask(null); setActiveTaskPoint(null); setDetail("data"); }}><LayersIcon /></IconButton>}</div></div>
+    <div className="map-shell"><div className="map" ref={mapContainer} /><div className="map-wash" />{navigating && route && <div className="navigation-readout"><NavigateIcon /><span><strong>{navigationProgressLabel(route, navigationProgress)}</strong><small>Following the planned walk. Not a device location.</small></span><i className="navigation-progress" aria-hidden="true"><b style={{ width: `${Math.round(navigationProgress * 100)}%` }} /></i></div>}{mapPerspective === "isometric" && !mapError && <div className="isometric-caption"><BuildingsIcon /><span><strong>Isometric city</strong><small>Brick, stone, and slate from NYC roof-height data</small></span><i className="isometric-swatches" aria-hidden="true"><b /><b /><b /><b /></i></div>}{mapError && <FallbackMap graph={pilotGraph} route={route} setupEndpoints={route ? undefined : setupEndpointPresentation} baseline={showBaseline ? result?.baseline ?? null : null} comparisonDelta={comparisonDelta} representativeRoutes={representativeRoutes} activity={routeActivity} showActivity={appMode === "planner" && plannerView !== "what_if"} selectedActivityRouteId={selectedActivityRouteId} onActivityRouteClick={selectActivityRoute} lens={mapLens} overlays={mapOverlays} shadeSegments={shadeSegments} greenerySegments={greeneryRouteSegments} ambientGreenery={ambientGreeneryLayer} coverSegments={coverRouteSegments} ambientCover={ambientCoverLayer} coverContext={coverContextLayer} floodContext={floodContextLayer} accessContext={accessContextLayer} coolOptions={coolOptionsLayer} selection={appMode === "planner" ? representativeGap : null} assets={viewportAssets} prominentAssetIds={activeAssets.map((asset) => asset.id)} selectedAssetId={activeAsset?.id} onMapClick={mapEndpointSelection && !route && appMode === "walk" ? (coordinate) => void selectEndpointFromMap(mapEndpointSelection, coordinate) : undefined} onAssetClick={(asset) => { setActiveTask(null); setActiveTaskPoint(null); setActiveFlood(null); setActiveFloodPoint(null); setActiveAsset(asset); setActiveAssetPoint({ x: Math.round(window.innerWidth * .68), y: 160 }); }} tasks={visibleTasks} selectedTaskId={activeTask?.id} completedTaskIds={Object.keys(taskObservations)} onTaskClick={(task) => { setActiveAsset(null); setActiveAssetPoint(null); setActiveFlood(null); setActiveFloodPoint(null); setActiveTask(task); setActiveTaskPoint({ x: Math.round(window.innerWidth * .68), y: 160 }); }} />}</div>
+    <div className="top-bar"><div className="brand-cluster"><Brand /><PreferencesPopover preferences={preferences} onSave={savePreferences} onReset={resetPreferences} appliesNow={!route} /><div className="mode-switch" aria-label="Product view"><button type="button" className={appMode === "walk" ? "active" : ""} aria-pressed={appMode === "walk"} onClick={() => switchMode("walk")}>Walk</button><button type="button" className={appMode === "planner" ? "active" : ""} aria-pressed={appMode === "planner"} onClick={() => switchMode("planner")}>City view</button></div><a className="data-sources-nav-link" href="/datasources"><LayersIcon /><span>Data</span></a></div><div className="map-actions"><CityStatusPill weather={weather} />{route && appMode === "walk" && !mapError && <button type="button" className={`navigate-toggle ${navigating ? "active" : ""}`} aria-label={navigating ? "Exit navigation" : "Start walk"} aria-pressed={navigating} onClick={() => setNavigating((current) => !current)}><NavigateIcon /><span>{navigating ? "Exit navigation" : "Start walk"}</span></button>}{!mapError && <button type="button" className={`perspective-toggle ${mapPerspective === "isometric" ? "active" : ""}`} aria-pressed={mapPerspective === "isometric"} onClick={() => setMapPerspective((current) => current === "street" ? "isometric" : "street")}><BuildingsIcon /><span>{mapPerspective === "isometric" ? "Street map" : "Isometric"}</span></button>}{!mapError && <IconButton label="Center map" onClick={() => mapRef.current?.easeTo({ center: graphNodeById(originNodeId)?.coordinate, zoom: 14.5 })}><LocateIcon /></IconButton>}{route && appMode === "walk" && <IconButton label="Map details" onClick={() => { setActiveAsset(null); setActiveAssetPoint(null); setActiveTask(null); setActiveTaskPoint(null); setDetail("data"); }}><LayersIcon /></IconButton>}</div></div>
     {appMode === "planner"
       ? <RepresentativePlannerSheet scenario={representativeScenario} showIntervention={showRepresentativeIntervention} onShowIntervention={() => setShowRepresentativeIntervention(true)} onBack={() => switchMode("walk")} activity={routeActivity} activityPersisted={activityPersisted} view={plannerView} onViewChange={setPlannerView} selectedActivityRouteId={selectedActivityRouteId} onSelectActivityRoute={selectActivityRoute} onClearActivity={clearLocalRouteActivity} />
       : !route
