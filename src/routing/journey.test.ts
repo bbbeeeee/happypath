@@ -77,6 +77,13 @@ describe("planJourney destination", () => {
 
     expect(result.recommended.edgeIds).toEqual(["covered-1", "covered-2"]);
     expect(result.recommended.preferenceScore).toBe(1);
+    expect(result.routeValueFrontier).toMatchObject({
+      metric: "preference_fit",
+      status: "meaningful_alternative",
+      baselineCandidateId: result.baseline!.candidateId,
+      recommendedCandidateId: result.recommended.candidateId,
+      targetCaptureRatio: 0.8,
+    });
   });
 
   it("steers a valid route through a graph-snapped waypoint", () => {
@@ -151,6 +158,10 @@ describe("planJourney destination", () => {
     });
 
     expect(daytime.recommended.candidateId).toBe(daytime.baseline!.candidateId);
+    expect(daytime.routeValueFrontier).toMatchObject({
+      status: "no_meaningful_alternative",
+      recommendedCandidateId: daytime.baseline!.candidateId,
+    });
     expect(daytime.recommended.directSunMinutes).toBeGreaterThan(0);
     expect(nighttime.recommended.directSunMinutes).toBe(0);
     expect(nighttime.recommended.shadePercent).toBe(100);

@@ -24,6 +24,8 @@ export interface GraphEdge {
     access: string | null;
     foot: string | null;
     steps: boolean;
+    covered?: string | null;
+    tunnel?: string | null;
   };
 }
 
@@ -42,6 +44,7 @@ export interface PilotGraph {
       nodes: number;
       edges: number;
       mappedStairEdges: number;
+      mappedCoveredEdges?: number;
       accessTaggedEdges: number;
       largestComponentShare: number;
       edgesWithGeometry?: number;
@@ -151,6 +154,28 @@ export interface JourneyRoute extends RouteResult {
   extraMinutesVsBaseline: number | null;
 }
 
+export type RouteValueMetric = "direct_sun_minutes" | "greenery_points" | "preference_fit";
+
+export interface RouteValueFrontierPoint {
+  candidateId: string;
+  extraMinutes: number;
+  /** Improvement over the fastest valid baseline, in the frontier metric's unit. */
+  benefit: number;
+  /** Share of the best measured candidate benefit, from zero to one. */
+  capturedBenefitRatio: number;
+}
+
+export interface RouteValueFrontier {
+  metric: RouteValueMetric;
+  baselineCandidateId: string;
+  recommendedCandidateId: string;
+  status: "meaningful_alternative" | "no_meaningful_alternative";
+  meaningfulBenefitFloor: number;
+  targetCaptureRatio: number;
+  maximumBenefit: number;
+  points: RouteValueFrontierPoint[];
+}
+
 export interface JourneyResult {
   brief: TripBrief;
   baseline: JourneyRoute | null;
@@ -158,4 +183,6 @@ export interface JourneyResult {
   /** At most two materially distinct valid alternatives. */
   alternatives: JourneyRoute[];
   evaluatedCandidateCount: number;
+  /** Destination-only frontier. Null when there is no baseline or requested route benefit. */
+  routeValueFrontier: RouteValueFrontier | null;
 }

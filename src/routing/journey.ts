@@ -11,6 +11,7 @@ import type {
 } from "../types";
 import { edgeGreenery } from "./greenery";
 import { routeCoordinates } from "./geometry";
+import { computeRouteValueFrontier, ROUTE_VALUE_POLICIES } from "./routeValueFrontier";
 import { edgeShade } from "./shade";
 
 export const WALKING_METERS_PER_MINUTE = 80;
@@ -19,7 +20,7 @@ export const DEFAULT_TARGET_TOLERANCE_RATIO = 0.1;
 export type WalkingTimeIntent = "target" | "maximum";
 
 export interface JourneyEdgePreference {
-  /** Stable diagnostic label, such as "likely_cover_demo". */
+  /** Stable diagnostic label, such as "mapped_overhead_cover". */
   id: string;
   /** Relative zero-to-one strength alongside built-in route preferences. */
   weight: number;
@@ -496,6 +497,23 @@ function distinctAlternatives(
   return alternatives;
 }
 
+function destinationValueMetric(context: PlannerContext) {
+  if (context.edgePreference || context.preferences.length !== 1) return "preference_fit" as const;
+  return context.preferences[0].featureId === "shade"
+    ? "direct_sun_minutes" as const
+    : "greenery_points" as const;
+}
+
+function destinationBenefit(
+  metric: ReturnType<typeof destinationValueMetric>,
+  baseline: JourneyRoute,
+  candidate: JourneyRoute,
+) {
+  if (metric === "direct_sun_minutes") return baseline.directSunMinutes - candidate.directSunMinutes;
+  if (metric === "greenery_points") return candidate.greeneryPercent - baseline.greeneryPercent;
+  return candidate.preferenceScore - baseline.preferenceScore;
+}
+
 function destinationJourney(context: PlannerContext, brief: Extract<TripBrief, { journeyShape: "destination" }>): JourneyResult {
   const fastestPath = shortestPath(context, brief.originNodeId, brief.destinationNodeId, routingCost(context, 0));
   if (!fastestPath) throw new JourneyPlanningError("no-route", "No valid destination route satisfies the requirements");
@@ -544,15 +562,28 @@ function destinationJourney(context: PlannerContext, brief: Extract<TripBrief, {
   const score = (route: JourneyRoute) => route.preferenceScore
     - ((route.extraMinutesVsBaseline ?? 0) / allowance) * 0.025;
   const ordered = candidates.sort((a, b) => score(b) - score(a) || a.durationMinutes - b.durationMinutes);
-  const recommended = !hasPreferences(context) || brief.detourAllowanceMinutes === 0
-    ? baseline
-    : ordered[0];
+  const metric = destinationValueMetric(context);
+  const routeValueFrontier = hasPreferences(context)
+    ? computeRouteValueFrontier(
+      baseline.candidateId,
+      candidates.map((candidate) => ({
+        candidateId: candidate.candidateId,
+        extraMinutes: candidate.extraMinutesVsBaseline ?? 0,
+        benefit: destinationBenefit(metric, baseline, candidate),
+      })),
+      ROUTE_VALUE_POLICIES[metric],
+    )
+    : null;
+  const recommended = routeValueFrontier
+    ? candidates.find((candidate) => candidate.candidateId === routeValueFrontier.recommendedCandidateId) ?? baseline
+    : baseline;
   return {
     brief,
     baseline,
     recommended,
     alternatives: distinctAlternatives(ordered, recommended, new Set([baseline.candidateId, recommended.candidateId])),
     evaluatedCandidateCount: candidates.length,
+    routeValueFrontier,
   };
 }
 
@@ -681,6 +712,7 @@ function loopJourney(
     recommended,
     alternatives: distinctAlternatives(ordered, recommended, new Set([recommended.candidateId])),
     evaluatedCandidateCount: candidates.length,
+    routeValueFrontier: null,
   };
 }
 
@@ -881,6 +913,7 @@ function wanderJourney(
     recommended,
     alternatives: distinctAlternatives(ordered, recommended, new Set([recommended.candidateId])),
     evaluatedCandidateCount: candidates.length,
+    routeValueFrontier: null,
   };
 }
 
