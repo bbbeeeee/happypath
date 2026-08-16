@@ -1,20 +1,20 @@
 # Happy Path — Build Plan
 
-> Detailed work packages live in [`tasks/`](../tasks/README.md). This document defines the delivery sequence, shared contracts, and quality gates without duplicating live task status.
+> Detailed work packages live in [`tasks/`](../tasks/README.md). This document defines the delivery sequence, shared contracts, and quality gates without prescribing a particular engineering workflow.
 
 ## 1. Current phase
 
-The current pull request is documentation and planning only.
+The current work is documentation and planning only.
 
 The sequence is:
 
-1. approve and merge the key docs to `main`;
-2. convert work packages into focused implementation issues or PRs;
-3. implement through reviewable branches targeting `main`;
-4. assemble the P1 demo from real, cleaned Manhattan data;
+1. approve the key product and planning docs;
+2. use the work packages as the basis for implementation planning;
+3. build the P1 experience from real, cleaned Manhattan data;
+4. integrate and polish the resident experience;
 5. add one Detour planning proof using the same city model.
 
-No prototype branch is designated as the implementation base. Existing prototypes may provide reusable code or evidence after file-level review.
+No prototype branch, technical stack, branching strategy, or implementation workflow is prescribed. Future builders should choose the approach that best satisfies the approved product, data, and quality requirements.
 
 ## 2. Delivery goal
 
@@ -107,11 +107,10 @@ Tasks 002–006 can proceed substantially in parallel after the docs and shared 
 
 Exit conditions:
 
-- PRD, UX, data/inference, Detour, prototype, build, and task docs approved;
+- PRD, UX, data/inference, Detour, build, and task docs approved;
 - Manhattan supported area accepted;
 - P1 scope understood;
-- no prototype branch designated as the base;
-- implementation will proceed through focused PRs to `main`.
+- future builders have clear product outcomes and quality bars without being locked into an existing prototype or workflow.
 
 Primary task: [001](../tasks/001-product-and-prototype-alignment.md)
 
@@ -149,7 +148,8 @@ Exit conditions:
 - compose, interpret, loading, result, inspect, compare, and refine states exist;
 - destination, loop, and wander share one interaction model;
 - UI copy follows [UX.md](UX.md);
-- map remains clean despite broad data integration;
+- the base map remains visually complete across the supported area even when a particular evidence layer has partial coverage;
+- overlays add information without hiding ordinary streets or making uncovered areas feel missing;
 - City data used is understandable and inspectable;
 - route changes feel immediate and intentional;
 - technical jargon and debug output are absent from resident screens.
@@ -198,6 +198,8 @@ Registered layers, emphasized segments, required assets, warnings, and callouts.
 
 Geography, representative journeys, planning lens, intervention, baseline burden, scenario burden, evidence, and assumptions.
 
+These are interface contracts, not stack requirements. They may be implemented in whatever form the future team considers appropriate, provided parallel components can exchange equivalent information reliably.
+
 ## 7. Quality gates
 
 ### Data gate
@@ -220,6 +222,8 @@ Primary screens must not expose raw dataset fields, source IDs, internal schema 
 
 A new data layer cannot add clutter merely because it exists. It appears only when it helps answer the current request or explain the route.
 
+The base map must remain complete and legible independent of optional layer coverage. Missing evidence should be communicated locally or in details—not by blanking, heavily dimming, or visually erasing streets where a layer has no data.
+
 ### Demo gate
 
 Resident claims use real source data and deterministic outputs. Hypothetical planning scenarios are clearly labeled. Prepared demo journeys are allowed; fabricated route benefits are not.
@@ -228,17 +232,18 @@ Resident claims use real source data and deterministic outputs. Hypothetical pla
 
 The app should load only the geography, time slices, and layers needed for the current interaction. Large graph, shadow, and asset payloads must be partitioned, compressed, cached, or loaded on demand.
 
-## 8. Implementation approach
+## 8. Implementation freedom
 
-After the docs merge:
+The documentation deliberately does not prescribe:
 
-1. create implementation issues from the current work packages;
-2. land shared TypeScript or API schemas and fixtures first;
-3. build data, routing, UI, and AI in parallel against those fixtures;
-4. integrate through small PRs to `main` rather than one large prototype merge;
-5. evaluate reusable prototype files only when they reduce risk;
-6. run product-copy and map-cleanliness review alongside technical review;
-7. freeze feature breadth before final demo polish.
+- a repository branching strategy;
+- a specific frontend or backend framework;
+- a specific database or hosting provider;
+- whether route computation runs client-side or server-side;
+- whether existing prototype code is reused;
+- a particular issue or pull-request structure.
+
+Future builders should choose implementation details based on delivery speed, product quality, reproducibility, performance, and the evidence requirements above.
 
 ## 9. Demo realism strategy
 
@@ -248,7 +253,7 @@ After the docs merge:
 - choosing strong demo origins and destinations;
 - preprocessing City data;
 - precomputing shadows or other expensive features;
-- caching inference for rehearsed requests while retaining live fallback;
+- caching expensive interpretation for rehearsed requests while retaining a usable fallback;
 - hiding unsupported prompts;
 - showing one scripted hypothetical Detour intervention.
 
@@ -279,7 +284,7 @@ When time is constrained, preserve in this order:
 1. a coherent, friendly resident experience;
 2. credible pedestrian routes;
 3. validated City-data benefits and honest uncertainty;
-4. fast, clean map presentation;
+4. fast, clean, visually complete map presentation;
 5. destination, loop, and wander demo coverage;
 6. natural-language refinement;
 7. broad additional layers;
