@@ -8,6 +8,7 @@ import { getMapLayerDefinition } from "./data/mapLayerCatalog";
 import { sourceRegistryPresentation, type SourceRegistryPresentation } from "./data/sourceRegistry";
 import { getPilotTransitEndpointCandidates } from "./data/transitEndpoints";
 import { amenitiesForViewport, amenityClusterCellMeters, amenityOverviewGeoJSON, AMENITY_CLUSTER_COUNT_LAYOUT, type AmenityViewport } from "./amenityOverview";
+import { BUILDING_SHADOW_LAYER, buildingShadeDetailVisible } from "./shadeOverlay";
 import { rainPromptIntent, routeShadeSegmentsGeoJSON } from "./climatePresentation";
 import { buildShadeDetourScenario, evaluateShadeDetourScenario, type ShadeDetourScenario } from "./detour/shadeScenario";
 import { demoCoverGeoJSON, demoCoverShare, pickRainFriendlyRoute, routeCoverSegmentsGeoJSON, routeCoverShare } from "./demoCover";
@@ -725,19 +726,23 @@ function PlannerSheet({ route, scenario, insight, insightBusy, insightError, len
   </section>;
 }
 
-function MapLensControl({ overlays, onToggle, hour, onHourChange, planner, hasRoute, canEdit, editing, onEditingChange }: {
+function MapLensControl({ overlays, onToggle, hour, onHourChange, planner, hasRoute, shadeDetailVisible, canEdit, editing, onEditingChange }: {
   overlays: MapOverlays;
   onToggle: (layer: keyof MapOverlays) => void;
   hour: number;
   onHourChange: (hour: number) => void;
   planner: boolean;
   hasRoute: boolean;
+  shadeDetailVisible: boolean;
   canEdit: boolean;
   editing: boolean;
   onEditingChange: (editing: boolean) => void;
 }) {
+  const layerSummary = overlays.shade
+    ? hasRoute || shadeDetailVisible ? formatClock(hour) : "Zoom in for shade"
+    : hasRoute ? "Path stays visible" : "Nearby now";
   return <div className="map-lens-control" aria-label="Map view">
-    <div><span><LayersIcon />Map layers</span><output>{overlays.shade ? formatClock(hour) : hasRoute ? "Path stays visible" : "Nearby now"}</output></div>
+    <div><span><LayersIcon />Map layers</span><output>{layerSummary}</output></div>
     <div className="map-lens-options">
       <button type="button" aria-pressed={overlays.shade} className={overlays.shade ? "active" : ""} onClick={() => onToggle("shade")}>Shade</button>
       <button type="button" aria-pressed={overlays.cover} className={overlays.cover ? "active" : ""} onClick={() => onToggle("cover")}>Cover</button>
@@ -1128,7 +1133,7 @@ export function App() {
       setMapError(false);
       captureViewport();
       map.addSource("building-shadows", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
-      map.addLayer({ id: "building-shadows", type: "fill", source: "building-shadows", paint: { "fill-color": "#516785", "fill-opacity": 0.24, "fill-opacity-transition": { duration: 140, delay: 0 } }, layout: { visibility: "none" } });
+      map.addLayer(BUILDING_SHADOW_LAYER);
       map.addSource("demo-cover", { type: "geojson", data: ambientCoverLayer });
       map.addLayer({ id: "demo-cover-casing", type: "line", source: "demo-cover", paint: { "line-color": "#FFFFFF", "line-width": 8, "line-opacity": 0.8 }, layout: { visibility: "none" } });
       map.addLayer({ id: "demo-cover", type: "line", source: "demo-cover", paint: { "line-color": "#536A91", "line-width": 4, "line-dasharray": [2, 1], "line-opacity": 0.82 }, layout: { visibility: "none" } });
@@ -1383,7 +1388,7 @@ export function App() {
   }, [route?.candidateId, appMode, mapReady]);
 
   useEffect(() => {
-    if (!mapOverlays.shade) {
+    if (!mapOverlays.shade || !buildingShadeDetailVisible(mapViewport.zoom)) {
       if (mapRef.current?.getLayer("building-shadows")) mapRef.current.setLayoutProperty("building-shadows", "visibility", "none");
       return;
     }
@@ -1397,7 +1402,7 @@ export function App() {
       (mapRef.current?.getSource("building-shadows") as GeoJSONSource | undefined)?.setData((module as { default: never }).default);
     }), 90);
     return () => { cancelled = true; window.clearTimeout(timer); };
-  }, [shadeHour, mapOverlays.shade, mapReady]);
+  }, [shadeHour, mapOverlays.shade, mapViewport.zoom, mapReady]);
 
   const assetPopoverOpensLeft = Boolean(activeAssetPoint && activeAssetPoint.x > window.innerWidth - 320);
   const assetPopoverStyle = activeAssetPoint ? {
@@ -1454,7 +1459,7 @@ export function App() {
     {activeAsset && detail !== "asset" && <aside className={`asset-popover ${assetPopoverOpensLeft ? "opens-left" : ""}`} style={assetPopoverStyle} role="dialog" aria-label={assetTypeLabel(activeAsset)}><div><AssetIcon kind={activeAsset.kind} /><IconButton label="Close" onClick={() => { setActiveAsset(null); setActiveAssetPoint(null); }}><CloseIcon /></IconButton></div><span className="eyebrow">{appMode === "planner" ? "Place on the map" : "Near your walk"}</span><h3>{assetTypeLabel(activeAsset)}</h3><p>{activeAsset.locationLabel}</p><small>{assetAvailabilityCopy(activeAsset)}</small><small className="source-freshness">{civicAssetEvidence(activeAsset).freshnessLabel}</small>{appMode === "walk" && <button type="button" className="asset-more" onClick={() => setDetail("asset")}>See details</button>}</aside>}
     {activeTask && detail !== "task" && <aside className={`asset-popover civic-task-popover ${taskPopoverOpensLeft ? "opens-left" : ""}`} style={taskPopoverStyle} role="dialog" aria-label={activeTask.title}><div><CivicTaskIcon task={activeTask} /><IconButton label="Close" onClick={() => { setActiveTask(null); setActiveTaskPoint(null); }}><CloseIcon /></IconButton></div><span className="eyebrow">Optional · {activeTask.estimatedMinutes} min</span><h3>{activeTask.title}</h3><p>{activeTask.locationLabel}</p><small>A quick check that can help keep the map useful.</small>{taskObservations[activeTask.id] && <small className="task-complete-label"><CheckCircleIcon />Checked in this session</small>}{appMode === "walk" && <button type="button" className="asset-more" onClick={() => setDetail("task")}>{taskObservations[activeTask.id] ? "See observation" : "View check"}</button>}</aside>}
     {activeCover && <aside className="asset-popover cover-popover" style={coverPopoverStyle} role="dialog" aria-label="Likely cover"><div><UmbrellaIcon /><IconButton label="Close" onClick={() => { setActiveCover(null); setActiveCoverPoint(null); }}><CloseIcon /></IconButton></div><span className="eyebrow">Cover along this stretch</span><h3>{activeCover.label}</h3><p>{activeCover.street}</p><small>Shown as a planning preview. A live version would add current sheds, awnings, arcades, and construction.</small></aside>}
-    <MapLensControl overlays={mapOverlays} onToggle={toggleMapOverlay} hour={shadeHour} onHourChange={setShadeHour} planner={appMode === "planner"} hasRoute={Boolean(route)} canEdit={!mapError} editing={editRoute} onEditingChange={(editing) => { setEditRoute(editing); if (editing) setMapLens("route"); }} />
-    <div className="map-key" aria-hidden="true">{route && <span><i className="route-key" />Happy Path</span>}{mapOverlays.shade && <span><i className="shade-deep-key" />Shade at {formatClock(shadeHour)}</span>}{mapOverlays.cover && <span><i className="cover-key" />Likely cover</span>}{mapOverlays.amenities && <span><i className="amenity-key" />Nearby places</span>}{mapOverlays.tasks && <span><i className="task-key" />Optional check</span>}</div>
+    <MapLensControl overlays={mapOverlays} onToggle={toggleMapOverlay} hour={shadeHour} onHourChange={setShadeHour} planner={appMode === "planner"} hasRoute={Boolean(route)} shadeDetailVisible={buildingShadeDetailVisible(mapViewport.zoom)} canEdit={!mapError} editing={editRoute} onEditingChange={(editing) => { setEditRoute(editing); if (editing) setMapLens("route"); }} />
+    <div className="map-key" aria-hidden="true">{route && <span><i className="route-key" />Happy Path</span>}{mapOverlays.shade && <span><i className="shade-deep-key" />{route || buildingShadeDetailVisible(mapViewport.zoom) ? `Shade at ${formatClock(shadeHour)}` : "Zoom in for shade"}</span>}{mapOverlays.cover && <span><i className="cover-key" />Likely cover</span>}{mapOverlays.amenities && <span><i className="amenity-key" />Nearby places</span>}{mapOverlays.tasks && <span><i className="task-key" />Optional check</span>}</div>
   </main>;
 }
