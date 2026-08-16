@@ -30,3 +30,9 @@
 - Honest limitations do not need warning-card visual weight. Keep a legible, always-visible summary and let people expand the detail when it matters.
 - Use natural evidence language such as “based on the sun and nearby buildings.” Reserve terms such as “synthetic,” “inventory,” and “simulation” for linked source detail where they add precision.
 - Deep data panels should still feel like product copy: say what shaped the path, when a source was refreshed, and what may have changed.
+
+## 2026-08-16 — Map layers at multiple scales
+
+- A cluster disk and its count are one visual object even when the map renderer uses separate layers. Force the count to share the disk’s placement behavior so label collision can never leave an empty ring.
+- Detailed evidence needs an intentional viewing scale. A cropped pilot snapshot that works block by block looks like a broken tile at island scale; hide or fade the raw geometry there while keeping route-level evidence and a clear zoom cue.
+- Expanding a visualization is not the same as expanding evidence. Scale citywide shade through partitioned data and routing coverage rather than stretching or implying detail beyond the supported area.
