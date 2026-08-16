@@ -695,7 +695,9 @@ main { position: relative; width: 100vw; height: 100dvh; overflow: hidden; backg
 .navigate-toggle.active { border-color: var(--coral-dark); background: var(--coral); color: #fff; }
 .navigate-toggle svg { width: 18px; height: 18px; }
 
-.navigation-readout { position: absolute; z-index: 3; left: 50%; bottom: 26px; transform: translateX(-50%); display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 9px; width: min(310px, calc(100vw - 36px)); padding: 10px 13px; border: 1px solid var(--line); border-radius: 11px; background: rgba(255,254,250,.97); box-shadow: var(--shadow); pointer-events: none; backdrop-filter: blur(8px); animation: popover-in .22s ease-out; }
+/* Centred in the map area, not the viewport: the result sheet holds the left
+   460px on wide screens, so a true 50% would sit half under it. */
+.navigation-readout { position: absolute; z-index: 3; left: calc(50% + 230px); bottom: 26px; transform: translateX(-50%); display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 9px; width: min(310px, calc(100vw - 36px)); padding: 10px 13px; border: 1px solid var(--line); border-radius: 11px; background: rgba(255,254,250,.97); box-shadow: var(--shadow); pointer-events: none; backdrop-filter: blur(8px); animation: popover-in .22s ease-out; }
 .navigation-readout > svg { width: 19px; height: 19px; color: var(--coral); }
 .navigation-readout span { display: grid; gap: 1px; min-width: 0; }
 .navigation-readout strong { font-size: 13px; font-weight: 650; letter-spacing: -.2px; }
@@ -704,7 +706,8 @@ main { position: relative; width: 100vw; height: 100dvh; overflow: hidden; backg
 .navigation-progress b { display: block; height: 100%; border-radius: 999px; background: var(--coral); transition: width .2s linear; }
 
 @media (max-width: 800px) {
-  .navigation-readout { bottom: auto; top: 112px; }
+  /* The sheet becomes a bottom sheet, so the readout moves clear of it. */
+  .navigation-readout { left: 50%; bottom: auto; top: 112px; }
 }
 
 .map-key { position: absolute; z-index: 2; right: 22px; bottom: 22px; max-width: min(620px, calc(100vw - 460px)); display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px 12px; padding: 8px 10px; border: 1px solid rgba(216,212,202,.8); border-radius: 9px; background: rgba(255,253,248,.92); box-shadow: 0 3px 13px rgba(30,42,36,.1); font-size: 8.5px; font-weight: 600; }
@@ -752,8 +755,8 @@ main { position: relative; width: 100vw; height: 100dvh; overflow: hidden; backg
   .city-status-item { min-width: 0; }
   .city-status-item small { display: none; }
   .city-status-weather { max-width: 76px; }
-  .perspective-toggle { width: 44px; padding: 0; justify-content: center; }
-  .perspective-toggle span { display: none; }
+  .perspective-toggle, .navigate-toggle { width: 44px; padding: 0; justify-content: center; }
+  .perspective-toggle span, .navigate-toggle span { display: none; }
   .preferences-popover { left: 14px; top: 62px; width: min(328px, calc(100vw - 28px)); }
   .sheet { left: 0; right: 0; top: auto; bottom: 0; width: 100%; max-height: 72dvh; padding: 20px 19px max(18px, env(safe-area-inset-bottom)); border-width: 1px 0 0; border-radius: 16px 16px 0 0; box-shadow: 0 -12px 38px rgba(30,42,36,.16); }
   .sheet-handle { display: block; }
