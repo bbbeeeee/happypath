@@ -2,7 +2,7 @@
 
 This folder is the execution plan for Happy Path. Work is organized by **product work package**, not permanent team. Packages may be owned by people or agents and are designed to proceed in parallel through shared contracts.
 
-The current branch contains planning only. After these docs are approved and merged, implementation work should be converted into focused issues or pull requests targeting `main`.
+The task plan defines outcomes, dependencies, and verification. It intentionally does not prescribe a branching strategy, issue structure, or development workflow for the future implementation team.
 
 ## Status vocabulary
 
@@ -66,15 +66,19 @@ Use actual City and open data for route facts whenever practical. Clean, cache, 
 
 The interaction should be simple, friendly, responsive, and polished. Technical complexity belongs behind the product experience.
 
+### Keep the map complete
+
+Optional evidence layers add to the map; they do not replace it. Streets without coverage in one dataset should remain ordinary, legible streets rather than blank or dimmed areas.
+
 ### Do not confuse completeness with quality
 
 It is better to support a smaller Manhattan area and several excellent journeys than expose broad, unreliable coverage.
 
-## How to claim and run work
+## How to run work
 
 1. Read the [PRD](../docs/PRD.md), [UX guide](../docs/UX.md), relevant companion docs, and the work-package file.
-2. Set the owner and status before substantial work begins.
-3. Break implementation into independently reviewable PRs where possible.
+2. Establish ownership and current status before substantial work begins.
+3. Break large packages into independently verifiable implementation slices in whatever workflow the team chooses.
 4. Record decisions, test evidence, source versions, copy decisions, and blockers.
 5. Do not broaden scope without updating the PRD and affected acceptance criteria.
 6. Keep resident-facing copy friendly and free of unexplained implementation language.
@@ -88,11 +92,11 @@ It is better to support a smaller Manhattan area and several excellent journeys 
 - Detour defines **the planning extension**.
 - Build defines **sequence and integration gates**.
 - Task files define **the work required to deliver them**.
-- Prototype branches are references, not implementation authority.
+- Prototype branches are historical references, not implementation authority.
 
 ## Parallel-work contract
 
-Parallel work meets through:
+Parallel work meets through equivalent forms of:
 
 - `LayerDefinition`
 - `TripBrief`
@@ -101,15 +105,15 @@ Parallel work meets through:
 - `MapPresentation`
 - `DetourScenario`
 
-Commit realistic fixture examples early so UI, AI, routing, and data work can proceed without waiting for full integration.
+Create realistic fixtures early so UI, AI, routing, and data work can proceed without waiting for full integration. The names describe information contracts, not required technologies or code structures.
 
 ## Adding or splitting work
 
-Use [TEMPLATE.md](TEMPLATE.md). Create a new top-level package only when it has:
+Use [TEMPLATE.md](TEMPLATE.md) when useful. Create a new top-level package only when it has:
 
 - a distinct outcome;
 - clear dependencies;
 - an independent verification path;
 - a meaningful handoff.
 
-Smaller implementation work should usually become linked issues or subtasks inside its parent package rather than additional overlapping Markdown plans.
+Smaller implementation work should remain grouped under the relevant package unless the future team has a better execution structure.
