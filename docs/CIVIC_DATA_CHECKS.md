@@ -7,10 +7,11 @@ Happy Path can now treat a small, safe data contribution as part of a walk. The 
 - A typed Trip Brief can preserve an explicit `verify`, `observe`, or `photo` intent through fallback and OpenRouter interpretation.
 - The deterministic router can pass a pre-published check without relaxing time, endpoint, or mapped-step rules. If it cannot, the original useful route still succeeds.
 - Official inventory, a partner-authored check, and a resident’s session-only observation remain separate evidence classes.
+- A check can target an exact civic asset, stable mapped-cover way, permit candidate, public-space record, or construction record without pretending they are the same kind of evidence.
 - City what-if can show discrete ground-truth needs without producing a neighborhood score.
 - A photo can be selected locally with purpose and framing guidance. This proof of concept does not upload, persist, or submit the file.
 
-The bundled publisher and five checks are simulated. They are not NYC requests, work orders, 311 reports, or evidence that a problem exists.
+The bundled publisher and nine checks are simulated. Four cover-focused checks ask about one exact OSM or NYC source record; the other five cover seating, restroom, and fountain inventory. None is an NYC request, work order, 311 report, or evidence that a problem exists.
 
 ## Core contracts
 
@@ -25,6 +26,10 @@ The bundled publisher and five checks are simulated. They are not NYC requests, 
 Allowed demo actions are limited to low-risk verification, observation, and focused public-asset photography. Checks must be possible from an ordinary public walking path. They may not ask someone to enter traffic, construction, private space, handle hazards or waste, make a repair, move infrastructure, or perform unsanctioned stewardship.
 
 Responses use fixed options. A session observation stores only a task ID, selected response, timestamp, and expiry in React state. It is not persisted, transmitted, published, or used to change official state. Photo selection stores only the local file name while the panel is open; the image is never read or uploaded.
+
+The cover checks always include “I couldn’t confirm safely.” They ask only about a visible structure, entrance, or signed detour from an ordinary public walking path. A response can identify a record for later steward review, but it cannot create route-cover geometry or establish dryness, access, usable width, structural condition, or continuous coverage. Temporary shed and construction observations expire after 24 hours.
+
+The flood model deliberately creates no resident data check. Happy Path must not invite someone toward standing water or ask them to verify flooding during hazardous conditions. Future flood-data partnerships need a remote, agency-directed workflow with explicit safety rules rather than an opportunistic walking task.
 
 Production photo collection would require explicit partner authorization plus consent, EXIF removal, redaction, moderation, retention, deletion, correction, and abuse-handling policies. Production task publishing would also require authenticated publishers and a real City or partner workflow.
 

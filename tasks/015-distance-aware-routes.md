@@ -1,3 +1,13 @@
+---
+id: "015"
+title: Distance-aware routes
+phase: P1
+status: done
+owner: codex
+builds_on: ["003", "005", "011"]
+last_updated: 2026-08-16
+---
+
 # 015 — Distance-aware routes
 
 ## Goal

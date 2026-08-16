@@ -19,6 +19,8 @@ Happy Path is deployed and presented as a polished, believable product. The audi
 
 Hackathon quality is not only feature count. The demo must feel fast, clean, friendly, and coherent. It should make the data work visible without turning the presentation into a technical architecture review.
 
+The 2026-08-16 product audit narrows the primary story: one hero resident query, one visible route tradeoff, one refinement, and one direct transition into a representative-journey Detour proof. Other journey types remain supporting evidence, not equal-weight acts. Task 024 owns the final freeze and rehearsal.
+
 ## Inputs and dependencies
 
 - integrated P1 application from task 007;
@@ -31,7 +33,7 @@ Hackathon quality is not only feature count. The demo must feel fast, clean, fri
 
 - production deployment;
 - environment, caching, and secret configuration;
-- four rehearsed resident demo flows;
+- one rehearsed resident hero flow and up to two supporting proofs;
 - one Detour reveal;
 - concise pitch narrative;
 - source and evidence moment;
@@ -73,10 +75,10 @@ Hackathon quality is not only feature count. The demo must feel fast, clean, fri
 
 ### Resident demos
 
-- [ ] `008-E` — Prepare **Cooler Manhattan** destination demo.
-- [ ] `008-F` — Prepare **Considered loop** with greenery, seating, and water.
-- [ ] `008-G` — Prepare **Taking my parents** wander with mapped steps, rest, restroom, public space, and transit.
-- [ ] `008-H` — Prepare **Rain and construction** or replace it with the strongest validated fourth case.
+- [ ] `008-E` — Select one hero query whose every phrase is enforced and whose route tradeoff is immediately legible.
+- [ ] `008-F` — Prepare one supporting destination, loop, wander, or distance proof only if it strengthens the story.
+- [ ] `008-G` — Keep mapped-step, amenity, cover, civic-check, and running proofs available as progressive disclosure or backup.
+- [ ] `008-H` — Remove unsupported prompts and weak scenarios from the visible demo surface.
 - [ ] `008-I` — Add one meaningful natural-language refinement to each relevant flow.
 - [ ] `008-J` — Add a friendly **City data used** moment to each demo.
 
@@ -99,7 +101,7 @@ Hackathon quality is not only feature count. The demo must feel fast, clean, fri
 
 - [ ] Deployment opens from a clean phone and browser.
 - [ ] A first-time viewer understands the product within the opening interaction.
-- [ ] At least four prompts activate meaningfully different City-data combinations.
+- [ ] One hero prompt and the resident-to-Detour continuation are rehearsed end to end; supporting prompts remain secondary.
 - [ ] At least one destination, loop, and wander are demonstrated.
 - [ ] The hero route contains a clear calculated benefit.
 - [ ] Resident claims use real data and actual route outputs.

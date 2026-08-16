@@ -1,3 +1,13 @@
+---
+id: "014"
+title: Map interaction and motion polish
+phase: P1
+status: done
+owner: codex
+builds_on: ["004", "006", "011"]
+last_updated: 2026-08-16
+---
+
 # 014 — Map interaction and motion polish
 
 ## Goal

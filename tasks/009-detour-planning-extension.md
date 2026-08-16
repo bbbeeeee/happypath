@@ -2,11 +2,11 @@
 id: "009"
 title: Detour planning proof
 phase: M4-P1
-status: planned
+status: in-progress
 owner: unassigned
 depends_on: ["003", "006", "007-stable-contracts"]
 parallel_with: ["008"]
-last_updated: 2026-08-15
+last_updated: 2026-08-16
 ---
 
 # 009 — Detour planning proof
@@ -20,6 +20,12 @@ The same route and city-layer system produces one credible planning analysis tha
 Detour completes the civic story. Happy Path helps one person find a better journey; Detour uses the same evidence to show where many journeys are difficult and where a specific City or public-realm intervention might help.
 
 The P1 goal is one polished proof, not a complete planner platform.
+
+## Implemented slice
+
+The current City what-if carries a resident route into a shade scenario, selects a segment, holds route geometry fixed, compares exposure across the route and its alternatives, ranks only bounded intervention candidates, and exposes assumptions and sources. This proves contract reuse and honest counterfactual presentation.
+
+It does not complete this package. The sample is not representative demand, the gap is not shown to repeat across public journeys, routes are not recomputed after the intervention, and no sensitivity or lower-impact comparison exists. Those remaining outcomes are split into tasks 022 and 023.
 
 ## Inputs and dependencies
 

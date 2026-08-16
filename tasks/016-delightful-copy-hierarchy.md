@@ -1,4 +1,14 @@
-# Delightful copy hierarchy
+---
+id: "016"
+title: Delightful copy hierarchy
+phase: P1
+status: done
+owner: codex
+builds_on: ["004", "011", "014"]
+last_updated: 2026-08-16
+---
+
+# 016 — Delightful copy hierarchy
 
 ## Plan
 

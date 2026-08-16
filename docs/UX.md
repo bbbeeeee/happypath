@@ -86,6 +86,18 @@ Later, relevant live context such as weather, alerts, or verified observations m
 
 The route updates and explains the delta without asking the user to rebuild the request.
 
+### 2.6 One resident insight opens the planning story
+
+Detour should not compete with route planning on the first screen. It becomes relevant after Happy Path has identified a concrete route burden.
+
+Preferred transition:
+
+> **See this gap across more journeys**
+>
+> This exposed stretch still affects your route. Check whether the same gap appears on similar public journeys.
+
+The transition carries the route segment, need, route metric, and evidence IDs into the planning surface. The user should not have to choose a fresh layer or restate the question.
+
 ## 3. Core experience
 
 ### 3.1 Compose
@@ -109,6 +121,11 @@ Suggested prompts should demonstrate supported value:
 - “A green 20-minute loop with somewhere to sit.”
 - “Walk north for about 35 minutes and finish near a subway.”
 - “Avoid mapped steps and pass a restroom if possible.”
+- “Map me a shaded two-mile run that loops back here.”
+
+Every visible example is a product contract. Each meaningful phrase must change a Trip Brief field, deterministic route behavior, ranking, receipt claim, or visible unsupported state. Decorative semantics are not allowed.
+
+For loops and wanders, explicit distance replaces the active time target; a later explicit time replaces distance. The preview supports 0.25–5 miles. A destination-free run defaults to a loop. Route distance is measured from geometry, while displayed duration remains a pedestrian-graph estimate and must not be presented as running pace.
 
 Quick controls are secondary. They edit the same Trip Brief and should never grow into a large layer panel.
 
@@ -272,6 +289,14 @@ Context
 ```
 
 Use plain language first. Dataset IDs, retrieval dates, coverage, and method versions belong one level deeper.
+
+For rain or cover, preferred summary copy is:
+
+> **Uses paths explicitly mapped as covered**
+>
+> Most streets have not been assessed, and mapped cover does not promise a dry or passable path.
+
+Shed permits, nearby POPS arcades, and dated construction records may appear in deeper context. They do not become covered-route meters because they are close to a path.
 
 ## 4. Journey shapes
 
@@ -473,6 +498,7 @@ The UI must define:
 - source temporarily unavailable;
 - no meaningful alternative to the baseline;
 - route updated after refinement;
+- contextual resident-to-Detour handoff;
 - mobile map loading and recovery.
 
 Every state should preserve a clear next action.
@@ -503,6 +529,9 @@ Every state should preserve a clear next action.
 12. A refinement updates the same Trip Brief and visibly changes the route.
 13. Partial coverage and uncertainty are understandable without technical documentation.
 14. The interface feels complete on a representative mobile viewport.
-15. At least four rehearsed demos work from a clean session using real supported-area data for resident claims.
+15. One resident hero, one planner continuation, and up to two supporting proofs work from a clean session using real supported-area data for every displayed claim.
 16. No resident-facing screen exposes raw dataset fields, internal schemas, debug logs, or unexplained technical jargon.
 17. A user can reach the first meaningful recommendation quickly enough for the interaction to feel immediate.
+18. Every meaningful phrase in a displayed example has a visible interpretation or limitation.
+19. The primary receipt presents one benefit, one cost, and retained hard requirements before technical evidence.
+20. Detour opens from a route burden with the relevant segment, need, and evidence already selected.

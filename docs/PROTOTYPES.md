@@ -4,15 +4,21 @@
 
 ## 1. Current decision
 
-This work establishes the product requirements and execution plan.
+`codex/happy-path-p1-mvp` is the active PR #3 preview implementation. The PRD and companion docs remain product authority; [P1 implementation status](P1_IMPLEMENTATION_STATUS.md) records what this branch actually proves and [Product and demo audit](PRODUCT_DEMO_AUDIT.md) records the next cohesion work.
 
-Future builders should use the approved docs as the source of truth and may choose whatever technical approach best satisfies them. No existing prototype branch is designated as the implementation base, and no prototype-specific branch strategy is required.
+Earlier branches remain historical references. They do not override current product scope or make their implementation patterns mandatory.
 
 ## 2. `main`
 
 `main` is the canonical repository branch for the approved product documentation and future integrated work.
 
-## 3. `codex/happy-path-mvp`
+## 3. `codex/happy-path-p1-mvp`
+
+This branch contains the current Lower Manhattan preview: resident route planning, editable Trip Brief, destination/loop/wander and distance behavior, route evidence and refinement, civic checks, City what-if, tests, and deployable preview packaging.
+
+Its supported geography and planner proof remain narrower than the full P1 target. Treat current behavior as an implementation baseline, not proof that every PRD acceptance criterion is complete.
+
+## 4. `codex/happy-path-mvp`
 
 This branch contains useful historical experiments, including:
 
@@ -28,7 +34,7 @@ This branch contains useful historical experiments, including:
 
 These experiments demonstrate that several core ideas are feasible. Future builders may inspect them for reference, but they are not required to reuse the code, stack, architecture, data layout, or interaction patterns.
 
-## 4. `bryan`
+## 5. `bryan`
 
 This branch contains a vendored `isometric-nyc` rendering and tile-generation project.
 
@@ -36,8 +42,8 @@ No Happy Path visual or architectural concepts from this branch are part of the 
 
 Keep it as historical experimentation only unless a future product decision explicitly changes that.
 
-## 5. Principle
+## 6. Principle
 
 > **The docs define the product. Prototypes only show what has been tried.**
 
-Future implementation should be evaluated against the PRD, UX, data, Detour, build, and task documents rather than against any existing branch.
+Implementation should be evaluated against the PRD, UX, data, Detour, build, implementation-status, audit, and task documents rather than against historical branches.

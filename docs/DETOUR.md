@@ -20,6 +20,21 @@ A conventional asset map shows where trees, benches, bathrooms, ramps, or sheds 
 
 P1 includes one credible Detour planning proof using a feature already validated for Happy Path.
 
+### Current implemented slice
+
+The current City what-if is a route-local proof:
+
+- it carries one resident route into a planning surface;
+- it can select a route segment and vary modeled shade;
+- it compares exposure across the current route and its alternatives;
+- it holds route geometry fixed so the displayed difference comes from the shade assumption alone;
+- it ranks only precomputed intervention candidates and evidence IDs;
+- it labels the result hypothetical and exposes source and claim boundaries.
+
+This slice does **not** yet identify a repeated city-scale gap. Its route alternatives are not representative demand, no journey is rerouted after the intervention, and the result is not a feasibility or priority recommendation.
+
+### Next P1 proof
+
 The first proof should:
 
 1. define representative journeys inside Manhattan south of Central Park;
@@ -150,6 +165,8 @@ A specific condition that repeatedly creates burden:
 A proposed change to an asset, operation, connection, or evidence state.
 
 ## 7. P1 experience
+
+The flow below describes the next P1 proof, not the current fixed-route slice.
 
 ### Step 1: Select a planning question
 
@@ -346,6 +363,8 @@ Happy Path could optionally invite a nearby person to confirm the condition or s
 - Do not label neighborhoods good, bad, safe, unsafe, healthy, or unhealthy.
 
 ## 16. P1 acceptance criteria
+
+The current slice satisfies shared-model reuse, deterministic fixed-route comparison, evidence disclosure, and hypothetical labeling. The full planning proof is not complete until the representative-journey and rerouting criteria below pass.
 
 The planning proof succeeds when:
 
