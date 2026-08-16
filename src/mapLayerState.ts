@@ -8,10 +8,10 @@ export type MapOverlays = {
 };
 
 export const DEFAULT_MAP_OVERLAYS: MapOverlays = {
-  shade: false,
-  greenery: false,
+  shade: true,
+  greenery: true,
   cover: false,
-  flood: false,
+  flood: true,
   amenities: true,
   tasks: false,
 };
@@ -27,11 +27,11 @@ export function showRelevantRouteMapOverlays(
   relevant: RelevantRouteMapOverlays,
 ): MapOverlays {
   return {
-    shade: relevant.shade === true,
-    greenery: relevant.greenery === true,
+    shade: DEFAULT_MAP_OVERLAYS.shade || relevant.shade === true,
+    greenery: DEFAULT_MAP_OVERLAYS.greenery || relevant.greenery === true,
     cover: relevant.cover === true,
-    flood: false,
-    amenities: relevant.amenities === true,
+    flood: DEFAULT_MAP_OVERLAYS.flood,
+    amenities: DEFAULT_MAP_OVERLAYS.amenities || relevant.amenities === true,
     tasks: relevant.tasks === true,
   };
 }

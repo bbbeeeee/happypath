@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import { DEFAULT_MAP_OVERLAYS, showRelevantRouteMapOverlays, toggledMapOverlay } from "./mapLayerState";
 
 describe("contextual map layers", () => {
-  it("starts with useful nearby places and quiet evidence layers before a route exists", () => {
-    expect(DEFAULT_MAP_OVERLAYS).toMatchObject({ amenities: true, shade: false, greenery: false, cover: false, flood: false, tasks: false });
+  it("starts with environmental context and nearby places before a route exists", () => {
+    expect(DEFAULT_MAP_OVERLAYS).toMatchObject({ amenities: true, shade: true, greenery: true, cover: false, flood: true, tasks: false });
   });
 
   it("toggles one layer without replacing the other active layers", () => {
@@ -14,13 +14,13 @@ describe("contextual map layers", () => {
   });
 
   it("lets environmental fields stack while preserving context layers", () => {
-    const shade = { ...DEFAULT_MAP_OVERLAYS, shade: true, cover: true };
+    const shade = { ...DEFAULT_MAP_OVERLAYS, shade: true, greenery: false, flood: false, cover: true };
     const shadeAndGreenery = toggledMapOverlay(shade, "greenery");
     expect(shadeAndGreenery).toEqual({ ...shade, greenery: true });
     expect(toggledMapOverlay(shadeAndGreenery, "flood")).toEqual({ ...shade, greenery: true, flood: true });
   });
 
-  it("replaces stale context with only the layers relevant to the new route", () => {
+  it("resets to the useful defaults while adding route-specific layers", () => {
     const residentSelection = { ...DEFAULT_MAP_OVERLAYS, cover: true };
 
     expect(showRelevantRouteMapOverlays(residentSelection, {
@@ -31,10 +31,10 @@ describe("contextual map layers", () => {
       tasks: true,
     })).toEqual({
       shade: true,
-      greenery: false,
+      greenery: true,
       cover: false,
-      flood: false,
-      amenities: false,
+      flood: true,
+      amenities: true,
       tasks: true,
     });
   });

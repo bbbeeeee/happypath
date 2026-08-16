@@ -51,8 +51,8 @@ main { position: relative; width: 100vw; height: 100dvh; overflow: hidden; backg
 .greenery-lines .tree_context { stroke: #6fa07c; }
 .cover-lines .mapped { stroke: #3d587f; }
 .cover-lines .partial { stroke: #7284a2; }
-.ambient-cover-lines polyline { stroke: #7284a2; stroke-width: 14; opacity: .16; }
-.ambient-cover-lines .more { stroke: #3d587f; opacity: .22; }
+.ambient-cover-lines polyline { stroke: #7284a2; stroke-width: 14; opacity: .22; }
+.ambient-cover-lines .more { stroke: #3d587f; opacity: .3; }
 .fallback-construction-lines polyline { fill: none; stroke: #c66a4b; stroke-width: 3; stroke-dasharray: 5 6; opacity: .72; }
 .fallback-cover-context g { color: #806a3e; opacity: .9; }
 .fallback-cover-context g.pops_arcade { color: #3d587f; }

@@ -76,3 +76,7 @@
 ## 2026-08-16 — Reserve map corners by control family
 
 - Keep persistent navigation controls together near the map edge and leave data-layer controls near their content context. Before raising a panel to avoid a collision, check whether the smaller native control can move to a clearer corner instead.
+
+## 2026-08-16 — Defaults should demonstrate the map's value
+
+- When the product's value comes from comparing environmental context, enable the restrained continuous layers by default and keep the amenity layer discoverable. Use scale-aware detail and clustering to control density instead of hiding the useful data at first load.

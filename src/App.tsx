@@ -110,7 +110,7 @@ type PlannerView = "routes" | "notes" | "what_if";
 
 const PRIORITY_META: Record<RoutePriority, { label: string; icon: typeof SunIcon }> = {
   shade: { label: "Less direct sun", icon: SunIcon },
-  greenery: { label: "Greener", icon: LeafIcon },
+  greenery: { label: "Green", icon: LeafIcon },
   rest: { label: "Places to rest", icon: BenchIcon },
   water: { label: "Water nearby", icon: DropletIcon },
   restroom: { label: "Restroom", icon: RestroomIcon },
@@ -923,7 +923,7 @@ function MapLensControl({ overlays, onToggle, hour, onHourChange, planner, hasRo
     <div className="map-lens-groups">
       <fieldset><legend>Street conditions</legend><div className="map-lens-options ambient-options">
         <button type="button" aria-pressed={overlays.shade} className={overlays.shade ? "active" : ""} onClick={() => onToggle("shade")}><SunIcon />Shade</button>
-        <button type="button" aria-pressed={overlays.greenery} className={overlays.greenery ? "active" : ""} onClick={() => onToggle("greenery")}><LeafIcon />Greener</button>
+        <button type="button" aria-pressed={overlays.greenery} className={overlays.greenery ? "active" : ""} onClick={() => onToggle("greenery")}><LeafIcon />Green</button>
         <button type="button" aria-pressed={overlays.flood} className={overlays.flood ? "active" : ""} onClick={() => onToggle("flood")}><CloudRainIcon />Flood</button>
       </div></fieldset>
       <fieldset><legend>Along the way</legend><div className="map-lens-options context-options">
@@ -1484,18 +1484,18 @@ export function App() {
       map.addLayer({ id: "mapped-cover-casing", type: "line", source: "mapped-cover", minzoom: 13.2, paint: {
         "line-color": "#7284A2",
         "line-width": ["interpolate", ["linear"], ["zoom"], 13, 8, 17, 18],
-        "line-opacity": 0.18,
+        "line-opacity": 0.24,
       }, layout: { visibility: "none", "line-cap": "round", "line-join": "round" } });
       map.addLayer({ id: "mapped-cover", type: "line", source: "mapped-cover", minzoom: 13.2, paint: {
         "line-color": "#536A91",
         "line-width": ["interpolate", ["linear"], ["zoom"], 13, 2.5, 17, 5],
-        "line-opacity": ["interpolate", ["linear"], ["get", "coverShare"], 0.5, 0.58, 1, 0.92],
+        "line-opacity": ["interpolate", ["linear"], ["get", "coverShare"], 0.5, 0.7, 1, 0.96],
       }, layout: { visibility: "none", "line-cap": "round", "line-join": "round" } });
       map.addSource("cover-context", { type: "geojson", data: EMPTY_COVER_CONTEXT });
       map.addSource("cover-context-vicinities", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
       map.addLayer({ id: "cover-context-vicinities", type: "fill", source: "cover-context-vicinities", minzoom: 14, paint: {
         "fill-color": ["match", ["get", "kind"], "pops_arcade", "#536A91", "#9B8051"],
-        "fill-opacity": ["interpolate", ["linear"], ["zoom"], 14, 0.09, 17, 0.2],
+        "fill-opacity": ["interpolate", ["linear"], ["zoom"], 14, 0.14, 17, 0.28],
       }, layout: { visibility: "none" } });
       map.addLayer({ id: "cover-construction", type: "line", source: "cover-context", filter: ["==", ["get", "kind"], "construction_closure"], paint: { "line-color": "#C66A4B", "line-width": 3, "line-dasharray": [1, 1.5], "line-opacity": 0.72 }, layout: { visibility: "none" } });
       registerFloodPatternImages(map);
