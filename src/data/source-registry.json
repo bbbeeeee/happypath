@@ -863,6 +863,55 @@
         "Current rain protection"
       ],
       "validation_status": "pending"
+    },
+    {
+      "source_id": "happy-path-civic-checks-demo",
+      "publisher": "Happy Path demo partner",
+      "dataset_name": "Civic data checks demo registry",
+      "dataset_url": "https://github.com/bbbeeeee/happypath/blob/main/tasks/010-civic-assets-and-contributions.md",
+      "canonical_url": "https://github.com/bbbeeeee/happypath/blob/main/tasks/010-civic-assets-and-contributions.md",
+      "dataset_id": null,
+      "asset_type": "task_registry",
+      "authority": "derived",
+      "access_method": "checked_in_fixture",
+      "format": "JSON",
+      "terms_url": "https://github.com/bbbeeeee/happypath",
+      "attribution": "Happy Path proof of concept",
+      "refresh_target": "versioned with the demo code",
+      "source_updated_at": "2026-08-16T04:30:00.000Z",
+      "retrieved_at": "2026-08-16T04:30:00.000Z",
+      "last_successful_ingest": "2026-08-16T04:30:00.000Z",
+      "snapshot_hash": null,
+      "geometry_type": "Point",
+      "source_crs": "EPSG:4326",
+      "pilot_bbox": {
+        "south": 40.726,
+        "west": -74.006,
+        "north": 40.736,
+        "east": -73.988
+      },
+      "pilot_coverage": null,
+      "pilot_record_count": 5,
+      "derived_from": ["nyc-dot-seating", "nyc-public-restrooms", "nyc-parks-drinking-fountains"],
+      "method_version": "civic-checks-demo-v1",
+      "capability_status": "derived",
+      "map_readiness": "demo_only",
+      "freshness_statement": "These are simulated partner-authored checks for the proof of concept, last reviewed August 16, 2026.",
+      "coverage_statement": "Five hand-authored checks are bundled in the Lower Manhattan demo; they do not measure neighborhood need.",
+      "known_limitations": [
+        "The publisher, tasks, and completion flow are simulated and are not NYC requests or work orders",
+        "A completed demo response is session-only and does not update an official dataset"
+      ],
+      "allowed_claims": [
+        "Optional proof-of-concept city-data check",
+        "Route can pass a hand-authored demo check when explicitly requested"
+      ],
+      "prohibited_claims": [
+        "Official NYC task or request",
+        "Verified current condition",
+        "Submitted to a City system"
+      ],
+      "validation_status": "pending"
     }
   ]
 }

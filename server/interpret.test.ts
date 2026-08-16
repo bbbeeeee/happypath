@@ -5,6 +5,7 @@ import {
   OPENROUTER_URL,
   TripBriefInterpretError,
   interpretTripBriefWithOpenRouter,
+  tripBriefJsonSchema,
 } from "./interpret.ts";
 
 function completion(content: unknown) {
@@ -59,8 +60,38 @@ describe("interpretTripBriefWithOpenRouter", () => {
     expect(body.provider).toEqual({ require_parameters: true, data_collection: "deny" });
     expect(body.messages[0].content).toMatch(/accessibility language narrowly/);
     expect(body.messages[0].content).toMatch(/37-minute loop/);
+    expect(body.messages[0].content).toMatch(/never invent a task/i);
+    expect(tripBriefJsonSchema.required).toContain("civicTaskIntent");
     const refinement = JSON.parse(body.messages[1].content);
     expect(refinement.currentBrief).toEqual(current);
+  });
+
+  it("accepts explicit civic-help intent and rejects model-invented tasks", async () => {
+    const taskFields = {
+      shape: "wander",
+      destinationQuery: null,
+      walkingMinutes: 25,
+      walkingTimeIntent: "target",
+      detourMinutes: 5,
+      departureHour: 15,
+      priorities: [],
+      avoidMappedSteps: false,
+      direction: null,
+      endCondition: null,
+      civicTaskIntent: "photo",
+      unsupported: [],
+    } as const;
+    const explicit = await interpretTripBriefWithOpenRouter(
+      { prompt: "Find me a walk where I can help verify city data" },
+      { apiKey: "test-key", fetchImpl: vi.fn(async () => completion(taskFields)) as unknown as typeof fetch },
+    );
+    expect(explicit.civicTaskIntent).toBe("verify");
+
+    const invented = await interpretTripBriefWithOpenRouter(
+      { prompt: "Find me a shady 25-minute walk" },
+      { apiKey: "test-key", fetchImpl: vi.fn(async () => completion(taskFields)) as unknown as typeof fetch },
+    );
+    expect(invented.civicTaskIntent).toBeNull();
   });
 
   it("rejects invalid model output instead of passing it to the client", async () => {

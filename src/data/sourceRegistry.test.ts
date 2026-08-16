@@ -76,4 +76,14 @@ describe("source registry presentation", () => {
     });
     expect(getSourceRegistryEntry("demo-cover-simulation")?.prohibited_claims.join(" ")).toMatch(/Dry path|Current rain protection/);
   });
+
+  it("labels civic checks as simulated partner prompts rather than official requests", () => {
+    expect(sourceRegistryPresentation("happy-path-civic-checks-demo")).toMatchObject({
+      capabilityStatus: "derived",
+      availabilityLabel: "Modeled in this demo",
+    });
+    const source = getSourceRegistryEntry("happy-path-civic-checks-demo");
+    expect(source?.known_limitations.join(" ")).toMatch(/simulated/i);
+    expect(source?.prohibited_claims.join(" ")).toMatch(/Official NYC task|Verified current condition/);
+  });
 });

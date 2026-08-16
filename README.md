@@ -7,6 +7,7 @@ The current preview supports:
 - destination walks with a 0, 5, or 10 minute detour allowance;
 - time-boxed loops and directional wandering, including ending near mapped transit;
 - time-aware building shade, mapped greenery, mapped steps, seating, restrooms, drinking fountains, and subway entrances;
+- optional, partner-authored city-data checks that a resident can route toward, verify, or photograph locally without changing official data;
 - an editable Trip Brief, deterministic routing, baseline comparison, and natural-language refinement;
 - one explicitly hypothetical Detour shade-planning scenario using the same route evidence;
 - deterministic prompt interpretation by default, with optional OpenRouter interpretation behind a server-only API boundary.
@@ -52,4 +53,4 @@ npm run data:civic
 
 This is an honest Lower Manhattan preview, currently bounded approximately by Canal Street, Washington Square, Union Square, and the East Village—not yet the full Battery-to-59th-Street P1 geography. Amenity inventory records do not prove current operation, mapped steps do not constitute an accessibility guarantee, and shade is a modeled estimate rather than measured temperature.
 
-See [P1 implementation status](docs/P1_IMPLEMENTATION_STATUS.md) for verified coverage, payloads, and remaining gates. The product authority remains [PRD](docs/PRD.md), [UX](docs/UX.md), [data and inference](docs/data-and-inference.md), and [Detour](docs/DETOUR.md).
+See [P1 implementation status](docs/P1_IMPLEMENTATION_STATUS.md) for verified coverage, payloads, and remaining gates, and [Civic data checks](docs/CIVIC_DATA_CHECKS.md) for the contribution and layer-extension contract. The product authority remains [PRD](docs/PRD.md), [UX](docs/UX.md), [data and inference](docs/data-and-inference.md), and [Detour](docs/DETOUR.md).

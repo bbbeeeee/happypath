@@ -2,6 +2,7 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import {
   DEFAULT_BRIEF,
   mergeTripBrief,
+  parseCivicTaskIntent,
   type TripBrief,
   type TripBriefPatch,
 } from "../src/planning/tripBrief.ts";
@@ -17,6 +18,7 @@ const priorities = ["shade", "greenery", "rest", "water", "restroom", "construct
 const directions = ["north", "south", "east", "west"] as const;
 const endConditions = ["transit", "park"] as const;
 const walkingTimeIntents = ["target", "maximum"] as const;
+const civicTaskIntents = ["any", "verify", "observe", "photo"] as const;
 const ACCESSIBILITY_LIMITATION = "We can avoid mapped steps, but cannot verify curb ramps, slopes, obstructions, or ADA accessibility";
 
 export const tripBriefJsonSchema = {
@@ -70,6 +72,11 @@ export const tripBriefJsonSchema = {
       enum: [...endConditions, null],
       description: "Supported end condition for a wander, otherwise null.",
     },
+    civicTaskIntent: {
+      type: ["string", "null"],
+      enum: [...civicTaskIntents, null],
+      description: "An explicitly requested optional city-data check. Never infer one from missing or stale data.",
+    },
     unsupported: {
       type: "array",
       items: { type: "string" },
@@ -87,6 +94,7 @@ export const tripBriefJsonSchema = {
     "avoidMappedSteps",
     "direction",
     "endCondition",
+    "civicTaskIntent",
     "unsupported",
   ],
   additionalProperties: false,
@@ -100,10 +108,14 @@ Supported priorities are shade, greenery, places to rest, water, restrooms, and 
 
 Interpret accessibility language narrowly and helpfully. If the resident asks for an accessible, wheelchair-friendly, mobility-friendly, stroller-friendly, or step-free route, set avoidMappedSteps to true and include this limitation in unsupported: "We can avoid mapped steps, but cannot verify curb ramps, slopes, obstructions, or ADA accessibility". If a refinement says steps or stairs are okay, set avoidMappedSteps to false. Do not claim safety, guaranteed accessibility, live quietness, live crowding, live weather, current construction state, or current amenity operation. Keep those requests visible in unsupported instead of pretending they were satisfied.
 
+Set civicTaskIntent only when the resident explicitly asks to help, verify, observe, report, document, photograph, or contribute to city/public data. Use any when they ask generally, verify for a structured confirmation, observe for a bounded report or observation, and photo for a picture. These are optional checks selected later from a pre-published registry; never invent a task, hazard, issue, or City request from an amenity or data gap. A request to skip the check sets it to null.
+
 Examples:
 - "A green 37-minute loop with a bench halfway" means shape loop, walkingMinutes 37, walkingTimeIntent target, priorities greenery and rest.
 - "Wander west for no more than 30 minutes and finish near a train" means shape wander, walkingMinutes 30, walkingTimeIntent maximum, direction west, endCondition transit.
 - "It’s raining. Find me a 25-minute walk with more likely cover" means shape wander, walkingMinutes 25, with the weather/cover limitation visible in unsupported.
+- "Give me a 30-minute loop where I can help verify city data" means shape loop, walkingMinutes 30, walkingTimeIntent target, civicTaskIntent verify.
+- "Route me toward something I can photograph for city data" means shape wander and civicTaskIntent photo; do not invent what will be photographed.
 - "I need an accessible route to Washington Square Park" means shape destination, destinationQuery Washington Square Park, avoidMappedSteps true, plus the accessibility limitation above.
 - "A little shorter, but keep the bathroom" is a refinement: retain the current shape, destination or endpoint, and priorities, then reduce walkingMinutes by five when no exact duration is given.`;
 
@@ -164,6 +176,7 @@ export function isTripBrief(value: unknown): value is TripBrief {
     && typeof value.avoidMappedSteps === "boolean"
     && isNullableEnum(value.direction, directions)
     && isNullableEnum(value.endCondition, endConditions)
+    && (value.civicTaskIntent === undefined || isNullableEnum(value.civicTaskIntent, civicTaskIntents))
     && isStringArray(value.unsupported) && value.unsupported.length <= 4
     && value.unsupported.every((item) => item.length <= 120)
     && typeof value.prompt === "string"
@@ -182,6 +195,7 @@ function parseModelPatch(value: unknown): TripBriefPatch {
     || typeof value.avoidMappedSteps !== "boolean"
     || !isNullableEnum(value.direction, directions)
     || !isNullableEnum(value.endCondition, endConditions)
+    || !(value.civicTaskIntent === undefined || isNullableEnum(value.civicTaskIntent, civicTaskIntents))
     || !isStringArray(value.unsupported)) {
     throw new TripBriefInterpretError("invalid-output");
   }
@@ -199,6 +213,7 @@ function parseModelPatch(value: unknown): TripBriefPatch {
     avoidMappedSteps: value.avoidMappedSteps,
     direction: value.direction,
     endCondition: value.endCondition,
+    ...(value.civicTaskIntent !== undefined ? { civicTaskIntent: value.civicTaskIntent } : {}),
     unsupported: value.unsupported.map((item) => item.slice(0, 120)).slice(0, 4),
   } as TripBriefPatch;
 }
@@ -288,6 +303,9 @@ export async function interpretTripBriefWithOpenRouter(
     patch.avoidMappedSteps = true;
     patch.unsupported = [...new Set([...(patch.unsupported ?? []), ACCESSIBILITY_LIMITATION])].slice(0, 4);
   }
+  const explicitCivicTaskIntent = parseCivicTaskIntent(prompt);
+  if (explicitCivicTaskIntent !== undefined) patch.civicTaskIntent = explicitCivicTaskIntent;
+  else if (!currentBrief.civicTaskIntent) patch.civicTaskIntent = null;
   const brief = mergeTripBrief(currentBrief, patch, "model");
   return { ...brief, prompt };
 }

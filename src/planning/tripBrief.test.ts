@@ -22,6 +22,35 @@ describe("compileTripBrief", () => {
     expect(brief.walkingMinutes).toBe(DEFAULT_BRIEF.walkingMinutes);
   });
 
+  it("keeps an optional civic check separate from destination and amenity preferences", () => {
+    const brief = compileTripBrief("Take me to Washington Square Park and let me photograph a fountain for city data along the way. I can add five minutes.");
+    expect(brief).toMatchObject({
+      shape: "destination",
+      destinationQuery: "Washington Square Park",
+      detourMinutes: 5,
+      civicTaskIntent: "photo",
+    });
+    expect(brief.priorities).not.toContain("water");
+  });
+
+  it("turns an explicit city-data contribution into a task-aware wander", () => {
+    expect(compileTripBrief("Route me toward something I can photograph for city data")).toMatchObject({
+      shape: "wander",
+      civicTaskIntent: "photo",
+    });
+    expect(compileTripBrief("Find me a 25-minute walk where I can help verify city data")).toMatchObject({
+      shape: "wander",
+      walkingMinutes: 25,
+      civicTaskIntent: "verify",
+    });
+  });
+
+  it("retains and explicitly removes a civic check during refinements", () => {
+    const initial = compileTripBrief("Give me a 30-minute loop where I can help verify city data");
+    expect(compileTripBrief("More shade, please", initial).civicTaskIntent).toBe("verify");
+    expect(compileTripBrief("Skip the verification check", initial).civicTaskIntent).toBeNull();
+  });
+
   it("parses a hyphenated loop budget independently of a destination detour", () => {
     const destination = compileTripBrief("Less direct sun. I can add five minutes.");
     const loop = compileTripBrief("A green 20-minute loop with places to sit.", destination);

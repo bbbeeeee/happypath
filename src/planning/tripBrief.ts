@@ -2,6 +2,7 @@ export type JourneyShape = "destination" | "loop" | "wander";
 export type RoutePriority = "shade" | "greenery" | "rest" | "water" | "restroom" | "construction";
 export type EndCondition = "transit" | "park" | null;
 export type WalkingTimeIntent = "target" | "maximum";
+export type CivicTaskIntent = "any" | "verify" | "observe" | "photo" | null;
 
 export interface TripBrief {
   shape: JourneyShape;
@@ -15,6 +16,8 @@ export interface TripBrief {
   avoidMappedSteps: boolean;
   direction: "north" | "south" | "east" | "west" | null;
   endCondition: EndCondition;
+  /** Explicit resident interest in an optional, pre-published city-data check. */
+  civicTaskIntent: CivicTaskIntent;
   unsupported: string[];
   prompt: string;
   interpretedBy: "model" | "fallback" | "controls";
@@ -36,6 +39,7 @@ export const DEFAULT_BRIEF: TripBrief = {
   avoidMappedSteps: false,
   direction: null,
   endCondition: null,
+  civicTaskIntent: null,
   unsupported: [],
   prompt: "",
   interpretedBy: "controls",
@@ -82,8 +86,31 @@ function parseWalkingTimeIntent(prompt: string, parsedMinutes: number | null): W
 }
 
 function parseDestination(prompt: string) {
-  const match = prompt.match(/(?:walk|get|take|bring|route|going|head)\s+(?:(?:me|us)\s+)?to\s+(.+?)(?=\s+(?:with|while|but|and\s+(?:avoid|keep|favor|make)|in\s+\d+|up\s+to|no\s+more)|[,.!?]|$)/i);
+  const match = prompt.match(/(?:walk|get|take|bring|route|going|head)\s+(?:(?:me|us)\s+)?to\s+(.+?)(?=\s+(?:with|while|but|and\s+(?:avoid|keep|favor|make|let|help|include|pass|verify|check|confirm|photograph|photo|snap|report|observe)|in\s+\d+|up\s+to|no\s+more)|[,.!?]|$)/i);
   return match?.[1]?.trim() || null;
+}
+
+function civicTaskClauseStart(text: string): number {
+  const direct = text.search(/\b(?:verify|confirm|photograph|photo|snap|report|observe|document)\b/i);
+  const check = text.search(/\bcheck\b(?=[^.?!]{0,50}\b(?:city data|public data|record|seat|bench|fountain|restroom|entrance|amenity)\b)/i);
+  const help = text.search(/\b(?:help|contribute)\b(?=[^.?!]{0,60}\b(?:city|public|civic)\s+data\b)/i);
+  return [direct, check, help].filter((index) => index >= 0).sort((a, b) => a - b)[0] ?? -1;
+}
+
+function withoutCivicTaskClause(text: string): string {
+  const start = civicTaskClauseStart(text);
+  return start < 0 ? text : text.slice(0, start);
+}
+
+export function parseCivicTaskIntent(text: string): CivicTaskIntent | undefined {
+  if (/\b(?:skip|remove|drop|don'?t include|no)\b[^.?!]{0,30}\b(?:photo|verification|observation|city data|civic)\s*(?:check|stop|task)?\b/i.test(text)) return null;
+  const hasTaskLanguage = civicTaskClauseStart(text) >= 0
+    || /\b(?:something|a stop)\b[^.?!]{0,40}\b(?:help|contribute)\b[^.?!]{0,40}\b(?:city|public|civic)\s+data\b/i.test(text);
+  if (!hasTaskLanguage) return undefined;
+  if (/\b(?:photograph|photo|snap|picture|camera)\b/i.test(text)) return "photo";
+  if (/\b(?:report|observe|document|note)\b/i.test(text)) return "observe";
+  if (/\b(?:verify|confirm|check)\b/i.test(text)) return "verify";
+  return "any";
 }
 
 function collectPriorities(text: string): RoutePriority[] {
@@ -121,6 +148,7 @@ function parseMappedStepPreference(text: string): boolean | null {
 export function compileTripBrief(prompt: string, current: TripBrief = DEFAULT_BRIEF): TripBrief {
   const text = prompt.trim();
   const lower = text.toLowerCase();
+  const parsedCivicTaskIntent = parseCivicTaskIntent(text);
   const parsedDestination = parseDestination(text);
   const isRefinement = Boolean(current.prompt) && !/\b(loop|wander|walk me|get me|take me|route me)\b/i.test(text);
   let shape: JourneyShape = current.shape;
@@ -128,6 +156,7 @@ export function compileTripBrief(prompt: string, current: TripBrief = DEFAULT_BR
   else if (/\bwander\b|walk (?:north|south|east|west)|finish|end near/i.test(text)) shape = "wander";
   else if (parsedDestination) shape = "destination";
   else if (!current.destinationQuery && parseMinutes(text) !== null && /\b(?:walk|walking|stroll|roam|explore)\b/i.test(text)) shape = "wander";
+  else if (!current.destinationQuery && parsedCivicTaskIntent) shape = "wander";
 
   const parsedMinutesRaw = shape === "destination" ? null : parseMinutes(text);
   const parsedMinutes = parsedMinutesRaw === null
@@ -143,7 +172,7 @@ export function compileTripBrief(prompt: string, current: TripBrief = DEFAULT_BR
   else if (/(?:add|up to|no more than)\s+(?:5|five)\s*(?:minutes?|mins?)/i.test(text)) detourMinutes = 5;
   else if (/(?:add|up to|no more than)\s+(?:10|ten)\s*(?:minutes?|mins?)/i.test(text)) detourMinutes = 10;
 
-  const mentioned = collectPriorities(text);
+  const mentioned = collectPriorities(withoutCivicTaskClause(text));
   let priorities = isRefinement ? [...current.priorities] : mentioned;
   if (!isRefinement && priorities.length === 0) priorities = ["shade"];
   if (isRefinement) {
@@ -172,6 +201,7 @@ export function compileTripBrief(prompt: string, current: TripBrief = DEFAULT_BR
     avoidMappedSteps: mappedStepPreference ?? current.avoidMappedSteps,
     direction,
     endCondition,
+    civicTaskIntent: parsedCivicTaskIntent === undefined ? current.civicTaskIntent : parsedCivicTaskIntent,
     unsupported: unique([...collectUnsupported(text), ...(isRefinement ? current.unsupported : [])]),
     prompt: text,
     interpretedBy: "fallback",
@@ -189,6 +219,9 @@ export function mergeTripBrief(base: TripBrief, patch: TripBriefPatch, interpret
       : "target",
     detourMinutes: ([0, 5, 10].includes(next.detourMinutes) ? next.detourMinutes : 5) as 0 | 5 | 10,
     priorities: unique(next.priorities).filter((priority): priority is RoutePriority => ["shade", "greenery", "rest", "water", "restroom", "construction"].includes(priority)),
+    civicTaskIntent: (["any", "verify", "observe", "photo"] as const).includes(next.civicTaskIntent as Exclude<CivicTaskIntent, null>)
+      ? next.civicTaskIntent
+      : null,
     unsupported: unique(next.unsupported).slice(0, 4),
   };
 }
@@ -224,6 +257,7 @@ export function briefSummary(brief: TripBrief) {
     journey,
     direction,
     endCondition,
+    brief.civicTaskIntent ? brief.civicTaskIntent === "photo" ? "Pass a photo check" : "Pass a city data check" : null,
     ...brief.priorities.map((priority) => ({ shade: "Less direct sun", greenery: "Greener streets", rest: "Places to rest", water: "Water nearby", restroom: "Restroom nearby", construction: "Less construction friction" })[priority]),
     brief.avoidMappedSteps ? "Avoid mapped steps" : null,
   ].filter((item): item is string => Boolean(item));

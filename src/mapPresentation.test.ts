@@ -5,9 +5,12 @@ import {
   assetMarkerSvg,
   assetTypeLabel,
   assetsGeoJSON,
+  civicTaskMarkerSvg,
+  civicTasksGeoJSON,
   endpointsGeoJSON,
   routeGeoJSON,
 } from "./mapPresentation";
+import { listCivicTasks } from "./data/civicTasks";
 import type { JourneyRoute } from "./types";
 
 function route(journeyShape: JourneyRoute["journeyShape"]): JourneyRoute {
@@ -107,5 +110,24 @@ describe("asset presentation", () => {
     } as CivicAsset;
     expect(assetAvailabilityCopy(unavailable)).toMatch(/may be unavailable/i);
     expect(assetAvailabilityCopy(unavailable)).toMatch(/haven’t verified current conditions/i);
+  });
+});
+
+describe("civic task presentation", () => {
+  it("keeps selection and session completion distinct in map properties", () => {
+    const tasks = listCivicTasks({ activeAt: new Date("2026-08-17T00:00:00Z") }).slice(0, 2);
+    const presentation = civicTasksGeoJSON(tasks, { selectedTaskId: tasks[0].id, completedTaskIds: [tasks[1].id] });
+    expect(presentation.features.map((feature) => feature.properties)).toEqual([
+      expect.objectContaining({ id: tasks[0].id, selected: true, completed: false }),
+      expect.objectContaining({ id: tasks[1].id, selected: false, completed: true }),
+    ]);
+  });
+
+  it("uses a decodable, named check icon instead of a letter marker", () => {
+    const output = civicTaskMarkerSvg();
+    expect(output).toMatch(/^data:image\/svg\+xml;charset=UTF-8,/);
+    const svg = decodeURIComponent(output.slice(output.indexOf(",") + 1));
+    expect(svg).toContain("data-kind=\"civic-task\"");
+    expect(svg).toContain("Optional city data check");
   });
 });

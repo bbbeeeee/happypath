@@ -19,6 +19,7 @@ const priorities = ["shade", "greenery", "rest", "water", "restroom", "construct
 const directions = ["north", "south", "east", "west"];
 const endConditions = ["transit", "park"];
 const walkingTimeIntents = ["target", "maximum"];
+const civicTaskIntents = ["any", "verify", "observe", "photo"];
 
 function isTripBrief(value: unknown): value is TripBrief {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
@@ -38,6 +39,8 @@ function isTripBrief(value: unknown): value is TripBrief {
     && typeof brief.avoidMappedSteps === "boolean"
     && (brief.direction === null || directions.includes(brief.direction as string))
     && (brief.endCondition === null || endConditions.includes(brief.endCondition as string))
+    // Accept one release of legacy responses and normalize them below.
+    && (brief.civicTaskIntent === undefined || brief.civicTaskIntent === null || civicTaskIntents.includes(brief.civicTaskIntent as string))
     && Array.isArray(brief.unsupported) && brief.unsupported.length <= 4
     && brief.unsupported.every((item) => typeof item === "string" && item.length <= 120)
     && typeof brief.prompt === "string"
@@ -63,6 +66,7 @@ export async function interpretTripBrief(
       ? {
           ...payload.brief,
           walkingTimeIntent: payload.brief.walkingTimeIntent ?? currentBrief.walkingTimeIntent,
+          civicTaskIntent: payload.brief.civicTaskIntent ?? currentBrief.civicTaskIntent,
         }
       : fallback();
   } catch {

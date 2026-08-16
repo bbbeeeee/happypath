@@ -192,7 +192,7 @@ export function distanceBetweenCoordinatesMeters(start: CivicCoordinate, end: Ci
   return pointToSegmentMeters(start, end, end);
 }
 
-export function distanceFromRouteGeometryMeters(asset: CivicAsset, route: readonly CivicCoordinate[]): number {
+export function distanceFromRouteGeometryMeters(asset: Pick<CivicAsset, "coordinate">, route: readonly CivicCoordinate[]): number {
   if (route.length === 0) return Number.POSITIVE_INFINITY;
   if (route.length === 1) return pointToSegmentMeters(asset.coordinate, route[0], route[0]);
   let nearest = Number.POSITIVE_INFINITY;

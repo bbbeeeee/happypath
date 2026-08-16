@@ -1,4 +1,5 @@
 import type { CivicAsset, CivicAssetKind } from "./data/civicAssets";
+import type { CivicTask } from "./data/civicTasks";
 import type { JourneyRoute } from "./types";
 
 export function routeGeoJSON(route?: JourneyRoute | null) {
@@ -64,6 +65,32 @@ export function assetsGeoJSON(assets: readonly CivicAsset[], selectedAssetId?: s
       geometry: { type: "Point" as const, coordinates: asset.coordinate },
     })),
   };
+}
+
+export function civicTasksGeoJSON(
+  tasks: readonly CivicTask[],
+  options: { selectedTaskId?: string | null; completedTaskIds?: readonly string[] } = {},
+) {
+  const completed = new Set(options.completedTaskIds ?? []);
+  return {
+    type: "FeatureCollection" as const,
+    features: tasks.map((task) => ({
+      type: "Feature" as const,
+      properties: {
+        id: task.id,
+        action: task.action,
+        title: task.title,
+        selected: task.id === options.selectedTaskId,
+        completed: completed.has(task.id),
+      },
+      geometry: { type: "Point" as const, coordinates: task.coordinate },
+    })),
+  };
+}
+
+export function civicTaskMarkerSvg(): string {
+  const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="40" height="48" viewBox="0 0 32 38" data-kind="civic-task"><title>Optional city data check</title><path d="M16 1C7.7 1 1 7.4 1 15.3 1 26.2 16 37 16 37s15-10.8 15-21.7C31 7.4 24.3 1 16 1z" fill="#FFFDF8" stroke="#C65343" stroke-width="2"/><path d="m9.5 15 4.1 4.1 8.9-9" fill="none" stroke="#C65343" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M10 24h12" fill="none" stroke="#C65343" stroke-width="2" stroke-linecap="round"/></svg>';
+  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
 }
 
 const markerArt: Record<CivicAssetKind, { title: string; color: string; art: string }> = {

@@ -18,6 +18,14 @@ export function BenchIcon(props: IconProps) {
   return <Icon {...props}><path d="M5 11h14v5H5z" /><path d="M7 16v3M17 16v3M6 8v3M18 8v3" /></Icon>;
 }
 
+export function CameraIcon(props: IconProps) {
+  return <Icon {...props}><path d="M5 8h3l1.5-2h5L16 8h3a2 2 0 0 1 2 2v8H3v-8a2 2 0 0 1 2-2Z" /><circle cx="12" cy="13" r="3" /></Icon>;
+}
+
+export function CheckCircleIcon(props: IconProps) {
+  return <Icon {...props}><circle cx="12" cy="12" r="9" /><path d="m8 12 2.7 2.7L16.5 9" /></Icon>;
+}
+
 export function ChevronIcon(props: IconProps) {
   return <Icon {...props}><path d="m8 10 4 4 4-4" /></Icon>;
 }
