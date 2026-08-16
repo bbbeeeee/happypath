@@ -1,5 +1,9 @@
 # Product and implementation lessons
 
+## 2026-08-16 — Verify rendered map pixels and dependent resources
+
+- A map canvas, attribution, and controls only prove that the shell mounted. For WebGL maps, production verification must include a screenshot with rendered geography plus successful worker, glyph, and tile requests; a development-server check does not catch missing production worker assets.
+
 ## 2026-08-16 — Direct manipulation should feel direct
 
 - For familiar map interactions, prefer clear hover, active, and cursor states over persistent explanatory copy. If focusing a location field arms the next map click, make that state visually obvious and let the interaction teach itself.
