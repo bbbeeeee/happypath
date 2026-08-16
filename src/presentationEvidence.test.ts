@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { listCivicAssets } from "./data/civicAssets";
 import {
   civicAssetEvidence,
-  demoLikelyCoverEvidence,
+  mappedCoverEvidence,
   formatHour,
   shadeEvidence,
 } from "./presentationEvidence";
@@ -16,15 +16,16 @@ describe("presentation evidence copy", () => {
     expect(evidence.sourceIds).toEqual(["nyc-dot-seating"]);
   });
 
-  it("keeps modeled shade and demo cover honest without burying the product copy", () => {
+  it("keeps modeled shade and mapped cover honest without burying the product copy", () => {
     const shade = shadeEvidence(14);
     expect(shade.freshnessLabel).toMatch(/2 PM/);
     expect(shade.summary).toMatch(/sun and nearby buildings/i);
     expect(shade.currentConditionsVerified).toBe(false);
 
-    expect(demoLikelyCoverEvidence.statusLabel).toMatch(/not live/i);
-    expect(demoLikelyCoverEvidence.detail).toMatch(/sidewalk-shed/i);
-    expect(demoLikelyCoverEvidence.detail).toMatch(/cannot promise a dry route/i);
+    expect(mappedCoverEvidence.statusLabel).toMatch(/community-mapped/i);
+    expect(mappedCoverEvidence.detail).toMatch(/unassessed/i);
+    expect(mappedCoverEvidence.detail).toMatch(/dry route/i);
+    expect(mappedCoverEvidence.sourceIds).toEqual(["openstreetmap"]);
   });
 
   it("formats compact hour labels", () => {

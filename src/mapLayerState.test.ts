@@ -13,10 +13,11 @@ describe("contextual map layers", () => {
     expect(toggledMapOverlay(allVisible, "cover")).toEqual({ ...allVisible, cover: false });
   });
 
-  it("keeps one ambient field active while preserving context layers", () => {
+  it("lets environmental fields stack while preserving context layers", () => {
     const shade = { ...DEFAULT_MAP_OVERLAYS, shade: true, cover: true };
-    expect(toggledMapOverlay(shade, "greenery")).toEqual({ ...shade, shade: false, greenery: true, flood: false });
-    expect(toggledMapOverlay(shade, "flood")).toEqual({ ...shade, shade: false, greenery: false, flood: true });
+    const shadeAndGreenery = toggledMapOverlay(shade, "greenery");
+    expect(shadeAndGreenery).toEqual({ ...shade, greenery: true });
+    expect(toggledMapOverlay(shadeAndGreenery, "flood")).toEqual({ ...shade, greenery: true, flood: true });
   });
 
   it("replaces stale context with only the layers relevant to the new route", () => {

@@ -1,4 +1,4 @@
-import { demoCoverShare, routeCoverShare } from "../demoCover";
+import { mappedCoverShare, routeCoverShare } from "../coverEvidence";
 import { defaultDestination, defaultOrigin, pilotGraph } from "../data/cityGraph";
 import { getPilotTransitEndpointCandidates } from "../data/transitEndpoints";
 import { distanceMilesToRoutingMinutes } from "../planning/tripBrief";
@@ -127,9 +127,9 @@ function evaluateRainCover(): SampleRouteEvaluation {
   const result = planJourney(pilotGraph, brief, {
     walkingTimeIntent: "target",
     edgePreference: {
-      id: "likely_cover_demo",
+      id: "mapped_overhead_cover",
       weight: 1,
-      score: demoCoverShare,
+      score: mappedCoverShare,
     },
   });
   const ordinary = ordinaryResult.recommended;
@@ -149,9 +149,9 @@ function evaluateRainCover(): SampleRouteEvaluation {
   };
   return {
     id: "rain_cover",
-    label: "Rain-friendly proof route",
-    requestSummary: "A 25-minute walk favoring more likely cover",
-    evidenceBoundary: "Cover is a deterministic demo signal, not observed infrastructure or a promise of dryness.",
+    label: "Mapped-cover route",
+    requestSummary: "A 25-minute walk favoring explicitly mapped overhead cover",
+    evidenceBoundary: "Covered-way tags are community map evidence, not a current access check or promise of dryness.",
     metrics: metrics(selected, timing, result.evaluatedCandidateCount),
     comparison: {
       baselineCandidateId: ordinary.candidateId,

@@ -1,5 +1,6 @@
 import type { CivicAsset, CivicAssetKind } from "./data/civicAssets";
-import type { CivicTask } from "./data/civicTasks";
+import type { CivicTask, CivicTaskAction } from "./data/civicTasks";
+import type { CoverContextKind } from "./coverEvidence";
 import type { JourneyRoute } from "./types";
 
 export function routeGeoJSON(route?: JourneyRoute | null) {
@@ -88,8 +89,44 @@ export function civicTasksGeoJSON(
   };
 }
 
-export function civicTaskMarkerSvg(): string {
-  const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="40" height="48" viewBox="0 0 32 38" data-kind="civic-task"><title>Optional city data check</title><path d="M16 1C7.7 1 1 7.4 1 15.3 1 26.2 16 37 16 37s15-10.8 15-21.7C31 7.4 24.3 1 16 1z" fill="#FFFDF8" stroke="#C65343" stroke-width="2"/><path d="m9.5 15 4.1 4.1 8.9-9" fill="none" stroke="#C65343" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M10 24h12" fill="none" stroke="#C65343" stroke-width="2" stroke-linecap="round"/></svg>';
+const taskMarkerArt: Record<CivicTaskAction, { title: string; art: string }> = {
+  verify: {
+    title: "Quick verification",
+    art: '<path d="m9.5 15 4.1 4.1 8.9-9" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M10 24h12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
+  },
+  observe: {
+    title: "Quick observation",
+    art: '<path d="M7.5 15.5s3.2-5 8.5-5 8.5 5 8.5 5-3.2 5-8.5 5-8.5-5-8.5-5Z" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="16" cy="15.5" r="2.6" fill="currentColor"/><path d="M11 24h10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
+  },
+  photo: {
+    title: "Focused photo check",
+    art: '<path d="M8 12h4l1.5-2h5l1.5 2h4v10H8z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><circle cx="16" cy="17" r="3" fill="none" stroke="currentColor" stroke-width="2"/>',
+  },
+};
+
+export function civicTaskMarkerSvg(action: CivicTaskAction = "verify"): string {
+  const marker = taskMarkerArt[action];
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="40" height="48" viewBox="0 0 32 38" data-kind="civic-task-${action}"><title>${marker.title}</title><path d="M16 1C7.7 1 1 7.4 1 15.3 1 26.2 16 37 16 37s15-10.8 15-21.7C31 7.4 24.3 1 16 1z" fill="#FFFDF8" stroke="#C65343" stroke-width="2"/><g style="color:#C65343">${marker.art}</g></svg>`;
+  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
+}
+
+const coverContextArt: Record<Exclude<CoverContextKind, "construction_closure">, { title: string; color: string; art: string }> = {
+  sidewalk_shed_permit: {
+    title: "Sidewalk-shed permit nearby",
+    color: "#806A3E",
+    art: '<path d="M6 11h16l-2.5-4h-11zM8 11v11M20 11v11M6 16h16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>',
+  },
+  pops_arcade: {
+    title: "Listed arcade nearby",
+    color: "#3D587F",
+    art: '<path d="M6 22V7h16v15M10 22V14a4 4 0 0 1 8 0v8M6 11h16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>',
+  },
+};
+
+/** Point-only context gets a distinct record glyph, never a fabricated footprint. */
+export function coverContextMarkerSvg(kind: Exclude<CoverContextKind, "construction_closure">): string {
+  const marker = coverContextArt[kind];
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 28 28" data-kind="${kind}"><title>${marker.title}</title><rect x="1" y="1" width="26" height="26" rx="7" fill="#FFFDF8" fill-opacity=".94" stroke="${marker.color}" stroke-width="1.5"/><g style="color:${marker.color}">${marker.art}</g></svg>`;
   return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
 }
 

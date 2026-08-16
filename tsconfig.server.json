@@ -18,6 +18,7 @@
     "server/production.ts",
     "server/interpret.ts",
     "server/insights.ts",
+    "src/preferenceNote.ts",
     "src/planning/tripBrief.ts"
   ]
 }

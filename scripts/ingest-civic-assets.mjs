@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { readFile, writeFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
+import { coordinateInsideSupportedArea, socrataWithinBox, supportedArea } from "./lib/supported-area.mjs";
 
 const NYC_API_ROOT = process.env.NYC_OPEN_DATA_API_ROOT ?? "https://data.cityofnewyork.us";
 const MTA_API_ROOT = process.env.MTA_OPEN_DATA_API_ROOT ?? "https://data.ny.gov";
@@ -195,6 +196,27 @@ function stableId(parts) {
     .slice(0, 16);
 }
 
+function mergeDuplicateAssets(existing, candidate) {
+  const unavailable = [existing, candidate].find((asset) => asset.operation.routingAvailability === "published_unavailable");
+  return {
+    ...existing,
+    operation: unavailable?.operation ?? existing.operation,
+    details: Object.fromEntries(Object.keys({ ...existing.details, ...candidate.details }).map((key) => [
+      key,
+      existing.details[key] ?? candidate.details[key],
+    ])),
+  };
+}
+
+function dedupeAssets(assets) {
+  const byId = new Map();
+  for (const asset of assets) {
+    const existing = byId.get(asset.id);
+    byId.set(asset.id, existing ? mergeDuplicateAssets(existing, asset) : asset);
+  }
+  return [...byId.values()];
+}
+
 function coordinateFrom(row, geometryField) {
   const geometry = row[geometryField];
   const raw = geometry?.type === "Point" ? geometry.coordinates : [row.longitude, row.latitude];
@@ -375,27 +397,33 @@ const NORMALIZERS = {
 };
 
 function bboxWhere(geometryField, [south, west, north, east]) {
-  return `within_box(${geometryField},${south},${west},${north},${east})`;
+  return socrataWithinBox(geometryField, [south, west, north, east]);
 }
 
 async function fetchDataset(dataset, bbox) {
-  const dataUrl = new URL(`/resource/${dataset.datasetId}.json`, dataset.apiRoot);
-  dataUrl.searchParams.set("$limit", "50000");
-  dataUrl.searchParams.set("$select", dataset.select.join(","));
-  dataUrl.searchParams.set("$where", bboxWhere(dataset.geometryField, bbox));
-  dataUrl.searchParams.set("$order", dataset.order);
-
   const metadataUrl = new URL(`/api/views/${dataset.datasetId}`, dataset.apiRoot);
   const headers = { "User-Agent": "HappyPathPrototype/0.1 civic-assets" };
-  const [dataResponse, metadataResponse] = await Promise.all([
-    fetch(dataUrl, { headers }),
-    fetch(metadataUrl, { headers }),
-  ]);
-  if (!dataResponse.ok) throw new Error(`${dataset.datasetId} request failed: ${dataResponse.status} ${await dataResponse.text()}`);
+  const metadataResponse = await fetch(metadataUrl, { headers });
   if (!metadataResponse.ok) throw new Error(`${dataset.datasetId} metadata request failed: ${metadataResponse.status} ${await metadataResponse.text()}`);
 
-  const snapshotText = await dataResponse.text();
-  const rows = JSON.parse(snapshotText);
+  const pageSize = 20_000;
+  const rows = [];
+  const snapshotPages = [];
+  for (let offset = 0; ; offset += pageSize) {
+    const dataUrl = new URL(`/resource/${dataset.datasetId}.json`, dataset.apiRoot);
+    dataUrl.searchParams.set("$limit", String(pageSize));
+    dataUrl.searchParams.set("$offset", String(offset));
+    dataUrl.searchParams.set("$select", dataset.select.join(","));
+    dataUrl.searchParams.set("$where", bboxWhere(dataset.geometryField, bbox));
+    dataUrl.searchParams.set("$order", dataset.order);
+    const dataResponse = await fetch(dataUrl, { headers });
+    if (!dataResponse.ok) throw new Error(`${dataset.datasetId} request failed: ${dataResponse.status} ${await dataResponse.text()}`);
+    const snapshotText = await dataResponse.text();
+    const pageRows = JSON.parse(snapshotText);
+    snapshotPages.push(snapshotText);
+    rows.push(...pageRows);
+    if (pageRows.length < pageSize) break;
+  }
   const metadata = await metadataResponse.json();
   const sourceUpdatedAt = metadata.rowsUpdatedAt
     ? new Date(metadata.rowsUpdatedAt * 1000).toISOString()
@@ -403,9 +431,10 @@ async function fetchDataset(dataset, bbox) {
   const updateMetadata = metadata.metadata?.custom_fields?.Update ?? {};
   const datasetSummary = metadata.metadata?.custom_fields?.["Dataset Summary"] ?? {};
   const normalize = NORMALIZERS[dataset.kind];
-  const assets = rows
+  const assets = dedupeAssets(rows
     .map((row) => normalize(row, dataset))
     .filter(Boolean)
+    .filter((asset) => coordinateInsideSupportedArea(asset.coordinate)))
     .sort((a, b) => a.id.localeCompare(b.id));
 
   return {
@@ -423,7 +452,7 @@ async function fetchDataset(dataset, bbox) {
       retrievedAt: RETRIEVED_AT,
       updateFrequency: cleanText(updateMetadata["Update Frequency"] ?? datasetSummary["Posting Frequency"]),
       dataTimePeriod: cleanText(datasetSummary["Time Period"]),
-      snapshotHash: `sha256:${createHash("sha256").update(snapshotText).digest("hex")}`,
+      snapshotHash: `sha256:${createHash("sha256").update(snapshotPages.join("\n")).digest("hex")}`,
       recordCount: assets.length,
       currentOperationVerified: false,
       allowedClaims: dataset.allowedClaims,
@@ -456,6 +485,7 @@ function registryRecord(source, bbox) {
     geometry_type: "Point",
     source_crs: "EPSG:4326",
     pilot_bbox: { south: bbox[0], west: bbox[1], north: bbox[2], east: bbox[3] },
+    supported_area_id: supportedArea.id,
     pilot_coverage: null,
     pilot_record_count: source.recordCount,
     derived_from: [],
@@ -486,6 +516,7 @@ export async function ingestCivicAssets() {
   const fixture = {
     schemaVersion: 1,
     generatedAt: RETRIEVED_AT,
+    supportedAreaId: supportedArea.id,
     pilotBbox: bbox,
     counts,
     sources,

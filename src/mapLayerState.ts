@@ -18,8 +18,6 @@ export const DEFAULT_MAP_OVERLAYS: MapOverlays = {
 
 export type RelevantRouteMapOverlays = Partial<Pick<MapOverlays, "shade" | "greenery" | "cover" | "amenities" | "tasks">>;
 
-const ambientLayers = ["shade", "greenery", "flood"] as const;
-
 /**
  * Derive a fresh, request-scoped map state so context from the previous walk
  * cannot silently carry into the next result.
@@ -39,9 +37,5 @@ export function showRelevantRouteMapOverlays(
 }
 
 export function toggledMapOverlay(overlays: MapOverlays, layer: keyof MapOverlays): MapOverlays {
-  const enabled = !overlays[layer];
-  if (enabled && ambientLayers.includes(layer as (typeof ambientLayers)[number])) {
-    return { ...overlays, shade: false, greenery: false, flood: false, [layer]: true };
-  }
-  return { ...overlays, [layer]: enabled };
+  return { ...overlays, [layer]: !overlays[layer] };
 }

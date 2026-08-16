@@ -44,7 +44,7 @@ try {
       .map((match) => match[1])
       .filter((reference) => reference.startsWith("/"));
     const referencedResponses = await Promise.all(localReferences.map((reference) => request(reference, { method: "HEAD" })));
-    const lazyShadeFile = (await readdir(join(extracted, "dist/assets"))).find((file) => file.startsWith("hour-") && file.endsWith(".js"));
+    const lazyShadeFile = (await readdir(join(extracted, "dist/assets"))).find((file) => file.startsWith("hour-") && (file.endsWith(".json") || file.endsWith(".js")));
     const lazyShade = lazyShadeFile ? await request(`/assets/${lazyShadeFile}`, { method: "HEAD" }) : null;
     const interpret = await request("/api/interpret", { method: "POST" });
     const insights = await request("/api/insights", {

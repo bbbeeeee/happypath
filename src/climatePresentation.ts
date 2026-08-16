@@ -2,7 +2,7 @@ import { orientedEdgeCoordinates } from "./routing/geometry";
 import { edgeShade, shadeMetadata } from "./routing/shade";
 import type { JourneyRoute, PilotGraph } from "./types";
 import {
-  demoLikelyCoverEvidence,
+  mappedCoverEvidence,
   formatHour,
   shadeEvidence,
   type PresentationEvidence,
@@ -19,7 +19,7 @@ export interface DemoRainContext {
   confidence: "explicit" | "intent";
   routePreference: {
     id: "likely_cover";
-    label: "Favor likely cover";
+    label: "Favor mapped cover";
   };
   receiptLabel: string;
   evidence: PresentationEvidence;
@@ -56,9 +56,9 @@ export function rainContextFromPrompt(prompt: string): DemoRainContext | null {
     condition: "rain",
     source: "user_prompt",
     confidence,
-    routePreference: { id: "likely_cover", label: "Favor likely cover" },
-    receiptLabel: "Rain-friendly · favoring likely cover",
-    evidence: demoLikelyCoverEvidence,
+    routePreference: { id: "likely_cover", label: "Favor mapped cover" },
+    receiptLabel: "Rain request · favoring mapped cover",
+    evidence: mappedCoverEvidence,
   };
 }
 

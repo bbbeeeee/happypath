@@ -57,13 +57,13 @@ export function shadeEvidence(resolvedHour: number): PresentationEvidence {
   };
 }
 
-export const demoLikelyCoverEvidence: PresentationEvidence = {
-  title: "Likely cover",
-  statusLabel: "Planning preview · not live",
-  freshnessLabel: "Created for this route preview",
-  summary: "Your request can favor stretches that may offer more overhead cover.",
-  detail: "A live version would need current sidewalk-shed, arcade, awning, and construction details. This preview cannot promise a dry route.",
-  sourceIds: [],
+export const mappedCoverEvidence: PresentationEvidence = {
+  title: "Mapped overhead cover",
+  statusLabel: "Community-mapped · conditions may have changed",
+  freshnessLabel: "From the checked-in OpenStreetMap pilot snapshot",
+  summary: "Your request can favor walking stretches explicitly mapped with overhead cover.",
+  detail: "Most streets are unassessed. Mapped cover does not confirm present access, lighting, usable width, or a dry route.",
+  sourceIds: ["openstreetmap"],
   currentConditionsVerified: false,
   proofOfConcept: true,
 };

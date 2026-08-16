@@ -1,4 +1,4 @@
-import graphJson from "./pilot-osm.json";
+import { pilotGraph } from "./cityGraph";
 import {
   distanceBetweenCoordinatesMeters,
   listCivicAssets,
@@ -27,8 +27,6 @@ export interface TransitEndpointCandidate {
   liveServiceState: "unknown";
   accessibilityState: "unknown";
 }
-
-const pilotGraphNodes = (graphJson as unknown as { nodes: TransitEndpointGraphNode[] }).nodes;
 
 function validateOptions(options: TransitEndpointResolutionOptions) {
   const maxSnapDistanceMeters = options.maxSnapDistanceMeters ?? 120;
@@ -93,5 +91,5 @@ export function resolveTransitAssetsToGraphNodes(
 export function getPilotTransitEndpointCandidates(
   options: TransitEndpointResolutionOptions = {},
 ): TransitEndpointCandidate[] {
-  return resolveTransitAssetsToGraphNodes(pilotGraphNodes, options);
+  return resolveTransitAssetsToGraphNodes(pilotGraph.nodes, options);
 }

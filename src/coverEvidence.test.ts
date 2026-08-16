@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   loadCoverContextGeoJSON,
+  coverContextVicinityGeoJSON,
   coverEvidenceMetadata,
   mappedCoverGeoJSON,
   mappedCoverShare,
@@ -103,6 +104,16 @@ describe("real cover evidence", () => {
     });
     expect(context.features.some((feature) => feature.properties.kind === "pops_arcade")).toBe(true);
     expect(context.features.some((feature) => String(feature.properties.kind).includes("awning"))).toBe(false);
+  });
+
+  it("presents point records as explicitly approximate geometric vicinities", async () => {
+    const context = await loadCoverContextGeoJSON();
+    const vicinities = coverContextVicinityGeoJSON(context);
+    const pointCount = context.features.filter((feature) => feature.geometry.type === "Point").length;
+    expect(vicinities.features).toHaveLength(pointCount);
+    expect(vicinities.features.every((feature) => feature.geometry.type === "Polygon")).toBe(true);
+    expect(vicinities.features.every((feature) => feature.properties.extentAccuracy === "approximate")).toBe(true);
+    expect(vicinities.features.every((feature) => /not a surveyed cover footprint/i.test(feature.properties.detail))).toBe(true);
   });
 
   it("keeps the checked-in graph and cover snapshot aligned", () => {

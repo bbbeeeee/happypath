@@ -1,28 +1,35 @@
 import { FormEvent, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import * as maplibregl from "maplibre-gl";
 import type { GeoJSONSource, Map as MapLibreMap, MapLayerMouseEvent } from "maplibre-gl";
-import { defaultDestination, defaultOrigin, isInsidePilot, nearestGraphNode, pilotGraph } from "./data/cityGraph";
+import { defaultDestination, defaultOrigin, ensureGraphCoverage, graphNodeById, isInsidePilot, nearestGraphNode, nearestGraphNodeWithin, pilotGraph } from "./data/cityGraph";
+import { shadowTilesIntersectingBounds, supportedArea } from "./data/supportedArea";
 import { findCivicAssetsNearRoute, loadCivicAssetFixture, type CivicAsset, type CivicAssetKind } from "./data/civicAssets";
 import { createSessionCivicObservation, findCivicTasksNearRoute, listCivicTasks, loadCivicTaskFixture, type CivicTask, type SessionCivicObservation } from "./data/civicTasks";
 import { getMapLayerDefinition } from "./data/mapLayerCatalog";
 import { sourceRegistryPresentation, type SourceRegistryPresentation } from "./data/sourceRegistry";
 import { getPilotTransitEndpointCandidates } from "./data/transitEndpoints";
-import { amenitiesForViewport, amenityClusterCellMeters, amenityOverviewGeoJSON, AMENITY_CLUSTER_COUNT_LAYOUT, type AmenityViewport } from "./amenityOverview";
+import { amenitiesForViewport, amenitiesWithinViewport, amenityClusterCellMeters, amenityOverviewGeoJSON, amenityViewportSampleLimit, AMENITY_CLUSTER_COUNT_LAYOUT, type AmenityViewport } from "./amenityOverview";
+import { HERO_JOURNEYS, HERO_REQUESTS, type ExampleJourney } from "./exampleJourneys";
 import { BUILDING_SHADOW_LAYER, buildingShadeDetailVisible } from "./shadeOverlay";
 import { rainPromptIntent, routeShadeSegmentsGeoJSON } from "./climatePresentation";
 import { buildShadeDetourScenario, evaluateShadeDetourScenario, type ShadeDetourScenario } from "./detour/shadeScenario";
-import { demoCoverGeoJSON, demoCoverShare, pickRainFriendlyRoute, routeCoverSegmentsGeoJSON, routeCoverShare } from "./demoCover";
+import type { RepresentativeShadeScenarioResult } from "./detour/representativeShadeScenario";
+import { coverContextVicinityGeoJSON, coverEvidenceMetadata, loadCoverContextGeoJSON, mappedCoverGeoJSON, mappedCoverShare, pickRainFriendlyRoute, routeCoverSegmentsGeoJSON, routeMappedCoverMeters, type CoverContextFeature } from "./coverEvidence";
+import { floodEvidenceMetadata, floodOverlapForRoute, loadFloodContextGeoJSON, type FloodContextCollection } from "./floodEvidence";
+import { ambientGreeneryGeoJSON, routeGreeneryGeoJSON } from "./greeneryPresentation";
 import { searchNycAddress } from "./geocoding";
-import { briefSummary, DEFAULT_BRIEF, distanceMilesToRoutingMinutes, mergeTripBrief, metersToMiles, withDestinationOverride, type RoutePriority, type TripBrief as UiTripBrief } from "./planning/tripBrief";
+import { briefSummary, DEFAULT_BRIEF, mergeTripBrief, metersToMiles, withDestinationOverride, type RoutePriority, type TripBrief as UiTripBrief } from "./planning/tripBrief";
 import { interpretTripBrief } from "./planning/interpretTripBrief";
 import { buildRouteCityInsightRequest, requestRouteCityInsight } from "./planning/cityInsight";
 import { selectRouteThroughOptionalCivicTask } from "./planning/civicTaskRouting";
+import { buildRoutingTripBrief } from "./planning/routePolicy";
 import { JourneyPlanningError, planJourney, rerouteJourneyThroughWaypoint, type PlannedJourneyResult } from "./routing/journey";
-import type { Coordinate, JourneyRoute, TripBrief as RoutingTripBrief } from "./types";
+import { routeComparisonDeltaGeoJSON } from "./routing/routeComparisonPresentation";
+import type { Coordinate, JourneyRoute } from "./types";
 import type { RouteCityInsight } from "../server/insights";
-import { assetAvailabilityCopy, assetMarkerSvg, assetsGeoJSON, assetTypeLabel, civicTaskMarkerSvg, civicTasksGeoJSON, endpointsGeoJSON, routeGeoJSON } from "./mapPresentation";
+import { assetAvailabilityCopy, assetMarkerSvg, assetsGeoJSON, assetTypeLabel, civicTaskMarkerSvg, civicTasksGeoJSON, coverContextMarkerSvg, endpointsGeoJSON, routeGeoJSON } from "./mapPresentation";
 import { civicAssetEvidence } from "./presentationEvidence";
-import { DEFAULT_MAP_OVERLAYS, toggledMapOverlay, type MapOverlays } from "./mapLayerState";
+import { DEFAULT_MAP_OVERLAYS, showRelevantRouteMapOverlays, toggledMapOverlay, type MapOverlays } from "./mapLayerState";
 import {
   ArrowIcon,
   BackIcon,
@@ -50,52 +57,56 @@ import {
 import { FallbackMap } from "./components/FallbackMap";
 import { useTypingPlaceholder } from "./components/useTypingPlaceholder";
 import { ThinkingStatus, type ThinkingMode } from "./components/ThinkingStatus";
+import { PreferencesPopover } from "./components/PreferencesPopover";
+import { RouteFeedbackCard } from "./components/RouteFeedbackCard";
+import { clearUserPreferences, loadUserPreferences, newTripBriefFromPreferences, saveUserPreferences, type UserPreferences } from "./preferences";
+import { humanReadableEndpointName } from "./placeLabels";
+import {
+  ROUTE_FEEDBACK_CATEGORY_LABELS,
+  addRouteFeedback,
+  clearRouteActivity,
+  loadRouteActivity,
+  recordMappedRoute,
+  removeRouteFeedback,
+  routeActivityGeoJSON,
+  saveRouteActivity,
+  summarizeRouteActivity,
+  type RouteActivityLog,
+  type RouteFeedbackCategory,
+  type RouteFeedbackSentiment,
+} from "./routeActivity";
 
 const MAP_STYLE = "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json";
-const nodeById = new Map(pilotGraph.nodes.map((node) => [node.id, node]));
-const shadowModules = import.meta.glob("./data/shadows/hour-*.json");
+const shadowModules = import.meta.glob("./data/shadows/*-col-*/hour-*.json", { query: "?url", import: "default" });
 const civicFixture = loadCivicAssetFixture();
 const civicTaskFixture = loadCivicTaskFixture();
 const allCivicTasks = listCivicTasks();
 const civicTaskLayer = getMapLayerDefinition("civic_tasks");
 const transitEndpoints = getPilotTransitEndpointCandidates({ maxSnapDistanceMeters: 50 });
 const allMapAssets = [...new Map([...civicFixture.assets, ...transitEndpoints.map((candidate) => candidate.asset)].map((asset) => [asset.id, asset])).values()];
-const demoCoverLayer = demoCoverGeoJSON(pilotGraph);
-const ambientCoverLayer = {
-  ...demoCoverLayer,
-  // The overview is deliberately sparse; the selected route still shows the
-  // full edge-by-edge signal. This keeps a citywide proof layer readable.
-  features: demoCoverLayer.features.filter((feature, index) => feature.properties.coverShare >= 0.8 && index % 3 === 0),
-};
-
-const EXAMPLE_REQUESTS = [
-  "I have 20 minutes. Walk me to Washington Square with less direct sun.",
-  "I’m free for half an hour. Give me a green loop with somewhere to sit.",
-  "I have 30 minutes. Let me wander west and finish near a train.",
-  "It’s raining and I have 25 minutes. Find a walk with more cover.",
-  "I have 25 minutes. Find a walk where I can help verify city data.",
-  "Map me a shaded 2-mile run that loops back here.",
-] as const;
-
-const EXAMPLE_SHORTCUTS = [
-  { label: "Get somewhere", prompt: EXAMPLE_REQUESTS[0] },
-  { label: "Take a loop", prompt: EXAMPLE_REQUESTS[1] },
-  { label: "Just wander", prompt: EXAMPLE_REQUESTS[2] },
-  { label: "Stay drier", prompt: EXAMPLE_REQUESTS[3] },
-  { label: "Help the map", prompt: EXAMPLE_REQUESTS[4] },
-  { label: "Go for a run", prompt: EXAMPLE_REQUESTS[5] },
-] as const;
+const endpointLandmarks = allMapAssets.flatMap((asset) => {
+  const name = asset.kind === "drinking_fountain"
+    ? asset.details.propertyName
+    : asset.kind === "transit"
+      ? `${asset.details.stopName} subway station`
+      : null;
+  return name ? [{ name, coordinate: asset.coordinate }] : [];
+});
+const ambientCoverLayer = mappedCoverGeoJSON(pilotGraph);
+const EMPTY_COVER_CONTEXT: { type: "FeatureCollection"; features: CoverContextFeature[] } = { type: "FeatureCollection", features: [] };
+const EMPTY_FLOOD_CONTEXT: FloodContextCollection = { type: "FeatureCollection", features: [] };
 
 const INITIAL_MAP_VIEWPORT: AmenityViewport = {
-  west: -74.014,
-  south: 40.716,
-  east: -73.98,
-  north: 40.746,
-  zoom: 14.2,
+  west: supportedArea.envelope.west,
+  south: supportedArea.envelope.south,
+  east: supportedArea.envelope.east,
+  north: supportedArea.envelope.north,
+  zoom: supportedArea.defaultView.zoom,
 };
 
 type AppMode = "walk" | "planner";
-type MapLens = "route" | "shade" | "cover" | "amenities" | "tasks";
+type MapLens = "route" | "shade" | "greenery" | "cover" | "flood" | "amenities" | "tasks";
+type PlannerView = "routes" | "notes" | "what_if";
 
 const PRIORITY_META: Record<RoutePriority, { label: string; icon: typeof SunIcon }> = {
   shade: { label: "Less direct sun", icon: SunIcon },
@@ -120,15 +131,55 @@ function formatClock(hour: number) {
   return `${display}:00 ${suffix}`;
 }
 
-function friendlyNodeName(value: string | undefined) {
-  if (!value) return "Start here";
-  const eastWestJoin = value.match(/^(?:West|East) (.+?) & (?:East|West) \1$/i);
-  return eastWestJoin ? `${eastWestJoin[1]} & 5th Avenue` : value;
+function endpointName(nodeId: string | undefined) {
+  return humanReadableEndpointName(nodeId ? graphNodeById(nodeId) : undefined, pilotGraph.nodes, endpointLandmarks);
 }
 
 function friendlyRouteLocation(route: JourneyRoute) {
   const street = route.streets.find((value) => value.trim() && !/^(?:unnamed|unknown|unmapped)|pedestrian\s+(?:way|path)$/i.test(value.trim()));
   return street?.trim() || "This part of the walk";
+}
+
+function resetVisibleSheetScroll() {
+  window.requestAnimationFrame(() => document.querySelector<HTMLElement>(".sheet")?.scrollTo({ top: 0 }));
+}
+
+function representativeScenarioGeoJSON(
+  scenario: RepresentativeShadeScenarioResult | null,
+  showIntervention: boolean,
+  kind: "routes" | "gap",
+) {
+  const edgeById = new Map(pilotGraph.edges.map((edge) => [edge.id, edge]));
+  const nodeById = new Map(pilotGraph.nodes.map((node) => [node.id, node]));
+  const geometry = (edgeId: string) => {
+    const edge = edgeById.get(edgeId);
+    if (!edge) return null;
+    return edge.geometry ?? [nodeById.get(edge.from)!.coordinate, nodeById.get(edge.to)!.coordinate];
+  };
+  if (!scenario) return { type: "FeatureCollection" as const, features: [] };
+  if (kind === "gap") {
+    return {
+      type: "FeatureCollection" as const,
+      features: scenario.selectedGap.edgeIds.flatMap((edgeId, order) => {
+        const coordinates = geometry(edgeId);
+        return coordinates ? [{ type: "Feature" as const, properties: { edgeId, order }, geometry: { type: "LineString" as const, coordinates } }] : [];
+      }),
+    };
+  }
+  const primary = scenario.interventions.find((intervention) => intervention.role === "primary");
+  return {
+    type: "FeatureCollection" as const,
+    features: primary?.journeys.flatMap((journey) => {
+      const snapshots = [
+        { role: "baseline" as const, route: journey.baselineRoute },
+        ...(showIntervention ? [{ role: "scenario" as const, route: journey.scenarioRoute }] : []),
+      ];
+      return snapshots.flatMap(({ role, route }) => route.edgeIds.flatMap((edgeId, order) => {
+        const coordinates = geometry(edgeId);
+        return coordinates ? [{ type: "Feature" as const, properties: { role, journeyId: journey.journeyId, routeChanged: journey.routeChanged, edgeId, order }, geometry: { type: "LineString" as const, coordinates } }] : [];
+      }));
+    }) ?? [],
+  };
 }
 
 function friendlyLimitation(value: string) {
@@ -168,6 +219,24 @@ function boundsForRoute(route: JourneyRoute) {
   const bounds = new maplibregl.LngLatBounds(route.coordinates[0], route.coordinates[0]);
   route.coordinates.forEach((coordinate) => bounds.extend(coordinate));
   return bounds;
+}
+
+function boundsForCoordinates(coordinates: readonly Coordinate[]) {
+  if (!coordinates.length) return null;
+  const bounds = new maplibregl.LngLatBounds(coordinates[0], coordinates[0]);
+  coordinates.forEach((coordinate) => bounds.extend(coordinate));
+  return bounds;
+}
+
+function routeActivityTitle(route: RouteActivityLog) {
+  if (route.journeyShape === "loop") return `${route.originLabel} loop`;
+  return `${route.originLabel} to ${route.destinationLabel}`;
+}
+
+function localActivityTime(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Saved locally";
+  return date.toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 }
 
 function routeHandleElement(kind: "origin" | "destination" | "waypoint") {
@@ -213,7 +282,6 @@ function uniqueSourcePresentations(sourceIds: readonly string[]) {
 function usedSourcePresentations(brief: UiTripBrief, assets: readonly CivicAsset[], rainContext = false, tasks: readonly CivicTask[] = []) {
   return uniqueSourcePresentations([
     "openstreetmap",
-    ...(rainContext ? ["demo-cover-simulation"] : []),
     ...(brief.priorities.includes("shade") ? ["nyc-building-footprints", "building-shadow-model"] : []),
     ...(brief.priorities.includes("greenery") ? ["nyc-forestry-tree-points", "nyc-parks-properties", "greenery-edge-model"] : []),
     ...assets.map((asset) => asset.sourceId),
@@ -223,16 +291,16 @@ function usedSourcePresentations(brief: UiTripBrief, assets: readonly CivicAsset
 
 function referenceSourcePresentations(brief: UiTripBrief, rainContext: boolean) {
   const priorityIds = [
-    ...(rainContext || brief.priorities.includes("construction") ? ["nyc-sidewalk-shed-permits"] : []),
+    ...(rainContext || brief.priorities.includes("construction") ? ["nyc-sidewalk-shed-permits", "nyc-street-construction-closures"] : []),
     ...(brief.avoidMappedSteps ? ["nyc-pedestrian-ramps"] : []),
   ];
   return uniqueSourcePresentations([
     ...priorityIds,
+    "nyc-pops",
     "nyc-pedestrian-ramps",
     "nyc-sidewalk-shed-permits",
     "nyc-dot-pedestrian-plazas",
-    "nyc-pops",
-  ]).slice(0, 4);
+  ]).slice(0, 6);
 }
 
 function amenityCount(route: JourneyRoute, priorities: RoutePriority[]) {
@@ -273,6 +341,9 @@ function resultWithSelectedRoute(result: PlannedJourneyResult, selected: Journey
   return {
     ...result,
     recommended: selected,
+    routeValueFrontier: result.routeValueFrontier?.recommendedCandidateId === selected.candidateId
+      ? result.routeValueFrontier
+      : null,
     alternatives: [result.recommended, ...result.alternatives]
       .filter((route, index, routes) => route.candidateId !== selected.candidateId
         && routes.findIndex((candidate) => candidate.candidateId === route.candidateId) === index)
@@ -290,39 +361,11 @@ function routingOptions(brief: UiTripBrief, rainFriendly: boolean) {
   return {
     walkingTimeIntent: brief.walkingTimeIntent,
     edgePreference: rainFriendly ? {
-      id: "likely_cover_demo",
+      id: "mapped_overhead_cover",
       weight: 1,
-      score: demoCoverShare,
+      score: mappedCoverShare,
     } : undefined,
   } as const;
-}
-
-function makeRoutingBrief(brief: UiTripBrief, originNodeId: string, destinationNodeId: string): RoutingTripBrief {
-  const preferences = [
-    ...(brief.priorities.includes("shade") ? [{ featureId: "shade" as const, weight: 1 }] : []),
-    ...(brief.priorities.includes("greenery") ? [{ featureId: "green" as const, weight: 1 }] : []),
-  ];
-  const common = {
-    originNodeId,
-    departureHour: brief.departureHour,
-    preferences,
-    requirements: { avoidMappedSteps: brief.avoidMappedSteps },
-  };
-  if (brief.shape === "destination") {
-    return { ...common, journeyShape: "destination", destinationNodeId, detourAllowanceMinutes: brief.detourMinutes };
-  }
-  if (brief.shape === "loop") {
-    return { ...common, journeyShape: "loop", walkingBudgetMinutes: brief.distanceMiles === null ? brief.walkingMinutes : distanceMilesToRoutingMinutes(brief.distanceMiles) };
-  }
-  return {
-    ...common,
-    journeyShape: "wander",
-    walkingBudgetMinutes: brief.distanceMiles === null ? brief.walkingMinutes : distanceMilesToRoutingMinutes(brief.distanceMiles),
-    direction: brief.direction ?? undefined,
-    endCondition: brief.endCondition === "transit"
-      ? { nodeIds: [...new Set(transitEndpoints.map((candidate) => candidate.graphNodeId))], label: "near a subway entrance" }
-      : undefined,
-  };
 }
 
 function planningErrorMessage(caught: unknown) {
@@ -339,7 +382,7 @@ function IconButton({ label, children, onClick, className = "" }: { label: strin
 }
 
 function Brand() {
-  return <div className="brand"><span className="brand-mark"><span /></span><span>Happy Path</span><small>Lower Manhattan beta</small></div>;
+  return <div className="brand"><span className="brand-mark"><span /></span><span>Happy Path</span><small>Manhattan · Battery to 60th</small></div>;
 }
 
 function Segmented<T extends string>({ value, options, onChange, label }: { value: T; options: { value: T; label: string }[]; onChange: (value: T) => void; label: string }) {
@@ -404,29 +447,30 @@ interface ComposeSheetProps {
   busyMode: ThinkingMode | null;
   error: string;
   onPlan: () => void;
+  onSelectExample: (example: ExampleJourney) => void | Promise<void>;
 }
 
-function ComposeSheet({ brief, setBrief, prompt, setPrompt, originText, setOriginText, destinationText, setDestinationText, busy, busyMode, error, onPlan }: ComposeSheetProps) {
+function ComposeSheet({ brief, setBrief, prompt, setPrompt, originText, setOriginText, destinationText, setDestinationText, busy, busyMode, error, onPlan, onSelectExample }: ComposeSheetProps) {
   const [manualChanged, setManualChanged] = useState(false);
-  const animatedPlaceholder = useTypingPlaceholder(EXAMPLE_REQUESTS);
+  const animatedPlaceholder = useTypingPlaceholder(HERO_REQUESTS);
   const setManualBrief = (nextBrief: UiTripBrief) => { setManualChanged(true); setBrief(nextBrief); };
   return <section className="sheet compose-sheet" aria-label="Plan a route">
     <div className="sheet-handle" />
-    <div className="compose-heading"><span className="eyebrow">Plan a better walk</span><h1>What are you up to?</h1></div>
+    <div className="compose-heading"><span className="eyebrow">Plan a better walk</span><h1>Where and how would you like to walk?</h1></div>
     <div className="location-stack">
       <label className="location-input"><span className="location-dot origin-dot" /><span className="field-label">From</span><input aria-label="Starting point" value={originText} disabled={busy} onChange={(event) => setOriginText(event.target.value)} /></label>
       <label className="location-input"><span className="location-dot destination-dot" /><span className="field-label">To</span><input aria-label="Destination" value={destinationText} disabled={busy} onChange={(event) => { setDestinationText(event.target.value); setManualChanged(true); }} placeholder="Optional — or ask for a loop or wander" /></label>
     </div>
     <label className="prompt-box">
       <SparkIcon />
-      <textarea aria-label="Describe your route" value={prompt} disabled={busy} onChange={(event) => setPrompt(event.target.value)} placeholder={animatedPlaceholder || EXAMPLE_REQUESTS[0]} rows={4} />
+      <textarea aria-label="Describe your route" value={prompt} disabled={busy} onChange={(event) => setPrompt(event.target.value)} placeholder={animatedPlaceholder || HERO_REQUESTS[0]} rows={4} />
     </label>
-    <div className="prompt-shortcuts" aria-label="Example walk requests"><span>Try</span>{EXAMPLE_SHORTCUTS.map((example) => <button type="button" key={example.label} title={example.prompt} disabled={busy} onClick={() => setPrompt(example.prompt)}>{example.label}</button>)}</div>
+    <div className="prompt-shortcuts" aria-label="Example walk requests"><span>Try</span>{HERO_JOURNEYS.map((example) => <button type="button" key={example.id} title={example.prompt} disabled={busy} onClick={() => void onSelectExample(example)}>{example.label}</button>)}</div>
     <details className="manual-details"><summary>Choose the details instead</summary><WalkControls brief={brief} onChange={setManualBrief} destinationText={destinationText} onDestinationTextChange={(value) => { setManualChanged(true); setDestinationText(value); }} /></details>
     {error && <p className="status-message error" role="alert">{error}</p>}
     {busy && <ThinkingStatus mode={busyMode ?? "plan"} />}
     <button type="button" className="primary-action" disabled={busy || (!prompt.trim() && !manualChanged && !destinationText.trim())} onClick={onPlan}><span>{busy ? "Finding your path…" : "Find my path"}</span><ArrowIcon /></button>
-    <p className="privacy-note">Your request and route aren’t saved.</p>
+    <p className="privacy-note">Routes, notes, and preferences stay on this device. Clear them anytime in City view.</p>
   </section>;
 }
 
@@ -438,7 +482,9 @@ function AssetIcon({ kind }: { kind: CivicAssetKind }) {
 }
 
 function CivicTaskIcon({ task }: { task: CivicTask }) {
-  return task.action === "photo" ? <CameraIcon /> : <CheckCircleIcon />;
+  if (task.action === "photo") return <CameraIcon />;
+  if (task.action === "observe") return <SparkIcon />;
+  return <CheckCircleIcon />;
 }
 
 const ASSET_KINDS: CivicAssetKind[] = ["seating", "restroom", "drinking_fountain", "transit"];
@@ -453,17 +499,51 @@ async function registerAssetMarkerImages(map: MapLibreMap) {
   })));
 }
 
-async function registerCivicTaskMarkerImage(map: MapLibreMap) {
-  if (map.hasImage("civic-task")) return;
-  await new Promise<void>((resolve, reject) => {
+async function registerCivicTaskMarkerImages(map: MapLibreMap) {
+  await Promise.all((["verify", "observe", "photo"] as const).map((action) => new Promise<void>((resolve, reject) => {
+    const id = `civic-task-${action}`;
+    if (map.hasImage(id)) { resolve(); return; }
     const image = new Image();
-    image.onload = () => { if (!map.hasImage("civic-task")) map.addImage("civic-task", image, { pixelRatio: 2 }); resolve(); };
-    image.onerror = () => reject(new Error("Could not load the civic task map icon."));
-    image.src = civicTaskMarkerSvg();
-  });
+    image.onload = () => { if (!map.hasImage(id)) map.addImage(id, image, { pixelRatio: 2 }); resolve(); };
+    image.onerror = () => reject(new Error(`Could not load the ${action} task map icon.`));
+    image.src = civicTaskMarkerSvg(action);
+  })));
 }
 
-function ResultSheet({ brief, route, result, assets, tasks, destinationText, setDestinationText, delta, error, onBack, onRefine, onAdjust, onShowWhy, onShowAsset, onShowTask, onShowData, onOpenPlanner, detourScenario, showBaseline, setShowBaseline, busy, busyMode, modelFallback, rainContext }: {
+async function registerCoverContextMarkerImages(map: MapLibreMap) {
+  await Promise.all((["sidewalk_shed_permit", "pops_arcade"] as const).map((kind) => new Promise<void>((resolve, reject) => {
+    const id = `cover-context-${kind}`;
+    if (map.hasImage(id)) { resolve(); return; }
+    const image = new Image();
+    image.onload = () => { if (!map.hasImage(id)) map.addImage(id, image, { pixelRatio: 2 }); resolve(); };
+    image.onerror = () => reject(new Error(`Could not load the ${kind} map icon.`));
+    image.src = coverContextMarkerSvg(kind);
+  })));
+}
+
+function registerFloodPatternImages(map: MapLibreMap) {
+  const patterns = [
+    { id: "flood-nuisance-pattern", color: [66, 106, 124, 125], secondDiagonal: false },
+    { id: "flood-deep-pattern", color: [48, 72, 96, 165], secondDiagonal: true },
+  ] as const;
+  for (const pattern of patterns) {
+    if (map.hasImage(pattern.id)) continue;
+    const width = 12;
+    const bytes = new Uint8ClampedArray(width * width * 4);
+    for (let y = 0; y < width; y += 1) {
+      for (let x = 0; x < width; x += 1) {
+        const diagonal = (x + y) % 8 <= 1;
+        const reverse = pattern.secondDiagonal && ((width - x + y) % 8 <= 1);
+        if (!diagonal && !reverse) continue;
+        const offset = (y * width + x) * 4;
+        bytes.set(pattern.color, offset);
+      }
+    }
+    map.addImage(pattern.id, { width, height: width, data: bytes }, { pixelRatio: 2 });
+  }
+}
+
+function ResultSheet({ brief, route, result, assets, tasks, destinationText, setDestinationText, delta, error, feedback, activityPersisted, onBack, onRefine, onAdjust, onShowWhy, onShowAsset, onShowTask, onShowData, onOpenPlanner, onSaveFeedback, onRemoveFeedback, detourScenario, showBaseline, setShowBaseline, busy, busyMode, modelFallback, rainContext }: {
   brief: UiTripBrief;
   route: JourneyRoute;
   result: PlannedJourneyResult;
@@ -473,6 +553,8 @@ function ResultSheet({ brief, route, result, assets, tasks, destinationText, set
   setDestinationText: (value: string) => void;
   delta: string;
   error: string;
+  feedback: RouteActivityLog["feedback"];
+  activityPersisted: boolean;
   onBack: () => void;
   onRefine: (value: string) => Promise<boolean>;
   onAdjust: (brief: UiTripBrief) => Promise<boolean>;
@@ -481,6 +563,8 @@ function ResultSheet({ brief, route, result, assets, tasks, destinationText, set
   onShowTask: (task: CivicTask) => void;
   onShowData: () => void;
   onOpenPlanner: () => void;
+  onSaveFeedback: (input: { sentiment: RouteFeedbackSentiment; category: RouteFeedbackCategory | null; body: string }) => void;
+  onRemoveFeedback: (feedbackId: string) => void;
   detourScenario: ShadeDetourScenario | null;
   showBaseline: boolean;
   setShowBaseline: (value: boolean) => void;
@@ -499,8 +583,9 @@ function ResultSheet({ brief, route, result, assets, tasks, destinationText, set
   const missingAmenities = routePriorityKinds(brief.priorities).filter((kind) => !assets.some((asset) => asset.kind === kind));
   const routeMiles = metersToMiles(route.distanceMeters);
   const distanceDifferenceMiles = brief.distanceMiles === null ? null : routeMiles - brief.distanceMiles;
+  const mappedCoverMeters = routeMappedCoverMeters(route, pilotGraph);
   const headline = rainContext
-    ? "A little more cover for a rainy day"
+    ? mappedCoverMeters >= 25 ? "A route with more mapped cover" : "Cover checked without inventing gaps"
     : brief.civicTaskIntent && tasks.length
       ? "A route with one small way to help"
     : brief.activity === "run"
@@ -516,7 +601,7 @@ function ResultSheet({ brief, route, result, assets, tasks, destinationText, set
     : primary === "greenery" ? "A greener way through" : assets.length ? "Useful stops, kept close" : "A considered way through";
   const submit = async (event: FormEvent) => { event.preventDefault(); if (!refinement.trim()) return; if (await onRefine(refinement)) setRefinement(""); };
   const applyAdjustments = async () => { if (await onAdjust(draftBrief)) setShowAdjustments(false); };
-  const summary = [...briefSummary(brief), rainContext ? "Rain-friendly" : null, `Leaving ${formatClock(brief.departureHour)}`].filter(Boolean) as string[];
+  const summary = [...briefSummary(brief), rainContext ? "Mapped-cover preference" : null, `Leaving ${formatClock(brief.departureHour)}`].filter(Boolean) as string[];
   const roundedExtraMinutes = Math.round(route.extraMinutesVsBaseline ?? 0);
   const destinationTiming = roundedExtraMinutes > 0
     ? `${Math.round(route.durationMinutes)} minutes · ${roundedExtraMinutes} min longer than fastest`
@@ -529,6 +614,13 @@ function ResultSheet({ brief, route, result, assets, tasks, destinationText, set
         ? `${Math.round(route.durationMinutes)}-minute walk · ${brief.walkingTimeIntent === "maximum" ? `under ${brief.walkingMinutes} minutes` : `planned for about ${brief.walkingMinutes} minutes`}`
         : destinationTiming;
   const hasDistinctBaseline = Boolean(result.baseline && result.baseline.candidateId !== route.candidateId);
+  const frontier = result.routeValueFrontier?.status === "meaningful_alternative" ? result.routeValueFrontier : null;
+  const frontierPoint = frontier?.points.find((point) => point.candidateId === route.candidateId) ?? null;
+  const frontierGain = frontier?.metric === "direct_sun_minutes"
+    ? `${(frontierPoint?.benefit ?? 0).toFixed(1)} fewer minutes in direct sun`
+    : frontier?.metric === "greenery_points"
+      ? `${(frontierPoint?.benefit ?? 0).toFixed(0)} points greener`
+      : `${Math.round((frontierPoint?.benefit ?? 0) * 100)}% better preference fit`;
   const timingDifference = Math.abs(Math.round(result.timing.differenceMinutes ?? 0));
   const usedSourceCount = usedSourcePresentations(brief, assets, rainContext, tasks).length;
   return <section className="sheet result-sheet" aria-label="Your Happy Path">
@@ -537,11 +629,12 @@ function ResultSheet({ brief, route, result, assets, tasks, destinationText, set
     {busy && <ThinkingStatus mode={busyMode ?? "refine"} />}
     {delta && <div className="route-delta"><SparkIcon />Route updated · {delta}</div>}
     <div className="result-lead"><h1>{headline}</h1><p>{routeTiming}</p></div>
+    {frontier && frontierPoint && result.baseline && <section className="route-value-summary" aria-label="What extra time buys"><span className="eyebrow">What extra time buys</span><strong>{frontierGain}</strong><p>for {frontierPoint.extraMinutes.toFixed(1)} extra minutes · captures {Math.round(frontierPoint.capturedBenefitRatio * 100)}% of the best measured gain</p><div><span><small>Fastest</small><strong>{formatMinutes(result.baseline.durationMinutes)}</strong></span><span><small>Happy Path</small><strong>{formatMinutes(route.durationMinutes)}</strong></span></div>{brief.avoidMappedSteps && <small className="retained-requirement">Still avoids mapped steps</small>}</section>}
     {result.timing.status === "closest-feasible" && <div className="timing-note" role="status">{brief.distanceMiles !== null ? <RouteIcon /> : <ClockIcon />}<span><strong>Closest route we could make</strong><small>{brief.distanceMiles !== null && distanceDifferenceMiles !== null ? `${Math.abs(distanceDifferenceMiles).toFixed(1)} miles ${distanceDifferenceMiles < 0 ? "shorter" : "longer"} than requested.` : `${timingDifference} minutes ${route.durationMinutes < (result.timing.requestedMinutes ?? 0) ? "shorter" : "longer"} than requested.`}</small></span></div>}
     <div className="intent-summary"><div><span className="eyebrow">Your plan</span><strong className="brief-sentence">{summary[0]}</strong><small>{summary.slice(1).join(" · ")}</small></div><button type="button" onClick={() => setShowAdjustments((value) => !value)} aria-expanded={showAdjustments}>{showAdjustments ? "Close" : "Edit"}</button></div>
     {showAdjustments && <div className="adjust-panel"><WalkControls brief={draftBrief} onChange={setDraftBrief} destinationText={destinationText} onDestinationTextChange={(value) => { setDestinationText(value); setDraftBrief((current) => mergeTripBrief(current, { destinationQuery: value.trim() || null }, "controls")); }} /><button type="button" className="apply-adjustments" disabled={busy} onClick={applyAdjustments}>{busy ? "Updating your walk…" : "Update this walk"}</button></div>}
     <div className="benefit-list">
-      {rainContext && <button type="button" onClick={onShowData}><CloudRainIcon /><span><strong>More cover along the way</strong><small>Likely-covered stretches are highlighted on the map</small></span><ChevronIcon /></button>}
+      {rainContext && <button type="button" onClick={onShowData}><CloudRainIcon /><span><strong>{mappedCoverMeters >= 1 ? `About ${Math.round(mappedCoverMeters)} m mapped with overhead cover` : "No mapped cover found on this path"}</strong><small>{mappedCoverMeters >= 1 ? "Community-mapped stretches are highlighted; conditions may have changed" : "Most streets are unassessed, not confirmed open to rain"}</small></span><ChevronIcon /></button>}
       {brief.priorities.includes("shade") && <button type="button" onClick={onShowWhy}><SunIcon /><span>{route.directSunMinutes < 0.05 ? <><strong>A naturally cool departure</strong><small>No direct sun expected at {formatClock(brief.departureHour)}</small></> : sunSaved !== null && sunSaved >= 0.05 ? <><strong>{sunSaved.toFixed(1)} fewer min in the sun</strong><small>compared with the quickest route</small></> : <><strong>{route.shadePercent.toFixed(0)}% in shade</strong><small>around {formatClock(brief.departureHour)}, based on sun and buildings</small></>}</span><ChevronIcon /></button>}
       {brief.priorities.includes("greenery") && <button type="button" onClick={onShowWhy}><LeafIcon /><span>{greenGain !== null && greenGain >= 0.5 ? <><strong>{greenGain.toFixed(0)} points greener</strong><small>than the quickest route</small></> : <><strong>Trees and parks along {route.greeneryPercent.toFixed(0)}% of the way</strong><small>drawn from nearby city listings</small></>}</span><ChevronIcon /></button>}
       {assets.slice(0, 2).map((asset) => <button type="button" key={asset.id} onClick={() => onShowAsset(asset)}><AssetIcon kind={asset.kind} /><span><strong>{asset.name}</strong><small>Right along your route · details may have changed</small></span><ChevronIcon /></button>)}
@@ -553,8 +646,11 @@ function ResultSheet({ brief, route, result, assets, tasks, destinationText, set
     <div className="confidence-row"><span className="confidence-dot" /><p><strong>Made around what matters to you</strong><small>{brief.priorities.includes("shade") ? "Shade, timing, and useful stops are folded into this path." : "Timing and useful stops are folded into this path."}</small></p></div>
     {result.baseline && hasDistinctBaseline && <button type="button" className="text-action" onClick={() => setShowBaseline(!showBaseline)}><span className="baseline-swatch" />{showBaseline ? "Hide" : "Compare with"} fastest · {formatMinutes(result.baseline.durationMinutes)}</button>}
     {brief.unsupported.length > 0 && <details className="request-limit"><summary>{limitationHeading(brief.unsupported)}</summary><p>{brief.unsupported.map(friendlyLimitation).join(" ")}</p></details>}
-    <button type="button" className="data-action" onClick={onShowData}><LayersIcon /><span><strong>What shaped this path</strong><small>Shade, places, and street details from {usedSourceCount} linked {usedSourceCount === 1 ? "source" : "sources"}</small></span><ChevronIcon /></button>
-    {detourScenario && detourScenario.avoidedDirectSunMinutes >= 0.05 && <button type="button" className="detour-action" onClick={onOpenPlanner}><MapIcon /><span><strong>Imagine an even better block</strong><small>See where more shade, cover, or useful places could change the walk</small></span><ChevronIcon /></button>}
+    <div className="result-tools">
+      <RouteFeedbackCard feedback={feedback} persisted={activityPersisted} onSave={onSaveFeedback} onRemove={onRemoveFeedback} />
+      <button type="button" className="result-tool sources-tool" onClick={onShowData}><LayersIcon /><span><strong>Sources &amp; methods</strong><small>{usedSourceCount} linked {usedSourceCount === 1 ? "source" : "sources"}</small></span><ChevronIcon /></button>
+    </div>
+    {detourScenario && detourScenario.avoidedDirectSunMinutes >= 0.05 && <button type="button" className="detour-action" onClick={onOpenPlanner}><MapIcon /><span><strong>See this gap across more journeys</strong><small>Test whether one hypothetical change helps other representative walks too</small></span><ChevronIcon /></button>}
     <form className="refine-box" onSubmit={submit}><SparkIcon /><input value={refinement} disabled={busy} onChange={(event) => setRefinement(event.target.value)} placeholder="Shorter, but keep the bathroom…" aria-label="Refine this route" /><button disabled={busy || !refinement.trim()} aria-label="Update route"><ArrowIcon /></button></form>
     {error && <p className="status-message error" role="alert">{error}</p>}
     {modelFallback && <p className="status-message subtle">We used built-in trip understanding this time. You can adjust the details above.</p>}
@@ -658,9 +754,11 @@ function InsightSourceLinks({ sourceIds, label }: { sourceIds: readonly string[]
   return <div className="insight-source-links">{label && <span>{label}</span>}{sources.map((source) => <a key={source.id} href={source.officialUrl} target="_blank" rel="noreferrer">{source.title}<ExternalLinkIcon /></a>)}</div>;
 }
 
-function PlannerSheet({ route, scenario, insight, insightBusy, insightError, lens, onLensChange, targetShade, onTargetShadeChange, onBack, onUseSample, onPlannerPrompt }: {
+function PlannerSheet({ route, scenario, floodOverlap, floodLoaded, insight, insightBusy, insightError, lens, onLensChange, targetShade, onTargetShadeChange, onBack, onUseSample, onPlannerPrompt, activity, activityPersisted, view, onViewChange, selectedActivityRouteId, onSelectActivityRoute, onClearActivity }: {
   route: JourneyRoute | null;
   scenario: ShadeDetourScenario | null;
+  floodOverlap: ReturnType<typeof floodOverlapForRoute> | null;
+  floodLoaded: boolean;
   insight: RouteCityInsight | null;
   insightBusy: boolean;
   insightError: string;
@@ -671,10 +769,21 @@ function PlannerSheet({ route, scenario, insight, insightBusy, insightError, len
   onBack: () => void;
   onUseSample: () => void;
   onPlannerPrompt: (value: string) => void;
+  activity: RouteActivityLog[];
+  activityPersisted: boolean;
+  view: PlannerView;
+  onViewChange: (view: PlannerView) => void;
+  selectedActivityRouteId: string | null;
+  onSelectActivityRoute: (routeId: string) => void;
+  onClearActivity: () => void;
 }) {
   const [plannerPrompt, setPlannerPrompt] = useState("");
   const counts = civicFixture.counts;
-  const coverPercent = route ? Math.round(routeCoverShare(route, pilotGraph) * 100) : 0;
+  const coverMeters = route ? Math.round(routeMappedCoverMeters(route, pilotGraph)) : 0;
+  const activitySummary = summarizeRouteActivity(activity);
+  const feedbackRows = activity
+    .flatMap((activityRoute) => activityRoute.feedback.map((feedback) => ({ activityRoute, feedback })))
+    .sort((a, b) => b.feedback.createdAt.localeCompare(a.feedback.createdAt));
   const averageBurden = scenario ? {
     baseline: scenario.burden.baseline / scenario.journeyCounts.totalWeight,
     scenario: scenario.burden.scenario / scenario.journeyCounts.totalWeight,
@@ -688,15 +797,29 @@ function PlannerSheet({ route, scenario, insight, insightBusy, insightError, len
   };
   return <section className="sheet planner-sheet" aria-label="City what-if">
     <div className="sheet-handle" />
-    <div className="result-nav"><IconButton label="Back to walk" onClick={onBack}><BackIcon /></IconButton><span>City what-if</span><span className="prototype-pill">Prototype</span></div>
-    <div className="planner-lead"><span className="eyebrow">See what’s missing</span><h1>{route ? "What could make this walk feel better?" : "Where could the city feel more comfortable?"}</h1><p>{route ? "Pick a comfort gap, then try one small change." : "Useful places and climate clues stay visible across the neighborhood."}</p></div>
-    <div className="planner-lenses" aria-label="Planner map view">
-      <button type="button" className={lens === "shade" ? "active" : ""} onClick={() => onLensChange("shade")}><SunIcon />Shade gaps</button>
-      <button type="button" className={lens === "cover" ? "active" : ""} onClick={() => onLensChange("cover")}><UmbrellaIcon />Likely cover</button>
-      <button type="button" className={lens === "amenities" ? "active" : ""} onClick={() => onLensChange("amenities")}><BenchIcon />Amenities</button>
-      <button type="button" className={lens === "tasks" ? "active" : ""} onClick={() => onLensChange("tasks")}><CheckCircleIcon />Data checks</button>
+    <div className="result-nav"><IconButton label="Back to walk" onClick={onBack}><BackIcon /></IconButton><span>City view</span><span className="local-data-pill">Local data</span></div>
+    <div className="planner-lead"><span className="eyebrow">{view === "routes" ? "Route activity" : view === "notes" ? "Resident feedback" : "See what’s missing"}</span><h1>{view === "routes" ? (activity.length ? `${activitySummary.mappedEvents} ${activitySummary.mappedEvents === 1 ? "route" : "routes"} mapped here` : "No routes saved here yet") : view === "notes" ? (activitySummary.feedbackCount ? `${activitySummary.feedbackCount} ${activitySummary.feedbackCount === 1 ? "note" : "notes"} from these routes` : "No route notes yet") : route ? "What could make this walk feel better?" : "Where could the city feel more comfortable?"}</h1><p>{view === "routes" ? "See the paths explored in this browser, without turning them into a neighborhood score." : view === "notes" ? "Read lived observations alongside the path they describe." : route ? "Use the map layers, then try one small planning change." : "Start with a representative walk, then inspect comfort gaps."}</p></div>
+    <div className="planner-sections" role="tablist" aria-label="City view sections">
+      <button type="button" role="tab" aria-selected={view === "routes"} className={view === "routes" ? "active" : ""} onClick={() => onViewChange("routes")}><RouteIcon />Routes</button>
+      <button type="button" role="tab" aria-selected={view === "notes"} className={view === "notes" ? "active" : ""} onClick={() => onViewChange("notes")}><CheckCircleIcon />Notes{activitySummary.feedbackCount ? <span>{activitySummary.feedbackCount}</span> : null}</button>
+      <button type="button" role="tab" aria-selected={view === "what_if"} className={view === "what_if" ? "active" : ""} onClick={() => onViewChange("what_if")}><SparkIcon />What-if</button>
     </div>
-    {!route ? <>
+    {view === "routes" && <div className="planner-activity-panel" role="tabpanel">
+      {activity.length ? <>
+        <div className="planner-overview-stats"><span><strong>{activitySummary.uniqueRoutes}</strong> distinct paths</span><span><strong>{activitySummary.mappedEvents}</strong> times mapped</span><span><strong>{activitySummary.totalMiles.toFixed(1)}</strong> total mi</span></div>
+        <div className="activity-route-list" aria-label="Recent route activity">{activity.slice(0, 12).map((activityRoute) => <button type="button" key={activityRoute.id} className={selectedActivityRouteId === activityRoute.id ? "selected" : ""} aria-pressed={selectedActivityRouteId === activityRoute.id} onClick={() => onSelectActivityRoute(activityRoute.id)}><span><strong>{routeActivityTitle(activityRoute)}</strong><small>{localActivityTime(activityRoute.lastMappedAt)} · {formatMiles(metersToMiles(activityRoute.distanceMeters))} mi · {Math.round(activityRoute.durationMinutes)} min</small></span><span>{activityRoute.timesMapped > 1 ? `${activityRoute.timesMapped}×` : ""}{activityRoute.feedback.length ? `${activityRoute.feedback.length} ${activityRoute.feedback.length === 1 ? "note" : "notes"}` : ""}</span></button>)}</div>
+      </> : <><div className="planner-empty"><RouteIcon /><div><strong>Map a route to start the local log</strong><span>Different paths will appear here as traces planners can inspect.</span></div></div><button type="button" className="primary-action" onClick={onUseSample}><span>Use a sample walk</span><ArrowIcon /></button></>}
+      <div className="local-activity-scope"><strong>{activityPersisted ? "Only this browser" : "This session only"}</strong><span>{activityPersisted ? "Routes and notes stay on this device. They are not shared or representative of citywide demand." : "Browser storage is unavailable, so this activity will disappear when the page closes."}</span>{activity.length > 0 && <button type="button" onClick={onClearActivity}>Clear local activity</button>}</div>
+    </div>}
+    {view === "notes" && <div className="planner-activity-panel" role="tabpanel">
+      {feedbackRows.length ? <>
+        <div className="planner-overview-stats"><span><strong>{activitySummary.feedbackCount}</strong> notes</span><span><strong>{activitySummary.needsAttentionCount}</strong> need attention</span><span><strong>{activity.filter((item) => item.feedback.length).length}</strong> paths</span></div>
+        {activitySummary.categories.length > 0 && <div className="feedback-signal-bars"><span className="eyebrow">What notes mention</span>{activitySummary.categories.map((item) => <div key={item.category}><span><strong>{ROUTE_FEEDBACK_CATEGORY_LABELS[item.category]}</strong><small>{item.count}</small></span><i><b style={{ width: `${Math.max(8, item.share * 100)}%` }} /></i></div>)}</div>}
+        <div className="activity-note-list">{feedbackRows.slice(0, 12).map(({ activityRoute, feedback }) => <button type="button" key={feedback.id} className={selectedActivityRouteId === activityRoute.id ? "selected" : ""} onClick={() => onSelectActivityRoute(activityRoute.id)}><span><strong>{feedback.sentiment === "needs_attention" ? "Needs attention" : feedback.sentiment === "worked_well" ? "Worked well" : "Route note"}{feedback.category ? ` · ${ROUTE_FEEDBACK_CATEGORY_LABELS[feedback.category]}` : ""}</strong><small>{routeActivityTitle(activityRoute)} · {localActivityTime(feedback.createdAt)}</small></span><p>{feedback.body}</p></button>)}</div>
+      </> : <div className="planner-empty"><CheckCircleIcon /><div><strong>Notes will appear with their routes</strong><span>Open a mapped route and choose “Add a route note.”</span></div></div>}
+      <div className="local-activity-scope"><strong>Context, not a score</strong><span>These notes describe individual routes saved in this browser. They do not measure population need.</span></div>
+    </div>}
+    {view === "what_if" && <div className="planner-what-if" role="tabpanel">{!route ? <>
       <div className="planner-overview-stats"><span><strong>{counts.seating}</strong> seats</span><span><strong>{counts.drinking_fountain}</strong> fountains</span><span><strong>{counts.restroom}</strong> restrooms</span></div>
       <div className="planner-empty"><MapIcon /><div><strong>Start with a representative walk</strong><span>We’ll draw a 30-minute loop, then show where shade, cover, and useful places thin out.</span></div></div>
       <button type="button" className="primary-action" onClick={onUseSample}><span>Use a sample walk</span><ArrowIcon /></button>
@@ -707,10 +830,12 @@ function PlannerSheet({ route, scenario, insight, insightBusy, insightError, len
         <div className="scenario-metrics compact"><article><span>Average walk now</span><strong>{averageBurden!.baseline.toFixed(1)} min</strong><small>in direct sun</small></article><ArrowIcon /><article><span>With this idea</span><strong>{averageBurden!.scenario.toFixed(1)} min</strong><small>{averageBurden!.avoided.toFixed(1)} min less</small></article></div>
         <p className="planner-proof">{scenario.journeyCounts.withChangedBurden} of {scenario.journeyCounts.evaluated} sample walks get more shade here. Each path stays the same, so the difference comes from shade alone.</p>
       </>}
-      {lens === "cover" && <div className="planner-gap-list"><div><UmbrellaIcon /><span><strong>{coverPercent}% of this route follows likely-covered stretches</strong><small>Indigo shows the planning preview; coral shows open gaps.</small></span></div><div><CloudRainIcon /><span><strong>A starting point for rainy-day planning</strong><small>A live version would add current sheds, arcades, awnings, and construction.</small></span></div></div>}
-      {lens === "amenities" && <div className="planner-gap-list"><div><BenchIcon /><span><strong>{counts.seating} places to sit nearby</strong><small>The circles show where each listing could help a walk.</small></span></div><div><RestroomIcon /><span><strong>{counts.restroom} public restrooms nearby</strong><small>Tap a place to see when the listing was refreshed.</small></span></div><div><DropletIcon /><span><strong>{counts.drinking_fountain} water stops nearby</strong><small>Open status can change.</small></span></div></div>}
+      {lens === "greenery" && <div className="planner-gap-list greenery-gap-list"><div><LeafIcon /><span><strong>Trees and parks shape about {Math.round(route.greeneryPercent)}% of this walk</strong><small>The moss ribbons follow street edges with nearby public tree or park listings, not measured canopy.</small></span></div><div><LayersIcon /><span><strong>{route.nearbyTreeCount} tree listings near the route</strong><small>{route.adjacentParkNames.length ? `Park context includes ${route.adjacentParkNames.slice(0, 3).join(", ")}.` : "No adjacent park listing appears on this route."} Conditions and access can change.</small></span></div></div>}
+      {lens === "cover" && <div className="planner-gap-list"><div><UmbrellaIcon /><span><strong>{coverMeters ? `About ${coverMeters} m of this route are mapped with overhead cover` : "No explicit covered-way tags on this route"}</strong><small>Indigo marks mapped passages. Streets without a mark are unassessed.</small></span></div><div><CloudRainIcon /><span><strong>{coverEvidenceMetadata.counts.sidewalk_shed_permits} shed locations · {coverEvidenceMetadata.counts.pops_arcades} arcade listing · {coverEvidenceMetadata.counts.construction_closures} construction records</strong><small>These nearby City records are context only and do not create covered route meters. Awnings are not inferred.</small></span></div></div>}
+      {lens === "flood" && <div className="planner-gap-list flood-gap-list"><div><CloudRainIcon /><span><strong>{!floodLoaded ? "Loading DEP’s flood model…" : floodOverlap && floodOverlap.totalMeters > 0 ? `About ${Math.round(floodOverlap.totalMeters)} m of this walk cross modeled flood-potential areas` : "This walk does not cross areas shown in this model"}</strong><small>{floodOverlap && floodOverlap.deepContiguousMeters > 0 ? `${Math.round(floodOverlap.deepContiguousMeters)} m overlap the model’s deeper category. ` : ""}No overlap is not proof that a street will stay dry.</small></span></div><div><LayersIcon /><span><strong>{floodEvidenceMetadata.counts.nuisance_ponding_areas} nuisance-ponding areas · {floodEvidenceMetadata.counts.deep_contiguous_areas} deeper areas</strong><small>DEP’s 2.13-inch-per-hour scenario with projected 2050 sea-level rise. This is a planning model, not live flooding.</small></span></div><div><ExternalLinkIcon /><span><strong>Conditions can change quickly</strong><small>Never walk through standing water. Check official alerts before heading out.</small><a href="https://a858-nycnotify.nyc.gov/notifynyc/" target="_blank" rel="noreferrer">Open Notify NYC</a></span></div><InsightSourceLinks sourceIds={["nyc-stormwater-flood-map-2050"]} label="Model source" /></div>}
+      {lens === "amenities" && <div className="planner-gap-list"><div><BenchIcon /><span><strong>{counts.seating} places to sit nearby</strong><small>Bench icons and counted clusters keep the inventory readable at each zoom.</small></span></div><div><RestroomIcon /><span><strong>{counts.restroom} public restrooms nearby</strong><small>Tap a place to see when the listing was refreshed.</small></span></div><div><DropletIcon /><span><strong>{counts.drinking_fountain} water stops nearby</strong><small>Open status can change.</small></span></div></div>}
       {lens === "tasks" && <div className="planner-gap-list task-gap-list"><div><CheckCircleIcon /><span><strong>{allCivicTasks.length} small ways to help nearby</strong><small>Quick partner prompts help fill in what has changed.</small></span></div><div><CameraIcon /><span><strong>Verify, observe, or add one focused photo</strong><small>Responses stay separate from city records and expire after a short window.</small></span></div><div><LayersIcon /><span><strong>Checks, never neighborhood scores</strong><small>Each check asks for one fact without ranking a block or community.</small></span></div></div>}
-      {lens !== "tasks" && <div className="planner-insights">
+      {lens !== "tasks" && lens !== "flood" && <div className="planner-insights">
         <div className="planner-insights-heading"><span><strong>Best next ideas</strong><small>{insight?.generatedBy === "model" ? "Ideas ranked for this route" : "Ideas shaped by this route"}</small></span><SparkIcon /></div>
         {insightBusy && <ThinkingStatus mode="planner" compact />}
         {!insightBusy && insightError && <p className="planner-insight-error">{insightError}</p>}
@@ -721,8 +846,53 @@ function PlannerSheet({ route, scenario, insight, insightBusy, insightError, len
       </div>}
       <span className="hypothetical-badge">Planning sketch · not a City proposal</span>
     </>}
-    <form className="refine-box planner-prompt" onSubmit={submit}><SparkIcon /><input value={plannerPrompt} onChange={(event) => setPlannerPrompt(event.target.value)} placeholder="What if this block had 85% shade?" aria-label="Describe a planning what-if" /><button disabled={!plannerPrompt.trim()} aria-label="Try planning idea"><ArrowIcon /></button></form>
-    <button type="button" className="planner-back" onClick={onBack}>Back to my walk</button>
+      <form className="refine-box planner-prompt" onSubmit={submit}><SparkIcon /><input value={plannerPrompt} onChange={(event) => setPlannerPrompt(event.target.value)} placeholder="What if this block had 85% shade?" aria-label="Describe a planning what-if" /><button disabled={!plannerPrompt.trim()} aria-label="Try planning idea"><ArrowIcon /></button></form>
+    </div>}
+  </section>;
+}
+
+function RepresentativePlannerSheet({ scenario, showIntervention, onShowIntervention, onBack, activity, activityPersisted, view, onViewChange, selectedActivityRouteId, onSelectActivityRoute, onClearActivity }: {
+  scenario: RepresentativeShadeScenarioResult | null;
+  showIntervention: boolean;
+  onShowIntervention: () => void;
+  onBack: () => void;
+  activity: RouteActivityLog[];
+  activityPersisted: boolean;
+  view: PlannerView;
+  onViewChange: (view: PlannerView) => void;
+  selectedActivityRouteId: string | null;
+  onSelectActivityRoute: (routeId: string) => void;
+  onClearActivity: () => void;
+}) {
+  const primary = scenario?.interventions.find((intervention) => intervention.role === "primary") ?? null;
+  const alternative = scenario?.interventions.find((intervention) => intervention.role === "alternative") ?? null;
+  const summary = summarizeRouteActivity(activity);
+  const feedbackRows = activity
+    .flatMap((activityRoute) => activityRoute.feedback.map((feedback) => ({ activityRoute, feedback })))
+    .sort((a, b) => b.feedback.createdAt.localeCompare(a.feedback.createdAt));
+  return <section className="sheet planner-sheet" aria-label="City route activity and planning analysis">
+    <div className="sheet-handle" />
+    <div className="result-nav"><IconButton label="Back to walk" onClick={onBack}><BackIcon /></IconButton><span>City view</span><span className="local-data-pill">Local data</span></div>
+    <div className="planner-lead"><span className="eyebrow">{view === "routes" ? "Route activity" : view === "notes" ? "Resident feedback" : "Across representative journeys"}</span><h1>{view === "routes" ? (activity.length ? `${summary.mappedEvents} ${summary.mappedEvents === 1 ? "route" : "routes"} mapped here` : "No routes saved here yet") : view === "notes" ? (summary.feedbackCount ? `${summary.feedbackCount} ${summary.feedbackCount === 1 ? "route note" : "route notes"}` : "No route notes yet") : scenario?.question ?? "Looking across representative journeys…"}</h1><p>{view === "routes" ? "Inspect paths explored in this browser without turning them into a neighborhood score." : view === "notes" ? "Read lived observations alongside the routes they describe." : `${scenario?.geography ?? "Loading the planning sample"}. This sample uses public anchors, not observed demand.`}</p></div>
+    <div className="planner-sections" role="tablist" aria-label="City view sections">
+      <button type="button" role="tab" aria-selected={view === "routes"} className={view === "routes" ? "active" : ""} onClick={() => onViewChange("routes")}><RouteIcon />Routes</button>
+      <button type="button" role="tab" aria-selected={view === "notes"} className={view === "notes" ? "active" : ""} onClick={() => onViewChange("notes")}><CheckCircleIcon />Notes{summary.feedbackCount ? <span>{summary.feedbackCount}</span> : null}</button>
+      <button type="button" role="tab" aria-selected={view === "what_if"} className={view === "what_if" ? "active" : ""} onClick={() => onViewChange("what_if")}><SparkIcon />What-if</button>
+    </div>
+    {view === "routes" && <div className="planner-activity-panel" role="tabpanel">
+      {activity.length ? <><div className="planner-overview-stats"><span><strong>{summary.uniqueRoutes}</strong> distinct paths</span><span><strong>{summary.mappedEvents}</strong> times mapped</span><span><strong>{summary.totalMiles.toFixed(1)}</strong> total mi</span></div><div className="activity-route-list" aria-label="Recent route activity">{activity.slice(0, 12).map((activityRoute) => <button type="button" key={activityRoute.id} className={selectedActivityRouteId === activityRoute.id ? "selected" : ""} aria-pressed={selectedActivityRouteId === activityRoute.id} onClick={() => onSelectActivityRoute(activityRoute.id)}><span><strong>{routeActivityTitle(activityRoute)}</strong><small>{localActivityTime(activityRoute.lastMappedAt)} · {formatMiles(metersToMiles(activityRoute.distanceMeters))} mi · {Math.round(activityRoute.durationMinutes)} min</small></span><span>{activityRoute.timesMapped > 1 ? `${activityRoute.timesMapped}×` : ""}{activityRoute.feedback.length ? `${activityRoute.feedback.length} ${activityRoute.feedback.length === 1 ? "note" : "notes"}` : ""}</span></button>)}</div></> : <><div className="planner-empty"><RouteIcon /><div><strong>Map a route to start the local log</strong><span>Different paths will appear here as traces planners can inspect.</span></div></div><button type="button" className="primary-action" onClick={onBack}><span>Plan a route</span><ArrowIcon /></button></>}
+      <div className="local-activity-scope"><strong>{activityPersisted ? "Only this browser" : "This session only"}</strong><span>{activityPersisted ? "Routes and notes stay on this device. They are not shared or representative of citywide demand." : "Browser storage is unavailable, so this activity will disappear when the page closes."}</span>{activity.length > 0 && <button type="button" onClick={onClearActivity}>Clear local activity</button>}</div>
+    </div>}
+    {view === "notes" && <div className="planner-activity-panel" role="tabpanel">
+      {feedbackRows.length ? <><div className="planner-overview-stats"><span><strong>{summary.feedbackCount}</strong> notes</span><span><strong>{summary.needsAttentionCount}</strong> need attention</span><span><strong>{activity.filter((item) => item.feedback.length).length}</strong> paths</span></div>{summary.categories.length > 0 && <div className="feedback-signal-bars"><span className="eyebrow">What notes mention</span>{summary.categories.map((item) => <div key={item.category}><span><strong>{ROUTE_FEEDBACK_CATEGORY_LABELS[item.category]}</strong><small>{item.count}</small></span><i><b style={{ width: `${Math.max(8, item.share * 100)}%` }} /></i></div>)}</div>}<div className="activity-note-list">{feedbackRows.slice(0, 12).map(({ activityRoute, feedback }) => <button type="button" key={feedback.id} className={selectedActivityRouteId === activityRoute.id ? "selected" : ""} onClick={() => onSelectActivityRoute(activityRoute.id)}><span><strong>{feedback.sentiment === "needs_attention" ? "Needs attention" : feedback.sentiment === "worked_well" ? "Worked well" : "Route note"}{feedback.category ? ` · ${ROUTE_FEEDBACK_CATEGORY_LABELS[feedback.category]}` : ""}</strong><small>{routeActivityTitle(activityRoute)} · {localActivityTime(feedback.createdAt)}</small></span><p>{feedback.body}</p></button>)}</div></> : <div className="planner-empty"><CheckCircleIcon /><div><strong>Notes will appear with their routes</strong><span>Open a mapped route and choose “Add a route note.”</span></div></div>}
+      <div className="local-activity-scope"><strong>Context, not a score</strong><span>These notes describe individual routes saved in this browser. They do not measure population need.</span></div>
+    </div>}
+    {view === "what_if" && <div className="planner-what-if" role="tabpanel">{!scenario ? <ThinkingStatus mode="planner" /> : <>
+      <div className="representative-gap"><span className="scenario-dot" /><div><strong>{scenario.selectedGap.label}</strong><small>{Math.round(scenario.selectedGap.totalLengthMeters)} m appears in all {scenario.cohort.journeyCount} equal-weight walks. Every shade edge is modeled; missing coverage is not counted as exposure.</small></div></div>
+      <details className="cohort-method"><summary>How these journeys were chosen</summary><p>Six distinct published subway entrances, roughly 350–1,050 m away, route to the same mapped Seward Park public-amenity anchor at 3 PM. Each journey has weight 1.</p><ul>{primary?.journeys.map((journey) => <li key={journey.journeyId}>{journey.label}</li>)}</ul></details>
+      {!showIntervention ? <button type="button" className="primary-action planner-test-action" onClick={onShowIntervention}><span>Test 80% modeled shade here</span><ArrowIcon /></button> : primary && <><span className="hypothetical-badge">Impact model · not a design or City proposal</span><div className="scenario-metrics compact"><article><span>Average now</span><strong>{primary.summary.averageBaseline.toFixed(1)} min</strong><small>in direct sun</small></article><ArrowIcon /><article><span>With this idea</span><strong>{primary.summary.averageScenario.toFixed(1)} min</strong><small>{primary.summary.averageAvoided.toFixed(1)} min less</small></article></div><div className="beneficiary-summary"><strong>{primary.summary.improved} improved · {primary.summary.unchanged} unchanged · {primary.summary.worsened} worsened</strong><span>{primary.summary.routesChanged} routes change geometry; {primary.summary.routesUnchanged} stay on the same path. {primary.summary.remaining.toFixed(1)} weighted direct-sun minutes remain.</span></div><div className="representative-journeys">{primary.journeys.map((journey) => <article key={journey.journeyId}><span className={`effect-dot ${journey.effect}`} /><div><strong>{journey.label}</strong><small>{journey.baselineDirectSunMinutes.toFixed(1)} → {journey.scenarioDirectSunMinutes.toFixed(1)} min in direct sun · {journey.routeChanged ? "route changes" : "same route"}</small></div></article>)}</div>{alternative && <div className="lower-impact"><span className="eyebrow">Lower-impact comparison</span><strong>60% modeled shade avoids {alternative.summary.averageAvoided.toFixed(1)} min per walk on average</strong><small>{alternative.summary.remaining.toFixed(1)} weighted direct-sun minutes remain.</small></div>}<div className="verify-next"><CheckCircleIcon /><div><span className="eyebrow">What to verify next</span><strong>Check the corridor in person before discussing a design.</strong><p>Confirm shade conditions, pedestrian movement, site ownership, constructability, maintenance, and who may still not benefit.</p></div></div></>}
+      <details className="planner-assumptions"><summary>Sources and limits</summary><InsightSourceLinks sourceIds={scenario.evidence.sourceIds} label="Evidence" />{scenario.evidence.limitations.map((limitation) => <p key={limitation}>{limitation}</p>)}</details>
+    </>}</div>}
   </section>;
 }
 
@@ -738,16 +908,26 @@ function MapLensControl({ overlays, onToggle, hour, onHourChange, planner, hasRo
   editing: boolean;
   onEditingChange: (editing: boolean) => void;
 }) {
-  const layerSummary = overlays.shade
+  const layerSummary = overlays.flood
+    ? "Model · not live"
+    : overlays.greenery
+    ? "Tree & park signal"
+    : overlays.shade
     ? hasRoute || shadeDetailVisible ? formatClock(hour) : "Zoom in for shade"
     : hasRoute ? "Path stays visible" : "Nearby now";
   return <div className="map-lens-control" aria-label="Map view">
     <div><span><LayersIcon />Map layers</span><output>{layerSummary}</output></div>
-    <div className="map-lens-options">
-      <button type="button" aria-pressed={overlays.shade} className={overlays.shade ? "active" : ""} onClick={() => onToggle("shade")}>Shade</button>
-      <button type="button" aria-pressed={overlays.cover} className={overlays.cover ? "active" : ""} onClick={() => onToggle("cover")}>Cover</button>
-      <button type="button" aria-pressed={overlays.amenities} className={overlays.amenities ? "active" : ""} onClick={() => onToggle("amenities")}>Places</button>
-      <button type="button" aria-pressed={overlays.tasks} className={overlays.tasks ? "active" : ""} onClick={() => onToggle("tasks")}>Checks</button>
+    <div className="map-lens-groups">
+      <fieldset><legend>Street conditions</legend><div className="map-lens-options ambient-options">
+        <button type="button" aria-pressed={overlays.shade} className={overlays.shade ? "active" : ""} onClick={() => onToggle("shade")}><SunIcon />Shade</button>
+        <button type="button" aria-pressed={overlays.greenery} className={overlays.greenery ? "active" : ""} onClick={() => onToggle("greenery")}><LeafIcon />Greener</button>
+        <button type="button" aria-pressed={overlays.flood} className={overlays.flood ? "active" : ""} onClick={() => onToggle("flood")}><CloudRainIcon />Flood</button>
+      </div></fieldset>
+      <fieldset><legend>Along the way</legend><div className="map-lens-options context-options">
+        <button type="button" aria-pressed={overlays.cover} className={overlays.cover ? "active" : ""} onClick={() => onToggle("cover")}><UmbrellaIcon />Cover</button>
+        <button type="button" aria-pressed={overlays.amenities} className={overlays.amenities ? "active" : ""} onClick={() => onToggle("amenities")}><MapIcon />Places</button>
+        <button type="button" aria-pressed={overlays.tasks} className={overlays.tasks ? "active" : ""} onClick={() => onToggle("tasks")}><CheckCircleIcon />Checks</button>
+      </div></fieldset>
     </div>
     {!planner && hasRoute && canEdit && <button type="button" className={`edit-path-control ${editing ? "active" : ""}`} onClick={() => onEditingChange(!editing)}><RouteIcon />{editing ? "Click the path to place a handle" : "Edit path on map"}</button>}
     {overlays.shade && <label><span>7 AM</span><input type="range" min="7" max="19" step="1" value={hour} onChange={(event) => onHourChange(Number(event.target.value))} aria-label="Shade time" /><span>7 PM</span></label>}
@@ -764,14 +944,23 @@ export function App() {
   const routeSteerRef = useRef<(coordinate: Coordinate) => void>(() => undefined);
   const routeFeatureClickRef = useRef<(edgeId: string | null, coordinate: Coordinate) => void>(() => undefined);
   const overlayVisibilityRef = useRef<MapOverlays>(DEFAULT_MAP_OVERLAYS);
-  const [brief, setBrief] = useState<UiTripBrief>({ ...DEFAULT_BRIEF, priorities: [], departureHour: new Date().getHours() });
+  const [preferences, setPreferences] = useState<UserPreferences | null>(() => loadUserPreferences());
+  const [brief, setBrief] = useState<UiTripBrief>(() => newTripBriefFromPreferences(preferences));
   const [prompt, setPrompt] = useState("");
   const [originNodeId, setOriginNodeId] = useState(defaultOrigin);
   const [destinationNodeId, setDestinationNodeId] = useState(defaultDestination);
-  const [originText, setOriginText] = useState(friendlyNodeName(nodeById.get(defaultOrigin)?.name));
+  const [originText, setOriginText] = useState(endpointName(defaultOrigin));
   const [destinationText, setDestinationText] = useState("");
   const [result, setResult] = useState<PlannedJourneyResult | null>(null);
   const [route, setRoute] = useState<JourneyRoute | null>(null);
+  const [routeActivity, setRouteActivity] = useState<RouteActivityLog[]>(() => loadRouteActivity());
+  const routeActivityRef = useRef(routeActivity);
+  routeActivityRef.current = routeActivity;
+  const lastRecordedRouteRef = useRef<JourneyRoute | null>(null);
+  const [activityPersisted, setActivityPersisted] = useState(true);
+  const [activeRouteLogId, setActiveRouteLogId] = useState<string | null>(null);
+  const [plannerView, setPlannerView] = useState<PlannerView>("routes");
+  const [selectedActivityRouteId, setSelectedActivityRouteId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [busyMode, setBusyMode] = useState<ThinkingMode | null>(null);
   const [error, setError] = useState("");
@@ -784,13 +973,17 @@ export function App() {
   const [activeTask, setActiveTask] = useState<CivicTask | null>(null);
   const [activeTaskPoint, setActiveTaskPoint] = useState<{ x: number; y: number } | null>(null);
   const [taskObservations, setTaskObservations] = useState<Record<string, SessionCivicObservation>>({});
-  const [activeCover, setActiveCover] = useState<{ label: string; street: string; proofLabel: string } | null>(null);
+  const [activeCover, setActiveCover] = useState<{ label: string; locationLabel: string; detail: string; sourceId: string | null; taskId: string | null } | null>(null);
   const [activeCoverPoint, setActiveCoverPoint] = useState<{ x: number; y: number } | null>(null);
+  const [activeFlood, setActiveFlood] = useState<{ label: string; depthBand: string; detail: string } | null>(null);
+  const [activeFloodPoint, setActiveFloodPoint] = useState<{ x: number; y: number } | null>(null);
   const [mapReady, setMapReady] = useState(false);
   const [mapError, setMapError] = useState(false);
   const [appMode, setAppMode] = useState<AppMode>("walk");
   const [mapLens, setMapLens] = useState<MapLens>("route");
   const [mapOverlays, setMapOverlays] = useState<MapOverlays>(DEFAULT_MAP_OVERLAYS);
+  const [coverContextLayer, setCoverContextLayer] = useState(EMPTY_COVER_CONTEXT);
+  const [floodContextLayer, setFloodContextLayer] = useState<FloodContextCollection>(EMPTY_FLOOD_CONTEXT);
   const [mapViewport, setMapViewport] = useState<AmenityViewport>(INITIAL_MAP_VIEWPORT);
   overlayVisibilityRef.current = mapOverlays;
   const [shadeHour, setShadeHour] = useState(Math.max(7, Math.min(19, new Date().getHours())));
@@ -803,8 +996,28 @@ export function App() {
   const [plannerInsight, setPlannerInsight] = useState<RouteCityInsight | null>(null);
   const [plannerInsightBusy, setPlannerInsightBusy] = useState(false);
   const [plannerInsightError, setPlannerInsightError] = useState("");
+  const [representativeScenario, setRepresentativeScenario] = useState<RepresentativeShadeScenarioResult | null>(null);
+  const [showRepresentativeIntervention, setShowRepresentativeIntervention] = useState(false);
   const activeAssets = useMemo(() => route ? relevantAssets(route, brief) : [], [route, brief]);
   const routeTasks = useMemo(() => route ? relevantCivicTasks(route, brief) : [], [route, brief]);
+  const activeRouteActivity = useMemo(() => routeActivity.find((item) => item.id === activeRouteLogId)
+    ?? routeActivity.find((item) => item.candidateId === route?.candidateId)
+    ?? null, [activeRouteLogId, route, routeActivity]);
+  useEffect(() => {
+    if (!route || lastRecordedRouteRef.current === route) return;
+    lastRecordedRouteRef.current = route;
+    const next = recordMappedRoute(routeActivityRef.current, route, brief, {
+      origin: endpointName(originNodeId),
+      destination: brief.shape === "loop" ? `Back to ${endpointName(originNodeId)}` : endpointName(route.endpointNodeId),
+    });
+    routeActivityRef.current = next;
+    setRouteActivity(next);
+    setActiveRouteLogId(next[0].id);
+    setSelectedActivityRouteId(next[0].id);
+    setActivityPersisted(saveRouteActivity(next));
+    // Recording is tied to a newly mapped route; editing labels alone should not create another event.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [route]);
   const visibleTasks = useMemo(() => {
     const tasks = mapOverlays.tasks && (appMode === "planner" || !route) ? allCivicTasks : routeTasks;
     return activeTask && !tasks.some((task) => task.id === activeTask.id) ? [activeTask, ...tasks] : tasks;
@@ -830,18 +1043,35 @@ export function App() {
     });
   }, [route, result, shadeHour, plannerShadeTarget, selectedPlannerEdgeId]);
   const shadeSegments = useMemo(() => routeShadeSegmentsGeoJSON(route, pilotGraph, shadeHour), [route, shadeHour]);
+  const ambientCoverLayer = useMemo(() => mappedCoverGeoJSON(pilotGraph), [route, mapViewport.zoom]);
   const coverRouteSegments = useMemo(() => routeCoverSegmentsGeoJSON(route, pilotGraph), [route]);
+  const ambientGreeneryLayer = useMemo(() => ambientGreeneryGeoJSON(pilotGraph), [route, mapViewport.zoom]);
+  const greeneryRouteSegments = useMemo(() => routeGreeneryGeoJSON(route, pilotGraph), [route]);
+  const comparisonDelta = useMemo(() => route && result?.baseline && result.routeValueFrontier?.status === "meaningful_alternative"
+    ? routeComparisonDeltaGeoJSON(route, result.baseline, pilotGraph)
+    : { type: "FeatureCollection" as const, features: [] }, [result, route]);
+  const representativeRoutes = useMemo(() => representativeScenarioGeoJSON(representativeScenario, showRepresentativeIntervention, "routes"), [representativeScenario, showRepresentativeIntervention]);
+  const representativeGap = useMemo(() => representativeScenarioGeoJSON(representativeScenario, showRepresentativeIntervention, "gap"), [representativeScenario, showRepresentativeIntervention]);
+  const floodOverlap = useMemo(() => floodContextLayer.features.length > 0
+    ? floodOverlapForRoute(route, floodContextLayer)
+    : null, [floodContextLayer, route]);
   const viewportAssets = useMemo(() => amenitiesForViewport(allMapAssets, mapViewport, {
     selectedAssetId: activeAsset?.id,
     prominentAssetIds: activeAssets.map((asset) => asset.id),
-    maximumAssets: appMode === "planner" ? 36 : route ? 28 : 20,
+    maximumAssets: amenityViewportSampleLimit(mapViewport.zoom, appMode === "planner" ? "planner" : route ? "route" : "nearby"),
   }), [activeAsset?.id, activeAssets, appMode, mapViewport, route]);
-  const overviewAssets = useMemo(() => amenityOverviewGeoJSON(viewportAssets, {
+  const overviewViewportAssets = useMemo(() => amenitiesWithinViewport(allMapAssets, mapViewport, {
+    selectedAssetId: activeAsset?.id,
+    prominentAssetIds: activeAssets.map((asset) => asset.id),
+  }), [activeAsset?.id, activeAssets, mapViewport]);
+  const overviewAssets = useMemo(() => amenityOverviewGeoJSON(overviewViewportAssets, {
     selectedAssetId: activeAsset?.id,
     prominentAssetIds: activeAssets.map((asset) => asset.id),
     clusterCellMeters: amenityClusterCellMeters(mapViewport.zoom),
+    clusterAcrossCategories: mapViewport.zoom < 13.5,
     minimumClusterSize: mapViewport.zoom >= 16.25 ? Number.MAX_SAFE_INTEGER : 2,
-  }), [activeAsset?.id, activeAssets, mapViewport.zoom, viewportAssets]);
+  }), [activeAsset?.id, activeAssets, mapViewport.zoom, overviewViewportAssets]);
+  const coverContextVicinities = useMemo(() => coverContextVicinityGeoJSON(coverContextLayer), [coverContextLayer]);
   const taskFeatures = useMemo(() => civicTasksGeoJSON(visibleTasks, {
     selectedTaskId: activeTask?.id,
     completedTaskIds: Object.keys(taskObservations),
@@ -851,30 +1081,62 @@ export function App() {
     route,
     scenario: plannerScenario,
     nearbyAssets: plannerNearbyAssets,
-    simulatedCoverPercent: routeCoverShare(route, pilotGraph) * 100,
+    mappedCoverMeters: routeMappedCoverMeters(route, pilotGraph),
   }) : null, [brief, route, plannerScenario, plannerNearbyAssets]);
+  const activityMapData = useMemo(() => routeActivityGeoJSON(routeActivity, selectedActivityRouteId), [routeActivity, selectedActivityRouteId]);
 
   useEffect(() => {
-    if (appMode !== "planner" || !plannerInsightRequest) return;
+    if (!route) return;
+    setMapOverlays((current) => showRelevantRouteMapOverlays(current, {
+      shade: brief.priorities.includes("shade"),
+      greenery: brief.priorities.includes("greenery"),
+      cover: rainContext,
+      amenities: activeAssets.length > 0,
+      tasks: routeTasks.length > 0,
+    }));
+  }, [route, brief.priorities, rainContext, activeAssets.length, routeTasks.length]);
+
+  useEffect(() => {
+    resetVisibleSheetScroll();
+  }, [appMode, mapLens, route?.candidateId]);
+
+  useEffect(() => {
+    if (!mapOverlays.cover || coverContextLayer.features.length > 0) return;
     let cancelled = false;
-    const timer = window.setTimeout(() => {
-      setPlannerInsightBusy(true);
-      setPlannerInsightError("");
-      void requestRouteCityInsight(plannerInsightRequest)
-        .then((insight) => { if (!cancelled) setPlannerInsight(insight); })
-        .catch(() => { if (!cancelled) { setPlannerInsight(null); setPlannerInsightError("We couldn’t rank the planning tests right now. The measured map layers still work."); } })
-        .finally(() => { if (!cancelled) setPlannerInsightBusy(false); });
-    }, 450);
-    return () => { cancelled = true; window.clearTimeout(timer); };
-  }, [appMode, plannerInsightRequest]);
+    void loadCoverContextGeoJSON().then((context) => {
+      if (!cancelled) setCoverContextLayer(context);
+    });
+    return () => { cancelled = true; };
+  }, [coverContextLayer.features.length, mapOverlays.cover]);
+
+  useEffect(() => {
+    if (!mapOverlays.flood || floodContextLayer.features.length > 0) return;
+    let cancelled = false;
+    void loadFloodContextGeoJSON().then((context) => {
+      if (!cancelled) setFloodContextLayer(context);
+    });
+    return () => { cancelled = true; };
+  }, [floodContextLayer.features.length, mapOverlays.flood]);
+
+  useEffect(() => {
+    if (appMode !== "planner" || representativeScenario) return;
+    let cancelled = false;
+    void import("./detour/frozenRepresentativeShadeScenario").then(({ frozenRepresentativeShadeScenario }) => {
+      if (!cancelled) setRepresentativeScenario(frozenRepresentativeShadeScenario);
+    });
+    return () => { cancelled = true; };
+  }, [appMode, representativeScenario]);
 
   async function resolveEndpoint(query: string, currentNodeId: string) {
-    const current = nodeById.get(currentNodeId);
-    if (!query.trim() || query.trim() === current?.name || query.trim() === friendlyNodeName(current?.name)) return currentNodeId;
+    const current = graphNodeById(currentNodeId);
+    if (!query.trim() || query.trim() === current?.name || query.trim() === endpointName(currentNodeId)) return currentNodeId;
     const found = await searchNycAddress(query);
     if (!found) throw new Error(`We couldn’t find “${query}”. Try a nearby street or landmark.`);
-    if (!isInsidePilot(found.coordinate)) throw new Error("Happy Path is exploring Lower Manhattan for now. Try a start and destination between Canal Street and Union Square.");
-    return nearestGraphNode(found.coordinate).id;
+    if (!isInsidePilot(found.coordinate)) throw new Error(`Happy Path is exploring ${supportedArea.label} for now.`);
+    await ensureGraphCoverage([found.coordinate]);
+    const node = nearestGraphNodeWithin(found.coordinate);
+    if (!node) throw new Error("That location is inside the preview area, but it is not close enough to the checked walking network yet.");
+    return node.id;
   }
 
   async function compute(nextBrief: UiTripBrief, isRefinement = false, options: { rainFriendly?: boolean; originId?: string; destinationId?: string; originQuery?: string; destinationQuery?: string; wanderEndpointId?: string | null; preserveWaypoint?: boolean } = {}) {
@@ -893,7 +1155,11 @@ export function App() {
       if (!options.destinationId) resolvedDestination = await resolveEndpoint(query, destinationNodeId);
       if (query.trim()) setDestinationText(query);
     }
-    let routingBrief = makeRoutingBrief(plannedBrief, resolvedOrigin, resolvedDestination);
+    const coverageCoordinates = [resolvedOrigin, resolvedDestination]
+      .map((nodeId) => graphNodeById(nodeId)?.coordinate)
+      .filter((coordinate): coordinate is Coordinate => Boolean(coordinate));
+    await ensureGraphCoverage(coverageCoordinates);
+    let routingBrief = buildRoutingTripBrief(plannedBrief, resolvedOrigin, resolvedDestination);
     const fixedWanderEndpoint = options.wanderEndpointId !== undefined
       ? options.wanderEndpointId
       : plannedBrief.shape === "wander" && plannedBrief.endCondition === null
@@ -921,10 +1187,11 @@ export function App() {
     setOriginNodeId(resolvedOrigin);
     setDestinationNodeId(resolvedDestination);
     setBrief(plannedBrief);
-    setResult(resultWithSelectedRoute(nextResult, nextRoute));
+    const selectedResult = resultWithSelectedRoute(nextResult, nextRoute);
+    setResult(selectedResult);
     setRoute(nextRoute);
     setShadeHour(Math.max(7, Math.min(19, Math.round(plannedBrief.departureHour))));
-    setShowBaseline(false);
+    setShowBaseline(selectedResult.routeValueFrontier?.status === "meaningful_alternative");
     setActiveAsset(null);
     setActiveAssetPoint(null);
     setActiveTask(null);
@@ -932,6 +1199,8 @@ export function App() {
     setDetail(null);
     setActiveCover(null);
     setActiveCoverPoint(null);
+    setActiveFlood(null);
+    setActiveFloodPoint(null);
     setSelectedPlannerEdgeId(null);
     if (plannedBrief.shape !== "wander" || plannedBrief.endCondition !== null) setManualWanderEndpointId(null);
     else if (options.wanderEndpointId !== undefined) setManualWanderEndpointId(options.wanderEndpointId);
@@ -962,6 +1231,7 @@ export function App() {
       setRainContext(nextRainContext);
       if (interpreted.civicTaskIntent) { setMapLens("tasks"); setMapOverlays((current) => ({ ...current, tasks: true })); }
       if (interpreted.priorities.includes("shade")) { setMapLens("shade"); setMapOverlays((current) => ({ ...current, shade: true })); }
+      else if (interpreted.priorities.includes("greenery")) { setMapLens("greenery"); setMapOverlays((current) => ({ ...current, greenery: true })); }
       if (nextRainContext) { setMapLens("cover"); setMapOverlays((current) => ({ ...current, cover: true })); }
       else if (rainIntent === "off") setMapOverlays((current) => ({ ...current, cover: false }));
       await compute(interpreted, isRefinement, { rainFriendly: nextRainContext, originQuery: requestOriginText, destinationQuery: requestDestinationText });
@@ -972,6 +1242,26 @@ export function App() {
     } finally {
       setBusy(false);
       setBusyMode(null);
+    }
+  }
+
+  async function selectExample(example: ExampleJourney) {
+    try {
+      await ensureGraphCoverage([example.originCoordinate, ...(example.destinationCoordinate ? [example.destinationCoordinate] : [])]);
+      const origin = graphNodeById(example.originNodeId);
+      const destination = example.destinationNodeId ? graphNodeById(example.destinationNodeId) : null;
+      if (!origin || (example.destinationNodeId && !destination)) throw new Error("missing sample endpoint");
+      setOriginNodeId(origin.id);
+      setOriginText(endpointName(origin.id));
+      setDestinationNodeId(destination?.id ?? defaultDestination);
+      setDestinationText(destination ? endpointName(destination.id) : "");
+      setPrompt(example.prompt);
+      setBrief({ ...DEFAULT_BRIEF, priorities: [], departureHour: brief.departureHour });
+      setError("");
+      setModelFallback(false);
+      setRainContext(false);
+    } catch {
+      setError("That sample walk is outside the current map. Try another example.");
     }
   }
 
@@ -993,7 +1283,7 @@ export function App() {
 
   function startNewWalk() {
     setPrompt("");
-    setBrief({ ...DEFAULT_BRIEF, priorities: [], departureHour: new Date().getHours() });
+    setBrief(newTripBriefFromPreferences(preferences));
     setDestinationNodeId(defaultDestination);
     setDestinationText("");
     setRoute(null);
@@ -1018,6 +1308,8 @@ export function App() {
     setPlannerInsightError("");
     setActiveCover(null);
     setActiveCoverPoint(null);
+    setActiveFlood(null);
+    setActiveFloodPoint(null);
   }
 
   async function usePlannerSample() {
@@ -1049,9 +1341,11 @@ export function App() {
     const requestedShade = value.match(/\b(\d{2,3})\s*%?\s*shade\b/i)?.[1];
     if (requestedShade) setPlannerShadeTarget(Math.max(40, Math.min(95, Number(requestedShade))));
     if (/verify|check|contribut|task|ground.?truth|city data/i.test(value)) { setMapLens("tasks"); setMapOverlays((current) => ({ ...current, tasks: true })); }
+    else if (/flood|stormwater|ponding|standing water/i.test(value)) { setMapLens("flood"); setMapOverlays((current) => toggledMapOverlay({ ...current, flood: false }, "flood")); }
+    else if (/green|tree|park|canopy/i.test(value)) { setMapLens("greenery"); setMapOverlays((current) => toggledMapOverlay({ ...current, greenery: false }, "greenery")); }
     else if (/cover|rain|awning|shed/i.test(value)) { setMapLens("cover"); setMapOverlays((current) => ({ ...current, cover: true })); }
     else if (/seat|restroom|bathroom|water|amenit/i.test(value)) { setMapLens("amenities"); setMapOverlays((current) => ({ ...current, amenities: true })); }
-    else { setMapLens("shade"); setMapOverlays((current) => ({ ...current, shade: true })); }
+    else { setMapLens("shade"); setMapOverlays((current) => toggledMapOverlay({ ...current, shade: false }, "shade")); }
   }
 
   async function steerRoute(coordinate: Coordinate) {
@@ -1061,13 +1355,13 @@ export function App() {
       const steeringBrief = brief.civicTaskIntent
         ? mergeTripBrief(brief, { civicTaskIntent: null }, "controls")
         : brief;
-      const routingBrief = makeRoutingBrief(steeringBrief, originNodeId, destinationNodeId);
+      const routingBrief = buildRoutingTripBrief(steeringBrief, originNodeId, destinationNodeId);
       const steered = rerouteJourneyThroughWaypoint(pilotGraph, routingBrief, route, waypoint.id, routingOptions(brief, rainContext));
       if (brief.civicTaskIntent) setBrief(steeringBrief);
       setWaypointNodeId(waypoint.id);
       setRoute(steered);
       setResult((current) => current ? resultWithSelectedRoute(current, steered) : current);
-      setDelta(`path steered near ${waypoint.name}${brief.civicTaskIntent ? " · optional data check unpinned" : ""}`);
+      setDelta(`path steered near ${endpointName(waypoint.id).replace(/^Near /, "")}${brief.civicTaskIntent ? " · optional data check unpinned" : ""}`);
       setError("");
     } catch (caught) {
       setError(planningErrorMessage(caught));
@@ -1078,19 +1372,19 @@ export function App() {
     const node = nearestGraphNode(coordinate);
     if (kind === "origin") {
       setOriginNodeId(node.id);
-      setOriginText(friendlyNodeName(node.name));
+      setOriginText(endpointName(node.id));
       void compute(brief, true, { rainFriendly: rainContext, originId: node.id });
       return;
     }
     if (route?.journeyShape === "wander") {
       const nextBrief = mergeTripBrief(brief, { direction: null, endCondition: null }, "controls");
       setDestinationNodeId(node.id);
-      setDestinationText(friendlyNodeName(node.name));
+      setDestinationText(endpointName(node.id));
       void compute(nextBrief, true, { rainFriendly: rainContext, destinationId: node.id, wanderEndpointId: node.id });
       return;
     }
     setDestinationNodeId(node.id);
-    const destinationName = friendlyNodeName(node.name);
+    const destinationName = endpointName(node.id);
     setDestinationText(destinationName);
     void compute({ ...brief, destinationQuery: destinationName, interpretedBy: "controls" }, true, { rainFriendly: rainContext, destinationId: node.id });
   };
@@ -1116,7 +1410,7 @@ export function App() {
     }
     let map: MapLibreMap;
     try {
-      map = new maplibregl.Map({ container: mapContainer.current, style: MAP_STYLE, center: [-73.997, 40.731], zoom: 14.2, attributionControl: false });
+      map = new maplibregl.Map({ container: mapContainer.current, style: MAP_STYLE, center: supportedArea.defaultView.center, zoom: supportedArea.defaultView.zoom, attributionControl: false });
     } catch {
       setMapError(true);
       return;
@@ -1134,23 +1428,84 @@ export function App() {
       captureViewport();
       map.addSource("building-shadows", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
       map.addLayer(BUILDING_SHADOW_LAYER);
-      map.addSource("demo-cover", { type: "geojson", data: ambientCoverLayer });
-      map.addLayer({ id: "demo-cover-casing", type: "line", source: "demo-cover", paint: { "line-color": "#FFFFFF", "line-width": 8, "line-opacity": 0.8 }, layout: { visibility: "none" } });
-      map.addLayer({ id: "demo-cover", type: "line", source: "demo-cover", paint: { "line-color": "#536A91", "line-width": 4, "line-dasharray": [2, 1], "line-opacity": 0.82 }, layout: { visibility: "none" } });
+      map.addSource("ambient-greenery", { type: "geojson", data: ambientGreeneryLayer });
+      map.addLayer({ id: "ambient-greenery", type: "line", source: "ambient-greenery", minzoom: 13.2, paint: {
+        "line-color": ["match", ["get", "greeneryBand"], "park_edge", "#3F7650", "#6FA07C"],
+        "line-width": ["interpolate", ["linear"], ["zoom"], 13.2, 2.5, 16, 7],
+        "line-opacity": ["interpolate", ["linear"], ["zoom"], 13.2, 0.12, 15, 0.32],
+      }, layout: { visibility: "none", "line-cap": "round", "line-join": "round" } });
+      map.addSource("mapped-cover", { type: "geojson", data: ambientCoverLayer });
+      map.addLayer({ id: "mapped-cover-casing", type: "line", source: "mapped-cover", paint: {
+        "line-color": "#7284A2",
+        "line-width": ["interpolate", ["linear"], ["zoom"], 13, 8, 17, 18],
+        "line-opacity": 0.18,
+      }, layout: { visibility: "none", "line-cap": "round", "line-join": "round" } });
+      map.addLayer({ id: "mapped-cover", type: "line", source: "mapped-cover", paint: {
+        "line-color": "#536A91",
+        "line-width": ["interpolate", ["linear"], ["zoom"], 13, 2.5, 17, 5],
+        "line-opacity": ["interpolate", ["linear"], ["get", "coverShare"], 0.5, 0.58, 1, 0.92],
+      }, layout: { visibility: "none", "line-cap": "round", "line-join": "round" } });
+      map.addSource("cover-context", { type: "geojson", data: EMPTY_COVER_CONTEXT });
+      map.addSource("cover-context-vicinities", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+      map.addLayer({ id: "cover-context-vicinities", type: "fill", source: "cover-context-vicinities", minzoom: 13, paint: {
+        "fill-color": ["match", ["get", "kind"], "pops_arcade", "#536A91", "#9B8051"],
+        "fill-opacity": ["interpolate", ["linear"], ["zoom"], 13, 0.08, 16, 0.16],
+        "fill-outline-color": ["match", ["get", "kind"], "pops_arcade", "#7889A8", "#B39A70"],
+      }, layout: { visibility: "none" } });
+      map.addLayer({ id: "cover-construction", type: "line", source: "cover-context", filter: ["==", ["get", "kind"], "construction_closure"], paint: { "line-color": "#C66A4B", "line-width": 3, "line-dasharray": [1, 1.5], "line-opacity": 0.72 }, layout: { visibility: "none" } });
+      map.addLayer({ id: "cover-context-points", type: "circle", source: "cover-context", filter: ["==", ["geometry-type"], "Point"], paint: {
+        "circle-radius": ["interpolate", ["linear"], ["zoom"], 14, 5, 17, 10],
+        "circle-color": ["match", ["get", "kind"], "pops_arcade", "#3D587F", "#8A7C4A"],
+        "circle-stroke-color": ["match", ["get", "kind"], "pops_arcade", "#3D587F", "#8A7C4A"],
+        "circle-stroke-width": 1,
+        "circle-stroke-opacity": 0.24,
+        "circle-opacity": 0.08,
+      }, layout: { visibility: "none" }, minzoom: 14 });
+      registerFloodPatternImages(map);
+      map.addSource("flood-context", { type: "geojson", data: EMPTY_FLOOD_CONTEXT });
+      map.addLayer({ id: "flood-nuisance", type: "fill", source: "flood-context", filter: ["==", ["get", "categoryCode"], 1], paint: {
+        "fill-pattern": "flood-nuisance-pattern",
+        "fill-opacity": 0.82,
+      }, layout: { visibility: "none" } });
+      map.addLayer({ id: "flood-deep", type: "fill", source: "flood-context", filter: ["==", ["get", "categoryCode"], 2], paint: {
+        "fill-pattern": "flood-deep-pattern",
+        "fill-opacity": 0.9,
+      }, layout: { visibility: "none" } });
+      map.addLayer({ id: "flood-nuisance-outline", type: "line", source: "flood-context", filter: ["==", ["get", "categoryCode"], 1], paint: {
+        "line-color": "#426A7C",
+        "line-width": 1,
+        "line-opacity": 0.65,
+      }, layout: { visibility: "none" } });
+      map.addLayer({ id: "flood-deep-outline", type: "line", source: "flood-context", filter: ["==", ["get", "categoryCode"], 2], paint: {
+        "line-color": "#304860",
+        "line-width": 1.5,
+        "line-opacity": 0.78,
+      }, layout: { visibility: "none" } });
       map.addSource("baseline", { type: "geojson", data: routeGeoJSON() });
       map.addLayer({ id: "baseline", type: "line", source: "baseline", paint: { "line-color": "#6D716C", "line-width": 3, "line-dasharray": [2, 2], "line-opacity": 0.68 }, layout: { visibility: "none" } });
+      map.addSource("route-comparison-delta", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+      map.addLayer({ id: "baseline-delta", type: "line", source: "route-comparison-delta", filter: ["==", ["get", "routeRole"], "baseline_only"], paint: { "line-color": "#8B8074", "line-width": 7, "line-dasharray": [1, 1.5], "line-opacity": 0.38 }, layout: { visibility: "none", "line-cap": "round" } });
+      map.addLayer({ id: "recommended-delta", type: "line", source: "route-comparison-delta", filter: ["==", ["get", "routeRole"], "recommended_only"], paint: { "line-color": "#6478B8", "line-width": 10, "line-opacity": 0.34 }, layout: { visibility: "none", "line-cap": "round" } });
       map.addSource("happy", { type: "geojson", data: routeGeoJSON() });
       map.addLayer({ id: "happy-casing", type: "line", source: "happy", paint: { "line-color": "#FFFFFF", "line-width": 11, "line-opacity": 0.95 } });
       map.addLayer({ id: "happy", type: "line", source: "happy", paint: { "line-color": "#F05A47", "line-width": 6 } });
       map.addSource("route-shade", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
       map.addLayer({ id: "route-shade", type: "line", source: "route-shade", paint: {
         "line-color": ["match", ["get", "shadeBand"], "mostly_shaded", "#294E43", "mixed", "#8A7C4A", "#E86248"],
-        "line-width": 6,
-        "line-opacity": 0.98,
+        "line-width": 3.5,
+        "line-offset": -5,
+        "line-opacity": 0.9,
+      }, layout: { visibility: "none", "line-cap": "round", "line-join": "round" } });
+      map.addSource("route-greenery", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+      map.addLayer({ id: "route-greenery", type: "line", source: "route-greenery", paint: {
+        "line-color": ["match", ["get", "greeneryBand"], "park_edge", "#3F7650", "#6FA07C"],
+        "line-width": 3.5,
+        "line-offset": -5,
+        "line-opacity": 0.9,
       }, layout: { visibility: "none", "line-cap": "round", "line-join": "round" } });
       map.addSource("route-cover", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
       map.addLayer({ id: "route-cover", type: "line", source: "route-cover", paint: {
-        "line-color": ["match", ["get", "coverBand"], "more", "#3D587F", "some", "#7284A2", "#E86248"],
+        "line-color": ["match", ["get", "coverBand"], "mapped", "#3D587F", "#7284A2"],
         "line-width": 5,
         "line-offset": 4,
         "line-dasharray": [1.2, 1],
@@ -1159,9 +1514,14 @@ export function App() {
       map.addSource("planner-selection", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
       map.addLayer({ id: "planner-selection-casing", type: "line", source: "planner-selection", paint: { "line-color": "#FFFFFF", "line-width": 15, "line-opacity": 0.95 }, layout: { visibility: "none" } });
       map.addLayer({ id: "planner-selection", type: "line", source: "planner-selection", paint: { "line-color": "#6478B8", "line-width": 9, "line-opacity": 0.95 }, layout: { visibility: "none" } });
+      map.addSource("representative-routes", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+      map.addLayer({ id: "representative-baseline", type: "line", source: "representative-routes", filter: ["==", ["get", "role"], "baseline"], paint: { "line-color": "#6D716C", "line-width": 3, "line-opacity": 0.26 }, layout: { visibility: "none", "line-cap": "round" } });
+      map.addLayer({ id: "representative-scenario", type: "line", source: "representative-routes", filter: ["==", ["get", "role"], "scenario"], paint: { "line-color": ["case", ["get", "routeChanged"], "#F05A47", "#6478B8"], "line-width": 4, "line-opacity": 0.56 }, layout: { visibility: "none", "line-cap": "round" } });
       const showAssetPopover = (event: MapLayerMouseEvent) => {
         const id = event.features?.[0]?.properties?.id;
         setDetail(null);
+        setActiveFlood(null);
+        setActiveFloodPoint(null);
         setActiveAsset(allMapAssets.find((asset) => asset.id === id) ?? null);
         setActiveAssetPoint({ x: event.point.x, y: event.point.y });
       };
@@ -1170,9 +1530,70 @@ export function App() {
         setDetail(null);
         setActiveAsset(null);
         setActiveAssetPoint(null);
+        setActiveFlood(null);
+        setActiveFloodPoint(null);
         setActiveTask(allCivicTasks.find((task) => task.id === id) ?? null);
         setActiveTaskPoint({ x: event.point.x, y: event.point.y });
       };
+      const showCoverPopover = (event: MapLayerMouseEvent) => {
+        const feature = event.features?.[0];
+        const properties = feature?.properties;
+        const targetKind = properties?.evidenceKind === "mapped_geometry" ? "mapped_cover_way" : "cover_feature";
+        const targetId = targetKind === "mapped_cover_way"
+          ? String(properties?.wayId ?? "")
+          : String(feature?.id ?? "");
+        const task = allCivicTasks.find((candidate) => candidate.target.kind === targetKind && candidate.target.id === targetId);
+        setActiveAsset(null);
+        setActiveAssetPoint(null);
+        setActiveTask(null);
+        setActiveTaskPoint(null);
+        setActiveFlood(null);
+        setActiveFloodPoint(null);
+        setDetail(null);
+        setActiveCover(properties ? {
+          label: String(properties.label ?? "Cover evidence"),
+          locationLabel: String(properties.locationLabel ?? properties.street ?? "Mapped location"),
+          detail: String(properties.detail ?? properties.proofLabel ?? "Conditions may have changed."),
+          sourceId: properties.sourceId ? String(properties.sourceId) : null,
+          taskId: task?.id ?? null,
+        } : null);
+        setActiveCoverPoint({ x: event.point.x, y: event.point.y });
+      };
+      const showFloodPopover = (event: MapLayerMouseEvent) => {
+        const properties = event.features?.[0]?.properties;
+        setActiveAsset(null);
+        setActiveAssetPoint(null);
+        setActiveTask(null);
+        setActiveTaskPoint(null);
+        setActiveCover(null);
+        setActiveCoverPoint(null);
+        setDetail(null);
+        setActiveFlood(properties ? {
+          label: String(properties.label ?? "Modeled flood potential"),
+          depthBand: String(properties.depthBand ?? "Modeled depth category"),
+          detail: String(properties.detail ?? "This is a planning model, not a live street condition."),
+        } : null);
+        setActiveFloodPoint({ x: event.point.x, y: event.point.y });
+      };
+      void registerCoverContextMarkerImages(map).then(() => {
+        const symbolLayers = [
+          { id: "cover-arcade-icons", kind: "pops_arcade", image: "cover-context-pops_arcade", minzoom: 13.2 },
+          { id: "cover-shed-icons", kind: "sidewalk_shed_permit", image: "cover-context-sidewalk_shed_permit", minzoom: 14.25 },
+        ] as const;
+        for (const layer of symbolLayers) {
+          if (map.getLayer(layer.id)) continue;
+          map.addLayer({ id: layer.id, type: "symbol", source: "cover-context", minzoom: layer.minzoom, filter: ["==", ["get", "kind"], layer.kind], layout: {
+            "icon-image": layer.image,
+            "icon-size": ["interpolate", ["linear"], ["zoom"], layer.minzoom, 0.62, 17, 0.9],
+            "icon-allow-overlap": false,
+            "icon-padding": 7,
+            visibility: overlayVisibilityRef.current.cover ? "visible" : "none",
+          } });
+          map.on("mouseenter", layer.id, () => { map.getCanvas().style.cursor = "pointer"; });
+          map.on("mouseleave", layer.id, () => { map.getCanvas().style.cursor = ""; });
+          map.on("click", layer.id, showCoverPopover);
+        }
+      }).catch(() => { /* Low-opacity context halos remain if icon art cannot load. */ });
       map.addSource("assets", { type: "geojson", data: assetsGeoJSON([]) });
       map.addLayer({ id: "assets", type: "circle", source: "assets", paint: {
         "circle-radius": ["case", ["get", "selected"], 18, 15],
@@ -1183,17 +1604,10 @@ export function App() {
         "circle-translate": [0, -23],
       } });
       map.addSource("overview-assets", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
-      map.addLayer({ id: "amenity-coverage", type: "circle", source: "overview-assets", filter: ["==", ["get", "featureType"], "asset"], paint: {
-        "circle-radius": ["interpolate", ["linear"], ["zoom"], 13, 9, 16, 17],
-        "circle-color": ["match", ["get", "kind"], "seating", "#6FA07C", "restroom", "#7586BB", "drinking_fountain", "#4D8797", "#D96A58"],
-        "circle-opacity": 0.08,
-        "circle-stroke-width": 1,
-        "circle-stroke-opacity": 0.18,
-      }, layout: { visibility: "none" } });
       map.addLayer({ id: "overview-clusters", type: "circle", source: "overview-assets", filter: ["==", ["get", "featureType"], "cluster"], paint: {
         "circle-radius": ["interpolate", ["linear"], ["get", "count"], 2, 13, 8, 18],
         "circle-color": "#FFFDF8",
-        "circle-stroke-color": ["match", ["get", "kind"], "seating", "#4F8963", "restroom", "#6478B8", "drinking_fountain", "#2E6F85", "#D94C3B"],
+        "circle-stroke-color": ["match", ["get", "kind"], "mixed", "#68776E", "seating", "#4F8963", "restroom", "#6478B8", "drinking_fountain", "#2E6F85", "#D94C3B"],
         "circle-stroke-width": 2,
         "circle-opacity": 0.96,
       }, layout: { visibility: "none" } });
@@ -1247,10 +1661,10 @@ export function App() {
         "circle-stroke-width": ["case", ["get", "selected"], 3, 0],
         "circle-translate": [0, -23],
       }, layout: { visibility: "none" } });
-      void registerCivicTaskMarkerImage(map).then(() => {
+      void registerCivicTaskMarkerImages(map).then(() => {
         if (map.getLayer("civic-task-icons")) return;
         map.addLayer({ id: "civic-task-icons", type: "symbol", source: "civic-tasks", layout: {
-          "icon-image": "civic-task",
+          "icon-image": ["match", ["get", "action"], "photo", "civic-task-photo", "observe", "civic-task-observe", "civic-task-verify"],
           "icon-size": ["case", ["get", "selected"], 1.3, 1.05],
           "icon-anchor": "bottom",
           "icon-allow-overlap": true,
@@ -1273,19 +1687,20 @@ export function App() {
         const edgeId = event.features?.[0]?.properties?.edgeId ?? null;
         routeFeatureClickRef.current(edgeId, [event.lngLat.lng, event.lngLat.lat]);
       };
-      ["happy", "route-shade", "route-cover"].forEach((layer) => {
+      ["happy", "route-shade", "route-greenery", "route-cover"].forEach((layer) => {
         map.on("mouseenter", layer, () => { map.getCanvas().style.cursor = "pointer"; });
         map.on("mouseleave", layer, () => { map.getCanvas().style.cursor = ""; });
         map.on("click", layer, routeFeatureClick);
       });
-      map.on("mouseenter", "demo-cover", () => { map.getCanvas().style.cursor = "pointer"; });
-      map.on("mouseleave", "demo-cover", () => { map.getCanvas().style.cursor = ""; });
-      map.on("click", "demo-cover", (event) => {
-        const properties = event.features?.[0]?.properties;
-        setActiveAsset(null);
-        setDetail(null);
-        setActiveCover(properties ? { label: properties.label, street: properties.street, proofLabel: properties.proofLabel } : null);
-        setActiveCoverPoint({ x: event.point.x, y: event.point.y });
+      ["mapped-cover", "cover-construction", "cover-context-vicinities", "cover-context-points"].forEach((layer) => {
+        map.on("mouseenter", layer, () => { map.getCanvas().style.cursor = "pointer"; });
+        map.on("mouseleave", layer, () => { map.getCanvas().style.cursor = ""; });
+        map.on("click", layer, showCoverPopover);
+      });
+      ["flood-nuisance", "flood-deep"].forEach((layer) => {
+        map.on("mouseenter", layer, () => { map.getCanvas().style.cursor = "pointer"; });
+        map.on("mouseleave", layer, () => { map.getCanvas().style.cursor = ""; });
+        map.on("click", layer, showFloodPopover);
       });
       map.on("click", "assets", showAssetPopover);
     });
@@ -1332,7 +1747,7 @@ export function App() {
       destinationMarkerRef.current = null;
     }
 
-    const waypoint = waypointNodeId ? nodeById.get(waypointNodeId) : null;
+    const waypoint = waypointNodeId ? graphNodeById(waypointNodeId) : null;
     if (waypoint) {
       if (!waypointMarkerRef.current) {
         const marker = new maplibregl.Marker({ element: routeHandleElement("waypoint"), draggable: true, anchor: "center" }).setLngLat(waypoint.coordinate).addTo(map);
@@ -1354,9 +1769,17 @@ export function App() {
     if (!mapReady || !map) return;
     (map.getSource("happy") as GeoJSONSource | undefined)?.setData(routeGeoJSON(route));
     (map.getSource("baseline") as GeoJSONSource | undefined)?.setData(routeGeoJSON(result?.baseline));
+    (map.getSource("route-comparison-delta") as GeoJSONSource | undefined)?.setData(comparisonDelta);
     (map.getSource("route-shade") as GeoJSONSource | undefined)?.setData(shadeSegments);
+    (map.getSource("ambient-greenery") as GeoJSONSource | undefined)?.setData(ambientGreeneryLayer);
+    (map.getSource("route-greenery") as GeoJSONSource | undefined)?.setData(greeneryRouteSegments);
+    (map.getSource("mapped-cover") as GeoJSONSource | undefined)?.setData(ambientCoverLayer);
     (map.getSource("route-cover") as GeoJSONSource | undefined)?.setData(coverRouteSegments);
-    (map.getSource("planner-selection") as GeoJSONSource | undefined)?.setData(plannerScenario?.selection.geojson ?? { type: "FeatureCollection", features: [] });
+    (map.getSource("cover-context") as GeoJSONSource | undefined)?.setData(coverContextLayer);
+    (map.getSource("cover-context-vicinities") as GeoJSONSource | undefined)?.setData(coverContextVicinities);
+    (map.getSource("flood-context") as GeoJSONSource | undefined)?.setData(floodContextLayer);
+    (map.getSource("planner-selection") as GeoJSONSource | undefined)?.setData(appMode === "planner" ? representativeGap : plannerScenario?.selection.geojson ?? { type: "FeatureCollection", features: [] });
+    (map.getSource("representative-routes") as GeoJSONSource | undefined)?.setData(representativeRoutes);
     (map.getSource("endpoints") as GeoJSONSource | undefined)?.setData(endpointsGeoJSON(route));
     (map.getSource("assets") as GeoJSONSource | undefined)?.setData(assetsGeoJSON(activeAssets, activeAsset?.id));
     (map.getSource("overview-assets") as GeoJSONSource | undefined)?.setData(overviewAssets);
@@ -1366,26 +1789,58 @@ export function App() {
     };
     const hasRoute = Boolean(route);
     visibility("baseline", hasRoute && showBaseline && Boolean(result?.baseline));
+    visibility("baseline-delta", hasRoute && showBaseline && comparisonDelta.features.length > 0);
+    visibility("recommended-delta", hasRoute && showBaseline && comparisonDelta.features.length > 0);
     visibility("endpoints", false);
     visibility("happy-casing", hasRoute);
     visibility("happy", hasRoute);
     visibility("route-shade", hasRoute && mapOverlays.shade);
+    visibility("ambient-greenery", mapOverlays.greenery);
+    visibility("route-greenery", hasRoute && mapOverlays.greenery);
     visibility("route-cover", hasRoute && mapOverlays.cover);
-    visibility("demo-cover", mapOverlays.cover);
-    visibility("demo-cover-casing", mapOverlays.cover);
-    const showSelection = appMode === "planner" && mapLens === "shade" && mapOverlays.shade && Boolean(plannerScenario);
+    visibility("mapped-cover", mapOverlays.cover);
+    visibility("mapped-cover-casing", mapOverlays.cover);
+    visibility("cover-context-vicinities", mapOverlays.cover);
+    visibility("cover-context-points", mapOverlays.cover);
+    visibility("cover-arcade-icons", mapOverlays.cover);
+    visibility("cover-shed-icons", mapOverlays.cover);
+    visibility("cover-construction", appMode === "planner" && mapLens === "cover" && mapOverlays.cover);
+    ["flood-nuisance", "flood-deep", "flood-nuisance-outline", "flood-deep-outline"]
+      .forEach((layer) => visibility(layer, mapOverlays.flood));
+    const showSelection = appMode === "planner" && representativeGap.features.length > 0;
     visibility("planner-selection", showSelection);
     visibility("planner-selection-casing", showSelection);
+    visibility("representative-baseline", appMode === "planner" && representativeRoutes.features.length > 0);
+    visibility("representative-scenario", appMode === "planner" && showRepresentativeIntervention && representativeRoutes.features.length > 0);
     ["overview-clusters", "overview-cluster-count", "overview-icons", "assets", "asset-icons"].forEach((layer) => visibility(layer, mapOverlays.amenities));
-    visibility("amenity-coverage", appMode === "planner" && mapOverlays.amenities && mapLens === "amenities");
     ["civic-task-halo", "civic-task-hit", "civic-task-icons"].forEach((layer) => visibility(layer, mapOverlays.tasks));
-  }, [route, result, showBaseline, activeAssets, activeAsset?.id, overviewAssets, taskFeatures, shadeSegments, coverRouteSegments, plannerScenario, mapLens, mapOverlays, appMode, mapReady]);
+  }, [route, result, showBaseline, comparisonDelta, representativeGap, representativeRoutes, showRepresentativeIntervention, activeAssets, activeAsset?.id, overviewAssets, taskFeatures, shadeSegments, ambientGreeneryLayer, greeneryRouteSegments, ambientCoverLayer, coverRouteSegments, coverContextLayer, coverContextVicinities, floodContextLayer, plannerScenario, mapLens, mapOverlays, appMode, mapReady]);
 
   useEffect(() => {
     const map = mapRef.current;
-    if (!route || !map?.isStyleLoaded()) return;
-    map.fitBounds(boundsForRoute(route), { padding: { top: 90, right: 70, bottom: 90, left: window.innerWidth > 800 ? 460 : 70 }, maxZoom: appMode === "planner" ? 15.3 : 16, duration: 650 });
-  }, [route?.candidateId, appMode, mapReady]);
+    if (!route || !map || !mapReady) return;
+    const frame = window.requestAnimationFrame(() => {
+      map.resize();
+      map.fitBounds(boundsForRoute(route), { padding: { top: 90, right: 70, bottom: 90, left: window.innerWidth > 800 ? 460 : 70 }, maxZoom: appMode === "planner" ? 15.3 : 16, duration: 650 });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [route, appMode, mapReady]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (appMode !== "planner" || !map || !mapReady || representativeRoutes.features.length === 0) return;
+    const coordinates = representativeRoutes.features.flatMap((feature) => feature.geometry.coordinates);
+    const west = Math.min(...coordinates.map(([longitude]) => longitude));
+    const east = Math.max(...coordinates.map(([longitude]) => longitude));
+    const south = Math.min(...coordinates.map(([, latitude]) => latitude));
+    const north = Math.max(...coordinates.map(([, latitude]) => latitude));
+    const frame = window.requestAnimationFrame(() => map.fitBounds([[west, south], [east, north]], {
+      padding: { top: 90, right: 70, bottom: 90, left: window.innerWidth > 800 ? 480 : 70 },
+      maxZoom: 15.7,
+      duration: 650,
+    }));
+    return () => window.cancelAnimationFrame(frame);
+  }, [appMode, mapReady, representativeRoutes]);
 
   useEffect(() => {
     if (!mapOverlays.shade || !buildingShadeDetailVisible(mapViewport.zoom)) {
@@ -1393,16 +1848,28 @@ export function App() {
       return;
     }
     const roundedHour = Math.max(7, Math.min(19, Math.round(shadeHour)));
-    const load = shadowModules[`./data/shadows/hour-${roundedHour}.json`];
-    if (!load || !mapRef.current?.getSource("building-shadows")) return;
+    const loads = shadowTilesIntersectingBounds(mapViewport)
+      .map((tileId) => shadowModules[`./data/shadows/${tileId}/hour-${roundedHour}.json`])
+      .filter((load): load is NonNullable<typeof load> => Boolean(load));
+    if (!loads.length || !mapRef.current?.getSource("building-shadows")) return;
     let cancelled = false;
-    const timer = window.setTimeout(() => void load().then((module) => {
+    const timer = window.setTimeout(() => void Promise.all(loads.map(async (load) => {
+      const url = await load() as string;
+      const response = await fetch(url);
+      if (!response.ok) throw new Error(`Shadow tile failed to load: ${response.status}`);
+      return response.json() as Promise<{ features: never[] }>;
+    })).then((modules) => {
       if (cancelled) return;
       mapRef.current?.setLayoutProperty("building-shadows", "visibility", "visible");
-      (mapRef.current?.getSource("building-shadows") as GeoJSONSource | undefined)?.setData((module as { default: never }).default);
+      (mapRef.current?.getSource("building-shadows") as GeoJSONSource | undefined)?.setData({
+        type: "FeatureCollection",
+        features: modules.flatMap((module) => module.features),
+      });
+    }).catch(() => {
+      if (mapRef.current?.getLayer("building-shadows")) mapRef.current.setLayoutProperty("building-shadows", "visibility", "none");
     }), 90);
     return () => { cancelled = true; window.clearTimeout(timer); };
-  }, [shadeHour, mapOverlays.shade, mapViewport.zoom, mapReady]);
+  }, [shadeHour, mapOverlays.shade, mapViewport, mapReady]);
 
   const assetPopoverOpensLeft = Boolean(activeAssetPoint && activeAssetPoint.x > window.innerWidth - 320);
   const assetPopoverStyle = activeAssetPoint ? {
@@ -1413,6 +1880,11 @@ export function App() {
   const coverPopoverStyle = activeCoverPoint ? {
     "--asset-popover-left": `${Math.max(16, activeCoverPoint.x > window.innerWidth - 320 ? activeCoverPoint.x - 296 : activeCoverPoint.x + 18)}px`,
     "--asset-popover-top": `${Math.max(72, Math.min(window.innerHeight - 190, activeCoverPoint.y - 34))}px`,
+  } as CSSProperties : undefined;
+
+  const floodPopoverStyle = activeFloodPoint ? {
+    "--asset-popover-left": `${Math.max(16, activeFloodPoint.x > window.innerWidth - 320 ? activeFloodPoint.x - 296 : activeFloodPoint.x + 18)}px`,
+    "--asset-popover-top": `${Math.max(72, Math.min(window.innerHeight - 220, activeFloodPoint.y - 34))}px`,
   } as CSSProperties : undefined;
 
   const taskPopoverOpensLeft = Boolean(activeTaskPoint && activeTaskPoint.x > window.innerWidth - 320);
@@ -1430,15 +1902,27 @@ export function App() {
     setActiveTaskPoint(null);
     setActiveCover(null);
     setActiveCoverPoint(null);
+    setActiveFlood(null);
+    setActiveFloodPoint(null);
     setEditRoute(false);
+    if (mode === "planner") {
+      setShowRepresentativeIntervention(false);
+      setPlannerView("what_if");
+    }
     const nextLens: MapLens = mode === "planner" ? (route ? "shade" : "amenities") : rainContext ? "cover" : "route";
     setMapLens(nextLens);
-    setMapOverlays((current) => ({ ...current, amenities: true, shade: mode === "planner" && Boolean(route) ? true : current.shade, cover: rainContext ? true : current.cover }));
+    setMapOverlays({
+      ...DEFAULT_MAP_OVERLAYS,
+      shade: mode === "planner" && Boolean(route),
+      cover: mode === "walk" && rainContext,
+      amenities: !route,
+    });
   };
 
   const focusMapLens = (lens: MapLens) => {
     setMapLens(lens);
-    if (lens !== "route") setMapOverlays((current) => ({ ...current, [lens]: true }));
+    setMapOverlays(lens === "route" ? DEFAULT_MAP_OVERLAYS : { ...DEFAULT_MAP_OVERLAYS, [lens]: true });
+    setEditRoute(false);
   };
 
   const toggleMapOverlay = (layer: keyof MapOverlays) => {
@@ -1447,19 +1931,74 @@ export function App() {
     setEditRoute(false);
   };
 
+  const savePreferences = (nextPreferences: UserPreferences) => {
+    setPreferences(nextPreferences);
+    saveUserPreferences(nextPreferences);
+    if (!route) {
+      const preferenceBrief = newTripBriefFromPreferences(nextPreferences, brief.departureHour);
+      setBrief((current) => ({
+        ...current,
+        priorities: [...preferenceBrief.priorities],
+        detourMinutes: nextPreferences.detourMinutes,
+        interpretedBy: "controls",
+      }));
+    }
+  };
+
+  const resetPreferences = () => {
+    setPreferences(null);
+    clearUserPreferences();
+    if (!route) {
+      setBrief((current) => ({ ...current, priorities: [], detourMinutes: DEFAULT_BRIEF.detourMinutes, interpretedBy: "controls" }));
+    }
+  };
+
+  const saveActiveRouteFeedback = (input: { sentiment: RouteFeedbackSentiment; category: RouteFeedbackCategory | null; body: string }) => {
+    if (!activeRouteActivity) return;
+    const next = addRouteFeedback(routeActivityRef.current, activeRouteActivity.id, input);
+    routeActivityRef.current = next;
+    setRouteActivity(next);
+    setActivityPersisted(saveRouteActivity(next));
+  };
+
+  const removeActiveRouteFeedback = (feedbackId: string) => {
+    if (!activeRouteActivity) return;
+    const next = removeRouteFeedback(routeActivityRef.current, activeRouteActivity.id, feedbackId);
+    routeActivityRef.current = next;
+    setRouteActivity(next);
+    setActivityPersisted(saveRouteActivity(next));
+  };
+
+  const selectActivityRoute = (routeId: string) => {
+    setSelectedActivityRouteId(routeId);
+    const selected = routeActivityRef.current.find((item) => item.id === routeId);
+    const bounds = selected ? boundsForCoordinates(selected.coordinates) : null;
+    if (bounds && mapRef.current) mapRef.current.fitBounds(bounds, { padding: { top: 100, right: 80, bottom: 100, left: window.innerWidth > 800 ? 470 : 70 }, maxZoom: 16, duration: 500 });
+  };
+
+  const clearLocalRouteActivity = () => {
+    if (!window.confirm("Clear every route and note saved in this browser? This cannot be undone.")) return;
+    routeActivityRef.current = [];
+    setRouteActivity([]);
+    setActiveRouteLogId(null);
+    setSelectedActivityRouteId(null);
+    setActivityPersisted(clearRouteActivity());
+  };
+
   return <main className={`${route ? "has-result" : "is-compose"} mode-${appMode}`}>
-    <div className="map-shell"><div className="map" ref={mapContainer} /><div className="map-wash" />{mapError && <FallbackMap graph={pilotGraph} route={route} lens={mapLens} overlays={mapOverlays} shadeSegments={shadeSegments} coverSegments={coverRouteSegments} ambientCover={ambientCoverLayer} selection={appMode === "planner" ? plannerScenario?.selection.geojson : null} assets={viewportAssets} prominentAssetIds={activeAssets.map((asset) => asset.id)} selectedAssetId={activeAsset?.id} onAssetClick={(asset) => { setActiveTask(null); setActiveTaskPoint(null); setActiveAsset(asset); setActiveAssetPoint({ x: Math.round(window.innerWidth * .68), y: 160 }); }} tasks={visibleTasks} selectedTaskId={activeTask?.id} completedTaskIds={Object.keys(taskObservations)} onTaskClick={(task) => { setActiveAsset(null); setActiveAssetPoint(null); setActiveTask(task); setActiveTaskPoint({ x: Math.round(window.innerWidth * .68), y: 160 }); }} />}</div>
-    <div className="top-bar"><div className="brand-cluster"><Brand /><nav className="mode-switch" aria-label="Happy Path mode"><button type="button" className={appMode === "walk" ? "active" : ""} onClick={() => switchMode("walk")}>Walk</button><button type="button" className={appMode === "planner" ? "active" : ""} onClick={() => switchMode("planner")}>City what-if</button></nav></div><div className="map-actions">{!mapError && <IconButton label="Center map" onClick={() => mapRef.current?.easeTo({ center: nodeById.get(originNodeId)?.coordinate, zoom: 14.5 })}><LocateIcon /></IconButton>}{route && appMode === "walk" && <IconButton label="Map details" onClick={() => { setActiveAsset(null); setActiveAssetPoint(null); setActiveTask(null); setActiveTaskPoint(null); setDetail("data"); }}><LayersIcon /></IconButton>}</div></div>
+    <div className="map-shell"><div className="map" ref={mapContainer} /><div className="map-wash" />{mapError && <FallbackMap graph={pilotGraph} route={route} baseline={showBaseline ? result?.baseline ?? null : null} comparisonDelta={comparisonDelta} representativeRoutes={representativeRoutes} lens={mapLens} overlays={mapOverlays} shadeSegments={shadeSegments} greenerySegments={greeneryRouteSegments} ambientGreenery={ambientGreeneryLayer} coverSegments={coverRouteSegments} ambientCover={ambientCoverLayer} coverContext={coverContextLayer} floodContext={floodContextLayer} selection={appMode === "planner" ? representativeGap : null} assets={viewportAssets} prominentAssetIds={activeAssets.map((asset) => asset.id)} selectedAssetId={activeAsset?.id} onAssetClick={(asset) => { setActiveTask(null); setActiveTaskPoint(null); setActiveFlood(null); setActiveFloodPoint(null); setActiveAsset(asset); setActiveAssetPoint({ x: Math.round(window.innerWidth * .68), y: 160 }); }} tasks={visibleTasks} selectedTaskId={activeTask?.id} completedTaskIds={Object.keys(taskObservations)} onTaskClick={(task) => { setActiveAsset(null); setActiveAssetPoint(null); setActiveFlood(null); setActiveFloodPoint(null); setActiveTask(task); setActiveTaskPoint({ x: Math.round(window.innerWidth * .68), y: 160 }); }} />}</div>
+    <div className="top-bar"><div className="brand-cluster"><Brand /><PreferencesPopover preferences={preferences} onSave={savePreferences} onReset={resetPreferences} appliesNow={!route} /><div className="mode-switch" aria-label="Product view"><button type="button" className={appMode === "walk" ? "active" : ""} aria-pressed={appMode === "walk"} onClick={() => switchMode("walk")}>Walk</button><button type="button" className={appMode === "planner" ? "active" : ""} aria-pressed={appMode === "planner"} onClick={() => switchMode("planner")}>City view</button></div></div><div className="map-actions">{!mapError && <IconButton label="Center map" onClick={() => mapRef.current?.easeTo({ center: graphNodeById(originNodeId)?.coordinate, zoom: 14.5 })}><LocateIcon /></IconButton>}{route && appMode === "walk" && <IconButton label="Map details" onClick={() => { setActiveAsset(null); setActiveAssetPoint(null); setActiveTask(null); setActiveTaskPoint(null); setDetail("data"); }}><LayersIcon /></IconButton>}</div></div>
     {appMode === "planner"
-      ? <PlannerSheet route={route} scenario={plannerScenario} insight={plannerInsight} insightBusy={plannerInsightBusy} insightError={plannerInsightError} lens={mapLens} onLensChange={focusMapLens} targetShade={plannerShadeTarget} onTargetShadeChange={setPlannerShadeTarget} onBack={() => switchMode("walk")} onUseSample={() => void usePlannerSample()} onPlannerPrompt={handlePlannerPrompt} />
+      ? <RepresentativePlannerSheet scenario={representativeScenario} showIntervention={showRepresentativeIntervention} onShowIntervention={() => setShowRepresentativeIntervention(true)} onBack={() => switchMode("walk")} activity={routeActivity} activityPersisted={activityPersisted} view={plannerView} onViewChange={setPlannerView} selectedActivityRouteId={selectedActivityRouteId} onSelectActivityRoute={selectActivityRoute} onClearActivity={clearLocalRouteActivity} />
       : !route
-        ? <ComposeSheet brief={brief} setBrief={setBrief} prompt={prompt} setPrompt={setPrompt} originText={originText} setOriginText={setOriginText} destinationText={destinationText} setDestinationText={setDestinationText} busy={busy} busyMode={busyMode} error={error} onPlan={() => void plan()} />
-        : result && <ResultSheet brief={brief} route={route} result={result} assets={activeAssets} tasks={routeTasks} destinationText={destinationText} setDestinationText={setDestinationText} delta={delta} error={error} onBack={startNewWalk} onRefine={(value) => plan(value, true)} onAdjust={adjust} onShowWhy={() => { setActiveAsset(null); setActiveAssetPoint(null); setActiveTask(null); setActiveTaskPoint(null); setDetail("why"); }} onShowAsset={(asset) => { setActiveTask(null); setActiveTaskPoint(null); setActiveAsset(asset); setActiveAssetPoint(null); setDetail("asset"); }} onShowTask={(task) => { setActiveAsset(null); setActiveAssetPoint(null); setActiveTask(task); setActiveTaskPoint(null); setDetail("task"); }} onShowData={() => { setActiveAsset(null); setActiveAssetPoint(null); setActiveTask(null); setActiveTaskPoint(null); setDetail("data"); }} onOpenPlanner={() => switchMode("planner")} detourScenario={detourScenario} showBaseline={showBaseline} setShowBaseline={setShowBaseline} busy={busy} busyMode={busyMode} modelFallback={modelFallback} rainContext={rainContext} />}
+        ? <ComposeSheet brief={brief} setBrief={setBrief} prompt={prompt} setPrompt={setPrompt} originText={originText} setOriginText={setOriginText} destinationText={destinationText} setDestinationText={setDestinationText} busy={busy} busyMode={busyMode} error={error} onPlan={() => void plan()} onSelectExample={selectExample} />
+        : result && <ResultSheet brief={brief} route={route} result={result} assets={activeAssets} tasks={routeTasks} destinationText={destinationText} setDestinationText={setDestinationText} delta={delta} error={error} feedback={activeRouteActivity?.feedback ?? []} activityPersisted={activityPersisted} onBack={startNewWalk} onRefine={(value) => plan(value, true)} onAdjust={adjust} onShowWhy={() => { setActiveAsset(null); setActiveAssetPoint(null); setActiveTask(null); setActiveTaskPoint(null); setDetail("why"); }} onShowAsset={(asset) => { setActiveTask(null); setActiveTaskPoint(null); setActiveAsset(asset); setActiveAssetPoint(null); setDetail("asset"); }} onShowTask={(task) => { setActiveAsset(null); setActiveAssetPoint(null); setActiveTask(task); setActiveTaskPoint(null); setDetail("task"); }} onShowData={() => { setActiveAsset(null); setActiveAssetPoint(null); setActiveTask(null); setActiveTaskPoint(null); setDetail("data"); }} onOpenPlanner={() => { setPlannerView("what_if"); switchMode("planner"); }} onSaveFeedback={saveActiveRouteFeedback} onRemoveFeedback={removeActiveRouteFeedback} detourScenario={detourScenario} showBaseline={showBaseline} setShowBaseline={setShowBaseline} busy={busy} busyMode={busyMode} modelFallback={modelFallback} rainContext={rainContext} />}
     {appMode === "walk" && detail && route && <DetailPanel mode={detail} brief={brief} route={route} assets={activeAssets} tasks={routeTasks} activeAsset={activeAsset} activeTask={activeTask} taskObservation={activeTask ? taskObservations[activeTask.id] ?? null : null} detourScenario={detourScenario} rainContext={rainContext} onCompleteTask={(response) => { if (!activeTask) return; setTaskObservations((current) => ({ ...current, [activeTask.id]: createSessionCivicObservation(activeTask, response) })); }} onRemoveTaskObservation={() => { if (!activeTask) return; setTaskObservations((current) => { const next = { ...current }; delete next[activeTask.id]; return next; }); }} onClose={() => { setDetail(null); if (detail === "asset") { setActiveAsset(null); setActiveAssetPoint(null); } if (detail === "task") { setActiveTask(null); setActiveTaskPoint(null); } }} />}
     {activeAsset && detail !== "asset" && <aside className={`asset-popover ${assetPopoverOpensLeft ? "opens-left" : ""}`} style={assetPopoverStyle} role="dialog" aria-label={assetTypeLabel(activeAsset)}><div><AssetIcon kind={activeAsset.kind} /><IconButton label="Close" onClick={() => { setActiveAsset(null); setActiveAssetPoint(null); }}><CloseIcon /></IconButton></div><span className="eyebrow">{appMode === "planner" ? "Place on the map" : "Near your walk"}</span><h3>{assetTypeLabel(activeAsset)}</h3><p>{activeAsset.locationLabel}</p><small>{assetAvailabilityCopy(activeAsset)}</small><small className="source-freshness">{civicAssetEvidence(activeAsset).freshnessLabel}</small>{appMode === "walk" && <button type="button" className="asset-more" onClick={() => setDetail("asset")}>See details</button>}</aside>}
     {activeTask && detail !== "task" && <aside className={`asset-popover civic-task-popover ${taskPopoverOpensLeft ? "opens-left" : ""}`} style={taskPopoverStyle} role="dialog" aria-label={activeTask.title}><div><CivicTaskIcon task={activeTask} /><IconButton label="Close" onClick={() => { setActiveTask(null); setActiveTaskPoint(null); }}><CloseIcon /></IconButton></div><span className="eyebrow">Optional · {activeTask.estimatedMinutes} min</span><h3>{activeTask.title}</h3><p>{activeTask.locationLabel}</p><small>A quick check that can help keep the map useful.</small>{taskObservations[activeTask.id] && <small className="task-complete-label"><CheckCircleIcon />Checked in this session</small>}{appMode === "walk" && <button type="button" className="asset-more" onClick={() => setDetail("task")}>{taskObservations[activeTask.id] ? "See observation" : "View check"}</button>}</aside>}
-    {activeCover && <aside className="asset-popover cover-popover" style={coverPopoverStyle} role="dialog" aria-label="Likely cover"><div><UmbrellaIcon /><IconButton label="Close" onClick={() => { setActiveCover(null); setActiveCoverPoint(null); }}><CloseIcon /></IconButton></div><span className="eyebrow">Cover along this stretch</span><h3>{activeCover.label}</h3><p>{activeCover.street}</p><small>Shown as a planning preview. A live version would add current sheds, awnings, arcades, and construction.</small></aside>}
-    <MapLensControl overlays={mapOverlays} onToggle={toggleMapOverlay} hour={shadeHour} onHourChange={setShadeHour} planner={appMode === "planner"} hasRoute={Boolean(route)} shadeDetailVisible={buildingShadeDetailVisible(mapViewport.zoom)} canEdit={!mapError} editing={editRoute} onEditingChange={(editing) => { setEditRoute(editing); if (editing) setMapLens("route"); }} />
-    <div className="map-key" aria-hidden="true">{route && <span><i className="route-key" />Happy Path</span>}{mapOverlays.shade && <span><i className="shade-deep-key" />{route || buildingShadeDetailVisible(mapViewport.zoom) ? `Shade at ${formatClock(shadeHour)}` : "Zoom in for shade"}</span>}{mapOverlays.cover && <span><i className="cover-key" />Likely cover</span>}{mapOverlays.amenities && <span><i className="amenity-key" />Nearby places</span>}{mapOverlays.tasks && <span><i className="task-key" />Optional check</span>}</div>
+    {activeCover && <aside className="asset-popover cover-popover" style={coverPopoverStyle} role="dialog" aria-label="Cover evidence"><div><UmbrellaIcon /><IconButton label="Close" onClick={() => { setActiveCover(null); setActiveCoverPoint(null); }}><CloseIcon /></IconButton></div><span className="eyebrow">Cover evidence</span><h3>{activeCover.label}</h3><p>{activeCover.locationLabel}</p><small>{activeCover.detail}</small>{activeCover.taskId && <button type="button" className="asset-more" onClick={() => { const task = allCivicTasks.find((candidate) => candidate.id === activeCover.taskId); if (!task) return; setAppMode("walk"); setActiveCover(null); setActiveCoverPoint(null); setActiveTask(task); setActiveTaskPoint(null); setDetail("task"); }}>Help verify this</button>}{activeCover.sourceId && sourceRegistryPresentation(activeCover.sourceId) && <a className="asset-more" href={sourceRegistryPresentation(activeCover.sourceId)!.officialUrl} target="_blank" rel="noreferrer">Open source</a>}</aside>}
+    {activeFlood && <aside className="asset-popover flood-popover" style={floodPopoverStyle} role="dialog" aria-label="Modeled flood potential"><div><CloudRainIcon /><IconButton label="Close" onClick={() => { setActiveFlood(null); setActiveFloodPoint(null); }}><CloseIcon /></IconButton></div><span className="eyebrow">2050 model · not live</span><h3>{activeFlood.label}</h3><p>{activeFlood.depthBand}</p><small>{activeFlood.detail}</small><a className="asset-more" href={floodEvidenceMetadata.source.datasetUrl} target="_blank" rel="noreferrer">Open DEP model source</a></aside>}
+    {((appMode === "planner" && plannerView === "what_if") || (appMode === "walk" && Boolean(route) && detail === "data")) && <MapLensControl overlays={mapOverlays} onToggle={toggleMapOverlay} hour={shadeHour} onHourChange={setShadeHour} planner={appMode === "planner"} hasRoute={Boolean(route)} shadeDetailVisible={buildingShadeDetailVisible(mapViewport.zoom)} canEdit={!mapError} editing={editRoute} onEditingChange={(editing) => { setEditRoute(editing); if (editing) setMapLens("route"); }} />}
+    <div className="map-key" role="list" aria-label="Visible map layers">{route && <span role="listitem"><i className="route-key" />Happy Path</span>}{showBaseline && result?.baseline && <span role="listitem"><i className="baseline-key" />Fastest route</span>}{mapOverlays.shade && <span role="listitem"><i className="shade-deep-key" />{route || buildingShadeDetailVisible(mapViewport.zoom) ? `Shade at ${formatClock(shadeHour)}` : "Zoom in for shade"}</span>}{mapOverlays.greenery && <span role="listitem"><i className="greenery-key" />Trees &amp; parks nearby</span>}{mapOverlays.cover && <><span role="listitem"><i className="cover-key" />Mapped cover</span><span role="listitem"><i className="cover-context-key" />Approx. cover-record vicinity</span></>}{mapOverlays.flood && <span role="listitem"><i className="flood-key" />Flood potential · 2050 model</span>}{mapOverlays.amenities && <span role="listitem"><i className="amenity-key" />Nearby places</span>}{mapOverlays.tasks && <span role="listitem"><i className="task-key" />Optional check</span>}</div>
   </main>;
 }

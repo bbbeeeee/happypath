@@ -34,7 +34,7 @@ describe("buildRouteCityInsightRequest", () => {
       route,
       scenario,
       nearbyAssets: listCivicAssets().slice(0, 6),
-      simulatedCoverPercent: 47,
+      mappedCoverMeters: 47,
     });
 
     expect(request.route.routeId).toBe(route.candidateId);
@@ -56,8 +56,8 @@ describe("buildRouteCityInsightRequest", () => {
       ...request.candidates.flatMap((candidate) => candidate.evidence.map((item) => item.factId)),
     ]).size).toBe(request.route.evidence.length + request.candidates.reduce((sum, candidate) => sum + candidate.evidence.length, 0));
     const cover = request.candidates.find((candidate) => candidate.candidateId === "audit-weather-cover")!;
-    expect(cover.evidence[0].sourceIds).toEqual(["demo-cover-simulation"]);
-    expect(cover.referenceSourceIds).toEqual(["nyc-sidewalk-shed-permits"]);
+    expect(cover.evidence[0].sourceIds).toEqual(["openstreetmap"]);
+    expect(cover.referenceSourceIds).toEqual(["nyc-sidewalk-shed-permits", "nyc-pops", "nyc-street-construction-closures"]);
     const accessibility = request.candidates.find((candidate) => candidate.candidateId === "audit-step-free-evidence")!;
     expect(accessibility.evidence[0].sourceIds).toEqual(["openstreetmap"]);
     expect(accessibility.referenceSourceIds).toEqual(["nyc-pedestrian-ramps"]);

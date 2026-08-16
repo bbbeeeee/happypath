@@ -9,5 +9,5 @@
     "rootDir": ".",
     "rewriteRelativeImportExtensions": true
   },
-  "include": ["vite.config.ts", "vitest.config.ts", "server", "src/planning/tripBrief.ts"]
+  "include": ["vite.config.ts", "vitest.config.ts", "server", "src/planning/tripBrief.ts", "src/exampleJourneys.ts", "src/preferenceNote.ts", "src/types.ts"]
 }

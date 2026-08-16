@@ -16,7 +16,7 @@ export interface CityInsightContext {
   route: JourneyRoute;
   scenario: ShadeDetourScenario | null;
   nearbyAssets: readonly CivicAsset[];
-  simulatedCoverPercent: number;
+  mappedCoverMeters: number;
 }
 
 function fact(
@@ -29,7 +29,6 @@ function fact(
 
 function sourceKind(sourceId: string): InsightSource["kind"] {
   if (sourceId === "openstreetmap") return "community";
-  if (sourceId === "demo-cover-simulation") return "synthetic";
   if (sourceId === "building-shadow-model" || sourceId === "greenery-edge-model") return "derived";
   return "official";
 }
@@ -87,7 +86,7 @@ function routeFacts(context: CityInsightContext) {
 }
 
 function interventionCandidates(context: CityInsightContext) {
-  const { brief, route, scenario, nearbyAssets, simulatedCoverPercent } = context;
+  const { brief, route, scenario, nearbyAssets, mappedCoverMeters } = context;
   const candidates: CityInterventionCandidate[] = [];
   const routeLocation = route.streets.find((street) => street && !/^unnamed/i.test(street)) || "the selected route";
   if (scenario) {
@@ -129,11 +128,13 @@ function interventionCandidates(context: CityInsightContext) {
     proposedAction: "Check the most exposed stretches for real rain cover",
     evidence: [fact(
       "cover-proof-share",
-      `${Math.round(simulatedCoverPercent)}% of this path looks likely to have cover in the planning preview.`,
-      ["demo-cover-simulation"],
+      mappedCoverMeters >= 1
+        ? `About ${Math.round(mappedCoverMeters)} meters of this path are explicitly mapped with overhead cover.`
+        : "This path has no explicit covered-way tags in the checked-in community map.",
+      ["openstreetmap"],
     )],
-    referenceSourceIds: ["nyc-sidewalk-shed-permits"],
-    caveat: "This cover layer is a preview. A field check and current permit data would be needed to confirm a dry, passable route.",
+    referenceSourceIds: ["nyc-sidewalk-shed-permits", "nyc-pops", "nyc-street-construction-closures"],
+    caveat: "Most streets are unassessed. Permit and public-space records are nearby context, not proof of a dry, passable route.",
   });
 
   if (brief.avoidMappedSteps) {

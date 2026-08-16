@@ -1,23 +1,39 @@
 import { createHash } from "node:crypto";
 import { readFile, writeFile } from "node:fs/promises";
+import {
+  SUPPORTED_AREA_BBOX,
+  bboxMetadata,
+  geometryIntersectsSupportedArea,
+  socrataWithinBox,
+  supportedArea,
+} from "./lib/supported-area.mjs";
 
 const DATASET_ID = "5zhs-2jue";
-const BBOX = [40.726, -74.006, 40.736, -73.988];
+const BBOX = SUPPORTED_AREA_BBOX;
 const OUTPUT = new URL("../src/data/pilot-buildings.json", import.meta.url);
 const REGISTRY_OUTPUT = new URL("../src/data/source-registry.json", import.meta.url);
-const api = new URL(`https://data.cityofnewyork.us/resource/${DATASET_ID}.geojson`);
-api.searchParams.set("$limit", "50000");
-api.searchParams.set("$select", "the_geom,bin,height_roof,last_edited_date,geom_source");
-api.searchParams.set("$where", `within_box(the_geom,${BBOX.join(",")})`);
-
-const response = await fetch(api, { headers: { "User-Agent": "HappyPathPrototype/0.1" } });
-if (!response.ok) throw new Error(`NYC OpenData request failed: ${response.status} ${await response.text()}`);
-const snapshotText = await response.text();
-const collection = JSON.parse(snapshotText);
+const pageSize = 20_000;
+const pages = [];
+for (let offset = 0; ; offset += pageSize) {
+  const api = new URL(`https://data.cityofnewyork.us/resource/${DATASET_ID}.geojson`);
+  api.searchParams.set("$limit", String(pageSize));
+  api.searchParams.set("$offset", String(offset));
+  api.searchParams.set("$order", "bin");
+  api.searchParams.set("$select", "the_geom,bin,height_roof,last_edited_date,geom_source");
+  api.searchParams.set("$where", socrataWithinBox("the_geom", BBOX));
+  const response = await fetch(api, { headers: { "User-Agent": "HappyPathPrototype/0.1" } });
+  if (!response.ok) throw new Error(`NYC OpenData request failed: ${response.status} ${await response.text()}`);
+  const pageText = await response.text();
+  const page = JSON.parse(pageText);
+  pages.push({ text: pageText, features: page.features });
+  if (page.features.length < pageSize) break;
+}
 const retrievedAt = new Date().toISOString();
-const snapshotHash = createHash("sha256").update(snapshotText).digest("hex");
+const snapshotHash = createHash("sha256").update(pages.map((page) => page.text).join("\n")).digest("hex");
 
-const features = collection.features.map((feature) => ({
+const features = pages.flatMap((page) => page.features)
+  .filter((feature) => geometryIntersectsSupportedArea(feature.geometry))
+  .map((feature) => ({
   type: "Feature",
   geometry: feature.geometry,
   properties: {
@@ -26,7 +42,7 @@ const features = collection.features.map((feature) => ({
     lastEditedDate: feature.properties.last_edited_date ?? null,
     geometrySource: feature.properties.geom_source ?? null,
   },
-}));
+  }));
 const heights = features.map((feature) => feature.properties.heightRoofFeet).filter((height) => height > 0 && height < 2000);
 const invalidHeights = features.filter((feature) => feature.properties.heightRoofFeet !== null && (feature.properties.heightRoofFeet <= 0 || feature.properties.heightRoofFeet >= 2000)).length;
 const usableHeightShare = features.length ? heights.length / features.length : 0;
@@ -39,7 +55,7 @@ const audit = {
   minimumHeightFeet: heights.length ? Math.min(...heights) : null,
   maximumHeightFeet: heights.length ? Math.max(...heights) : null,
 };
-await writeFile(OUTPUT, `${JSON.stringify({ type: "FeatureCollection", features, metadata: { generatedAt: retrievedAt, sourceIds: ["nyc-building-footprints"], audit } }, null, 2)}\n`);
+await writeFile(OUTPUT, `${JSON.stringify({ type: "FeatureCollection", features, metadata: { generatedAt: retrievedAt, supportedAreaId: supportedArea.id, pilotBbox: BBOX, sourceIds: ["nyc-building-footprints"], audit } }, null, 2)}\n`);
 
 const registry = await readFile(REGISTRY_OUTPUT, "utf8").then(JSON.parse).catch(() => ({ sources: [] }));
 const otherSources = registry.sources.filter((source) => source.source_id !== "nyc-building-footprints");
@@ -63,7 +79,8 @@ otherSources.push({
   snapshot_hash: `sha256:${snapshotHash}`,
   geometry_type: "MultiPolygon",
   source_crs: "EPSG:4326",
-  pilot_bbox: { south: BBOX[0], west: BBOX[1], north: BBOX[2], east: BBOX[3] },
+  pilot_bbox: bboxMetadata(BBOX),
+  supported_area_id: supportedArea.id,
   pilot_coverage: usableHeightShare,
   derived_from: [],
   method_version: "nyc-building-crop-v1",

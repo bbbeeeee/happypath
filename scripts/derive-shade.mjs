@@ -1,15 +1,18 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { solarPosition } from "../src/routing/solar.mjs";
+import { bboxMetadata, supportedArea } from "./lib/supported-area.mjs";
+import { writeShadePartitions } from "./lib/write-edge-evidence-partitions.mjs";
 
 const DATE = process.env.SHADE_DATE ?? "2026-08-15";
 const HOURS = Array.from({ length: 13 }, (_, index) => index + 7);
-const LATITUDE = 40.731;
-const LONGITUDE = -73.997;
 const UTC_OFFSET = -4;
 const SAMPLE_METERS = 8;
 const CELL_SIZE = 0.001;
 const graph = JSON.parse(await readFile(new URL("../src/data/pilot-osm.json", import.meta.url), "utf8"));
 const buildings = JSON.parse(await readFile(new URL("../src/data/pilot-buildings.json", import.meta.url), "utf8"));
+const BBOX = graph.metadata.pilotBbox;
+const LATITUDE = (BBOX[0] + BBOX[2]) / 2;
+const LONGITUDE = (BBOX[1] + BBOX[3]) / 2;
 
 function distance(a, b) {
   return Math.hypot((b[1] - a[1]) * 111_111, (b[0] - a[0]) * 84_200);
@@ -112,12 +115,34 @@ function isShaded(point, index) {
 const edgeShadeByHour = Object.fromEntries(graph.edges.map((edge) => [edge.id, {}]));
 const shadowDirectory = new URL("../src/data/shadows/", import.meta.url);
 await mkdir(shadowDirectory, { recursive: true });
+const shadowLongitudeBoundaries = [supportedArea.envelope.west, ...supportedArea.shadowTileLongitudeCuts, supportedArea.envelope.east];
+const shadowTiles = supportedArea.partitions.flatMap((partition) => shadowLongitudeBoundaries.slice(0, -1).map((west, column) => ({
+  id: `${partition.id}-col-${column}`,
+  partition,
+  west,
+  east: shadowLongitudeBoundaries[column + 1],
+})));
+for (const tile of shadowTiles) await mkdir(new URL(`${tile.id}/`, shadowDirectory), { recursive: true });
 for (const hour of HOURS) {
   const position = solarPosition(DATE, hour, LATITUDE, LONGITUDE, UTC_OFFSET);
   const polygons = shadowPolygons(position);
   const index = spatialIndex(polygons);
-  const shadowCollection = { type: "FeatureCollection", features: polygons.map((shadow) => ({ type: "Feature", properties: { bin: shadow.bin }, geometry: { type: "Polygon", coordinates: [[...shadow.polygon, shadow.polygon[0]]] } })), metadata: { date: DATE, hour, validationStatus: "pending" } };
-  await writeFile(new URL(`hour-${hour}.json`, shadowDirectory), `${JSON.stringify(shadowCollection)}\n`);
+  for (const tile of shadowTiles) {
+    const partitionShadows = polygons.filter((shadow) => {
+      const latitude = (shadow.bbox[1] + shadow.bbox[3]) / 2;
+      const longitude = (shadow.bbox[0] + shadow.bbox[2]) / 2;
+      return latitude >= tile.partition.south
+        && (latitude < tile.partition.north || tile.partition.id === supportedArea.partitions.at(-1).id && latitude <= tile.partition.north)
+        && longitude >= tile.west
+        && (longitude < tile.east || tile.east === supportedArea.envelope.east && longitude <= tile.east);
+    });
+    const shadowCollection = {
+      type: "FeatureCollection",
+      features: partitionShadows.map((shadow) => ({ type: "Feature", properties: { bin: shadow.bin }, geometry: { type: "Polygon", coordinates: [[...shadow.polygon, shadow.polygon[0]]] } })),
+      metadata: { date: DATE, hour, supportedAreaId: supportedArea.id, partitionId: tile.partition.id, tileId: tile.id, validationStatus: "pending" },
+    };
+    await writeFile(new URL(`${tile.id}/hour-${hour}.json`, shadowDirectory), `${JSON.stringify(shadowCollection)}\n`);
+  }
   for (const edge of graph.edges) {
     if (!validEdgeGeometry(edge)) {
       edgeShadeByHour[edge.id][hour] = null;
@@ -132,10 +157,11 @@ for (const hour of HOURS) {
 }
 
 const output = {
-  metadata: { date: DATE, hours: HOURS, latitude: LATITUDE, longitude: LONGITUDE, utcOffsetHours: UTC_OFFSET, methodVersion: "building-shadow-polyline-sampling-v2", solarMethod: "noaa-solar-approx-v1", sampleSpacingMeters: SAMPLE_METERS, sourceIds: ["nyc-building-footprints", "openstreetmap"], edgeCoverage: graph.edges.filter(validEdgeGeometry).length / graph.edges.length, validationStatus: "pending" },
+  metadata: { date: DATE, hours: HOURS, latitude: LATITUDE, longitude: LONGITUDE, utcOffsetHours: UTC_OFFSET, supportedAreaId: supportedArea.id, pilotBbox: BBOX, graphGeneratedAt: graph.metadata.generatedAt, graphEdgeCount: graph.edges.length, methodVersion: "building-shadow-polyline-sampling-v4-coherent-partitions", solarMethod: "noaa-solar-approx-v1", sampleSpacingMeters: SAMPLE_METERS, sourceIds: ["nyc-building-footprints", "openstreetmap"], edgeCoverage: graph.edges.filter(validEdgeGeometry).length / graph.edges.length, validationStatus: "pending" },
   edgeShadeByHour,
 };
 await writeFile(new URL("../src/data/pilot-shade.json", import.meta.url), `${JSON.stringify(output)}\n`);
+await writeShadePartitions();
 const registryUrl = new URL("../src/data/source-registry.json", import.meta.url);
 const registry = JSON.parse(await readFile(registryUrl, "utf8"));
 const otherSources = registry.sources.filter((source) => source.source_id !== "building-shadow-model");
@@ -159,11 +185,12 @@ otherSources.push({
   snapshot_hash: null,
   geometry_type: "Polygon and edge samples",
   source_crs: "EPSG:4326",
-  pilot_bbox: { south: 40.726, west: -74.006, north: 40.736, east: -73.988 },
+  pilot_bbox: bboxMetadata(BBOX),
+  supported_area_id: supportedArea.id,
   pilot_coverage: 1,
   derived_from: ["nyc-building-footprints", "openstreetmap"],
-  method_version: "building-shadow-polyline-sampling-v2",
-  known_limitations: ["Uses a solar approximation pending SPA-library review", "Samples preserved OSM edge polylines every 8 meters", "Edges without valid stored geometry receive no favorable shade evidence", "Convex shadow hulls may overstate shadows for concave footprints", "Does not model trees, clouds, facade detail, or measured temperature"],
+  method_version: "building-shadow-polyline-sampling-v4-coherent-partitions",
+  known_limitations: ["Uses a solar approximation pending SPA-library review", "Samples preserved OSM edge polylines every 8 meters", "Edges without valid stored geometry receive no favorable shade evidence", "Convex shadow hulls may overstate shadows for concave footprints", "Overlapping display polygons can appear darker even though route scoring treats shade as binary", "Does not model trees, clouds, facade detail, or measured temperature"],
   allowed_claims: ["Estimated direct-sun exposure", "Projected building shade"],
   prohibited_claims: ["Measured temperature", "Guaranteed shade", "Cooler street"],
   validation_status: "pending"

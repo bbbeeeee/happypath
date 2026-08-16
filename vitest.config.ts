@@ -6,6 +6,7 @@ export default defineConfig({
       ...configDefaults.exclude,
       "**/dist-server/**",
       "**/.vite-types/**",
+      "scripts/**/*.test.mjs",
     ],
   },
 });

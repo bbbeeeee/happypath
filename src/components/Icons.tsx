@@ -98,6 +98,10 @@ export function TrainIcon(props: IconProps) {
   return <Icon {...props}><rect x="6" y="3" width="12" height="15" rx="3" /><path d="M8 18l-2 3M16 18l2 3M8 13h8M9 7h6" /><circle cx="9" cy="15" r=".5" fill="currentColor" /><circle cx="15" cy="15" r=".5" fill="currentColor" /></Icon>;
 }
 
+export function TuneIcon(props: IconProps) {
+  return <Icon {...props}><path d="M4 7h9M17 7h3M4 17h3M11 17h9" /><circle cx="15" cy="7" r="2" /><circle cx="9" cy="17" r="2" /></Icon>;
+}
+
 export function UmbrellaIcon(props: IconProps) {
   return <Icon {...props}><path d="M4 12a8 8 0 0 1 16 0H4Z" /><path d="M12 4v14a2 2 0 0 0 4 0" /><path d="M8 12c0-2 1.8-3.5 4-3.5s4 1.5 4 3.5" /></Icon>;
 }

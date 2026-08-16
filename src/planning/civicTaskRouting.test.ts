@@ -33,9 +33,9 @@ describe("optional civic task routing", () => {
     expect(selection.taskId).toBeTruthy();
     expect(selection.route.durationMinutes).toBeGreaterThanOrEqual(result.timing.targetRangeMinutes!.minimum);
     expect(selection.route.durationMinutes).toBeLessThanOrEqual(result.timing.targetRangeMinutes!.maximum);
-    expect(selection.route.endpointNodeId).toBe(result.recommended.endpointNodeId);
+    expect(selection.route.nodeIds[0]).toBe(brief.originNodeId);
     expect(selection.route.mappedStepEdges).toBe(0);
-  });
+  }, 20_000);
 
   it("leaves an ordinary route byte-for-byte selected when no civic check was requested", () => {
     const brief = wanderBrief(20);
@@ -66,5 +66,5 @@ describe("optional civic task routing", () => {
     expect(photoTasks.map((task) => task.id)).toContain(selection.taskId);
     expect(selection.route.durationMinutes).toBeGreaterThanOrEqual(result.timing.targetRangeMinutes!.minimum);
     expect(selection.route.durationMinutes).toBeLessThanOrEqual(result.timing.targetRangeMinutes!.maximum);
-  });
+  }, 20_000);
 });

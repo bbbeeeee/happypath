@@ -7,6 +7,7 @@ import {
   assetsGeoJSON,
   civicTaskMarkerSvg,
   civicTasksGeoJSON,
+  coverContextMarkerSvg,
   endpointsGeoJSON,
   routeGeoJSON,
 } from "./mapPresentation";
@@ -123,11 +124,24 @@ describe("civic task presentation", () => {
     ]);
   });
 
-  it("uses a decodable, named check icon instead of a letter marker", () => {
-    const output = civicTaskMarkerSvg();
-    expect(output).toMatch(/^data:image\/svg\+xml;charset=UTF-8,/);
-    const svg = decodeURIComponent(output.slice(output.indexOf(",") + 1));
-    expect(svg).toContain("data-kind=\"civic-task\"");
-    expect(svg).toContain("Optional city data check");
+  it("uses distinct, decodable action icons instead of one generic marker", () => {
+    const outputs = (["verify", "observe", "photo"] as const).map((action) => civicTaskMarkerSvg(action));
+    expect(new Set(outputs)).toHaveLength(3);
+    outputs.forEach((output, index) => {
+      expect(output).toMatch(/^data:image\/svg\+xml;charset=UTF-8,/);
+      const svg = decodeURIComponent(output.slice(output.indexOf(",") + 1));
+      expect(svg).toContain(`data-kind="civic-task-${(["verify", "observe", "photo"] as const)[index]}"`);
+      expect(svg).toContain("<title>");
+    });
+  });
+});
+
+describe("cover context presentation", () => {
+  it("uses different record glyphs for shed permits and listed arcades", () => {
+    const shed = coverContextMarkerSvg("sidewalk_shed_permit");
+    const arcade = coverContextMarkerSvg("pops_arcade");
+    expect(shed).not.toBe(arcade);
+    expect(decodeURIComponent(shed)).toContain('data-kind="sidewalk_shed_permit"');
+    expect(decodeURIComponent(arcade)).toContain('data-kind="pops_arcade"');
   });
 });

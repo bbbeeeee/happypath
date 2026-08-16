@@ -1,8 +1,9 @@
 import type { CivicAsset } from "../data/civicAssets";
 import type { CivicTask } from "../data/civicTasks";
+import type { FloodContextCollection } from "../floodEvidence";
 import type { Coordinate, JourneyRoute, PilotGraph } from "../types";
 
-type FallbackLens = "route" | "shade" | "cover" | "amenities" | "tasks";
+type FallbackLens = "route" | "shade" | "greenery" | "cover" | "flood" | "amenities" | "tasks";
 
 interface LineFeature {
   properties: Record<string, unknown>;
@@ -13,14 +14,46 @@ interface LineCollection {
   features: LineFeature[];
 }
 
-export function FallbackMap({ graph, route, lens, overlays, shadeSegments, coverSegments, ambientCover, selection, assets, prominentAssetIds, selectedAssetId, onAssetClick, tasks, selectedTaskId, completedTaskIds, onTaskClick }: {
+interface CoverContextCollection {
+  features: Array<{
+    properties: { kind: string; label: string };
+    geometry:
+      | { type: "Point"; coordinates: Coordinate }
+      | { type: "MultiLineString"; coordinates: Coordinate[][] };
+  }>;
+}
+
+type FallbackBbox = [south: number, west: number, north: number, east: number];
+
+export function fallbackMapBounds(graph: PilotGraph, route: JourneyRoute | null, additionalCoordinates: readonly Coordinate[] = []): FallbackBbox {
+  const coordinates = [...(route?.coordinates ?? []), ...additionalCoordinates];
+  if (!coordinates.length) return graph.metadata?.pilotBbox ?? [40.7, -74.03, 40.76, -73.97];
+  const longitudes = coordinates.map(([longitude]) => longitude);
+  const latitudes = coordinates.map(([, latitude]) => latitude);
+  const west = Math.min(...longitudes);
+  const east = Math.max(...longitudes);
+  const south = Math.min(...latitudes);
+  const north = Math.max(...latitudes);
+  const longitudePadding = Math.max((east - west) * 0.16, 0.0012);
+  const latitudePadding = Math.max((north - south) * 0.16, 0.0009);
+  return [south - latitudePadding, west - longitudePadding, north + latitudePadding, east + longitudePadding];
+}
+
+export function FallbackMap({ graph, route, baseline, comparisonDelta, representativeRoutes, lens, overlays, shadeSegments, greenerySegments, ambientGreenery, coverSegments, ambientCover, coverContext, floodContext, selection, assets, prominentAssetIds, selectedAssetId, onAssetClick, tasks, selectedTaskId, completedTaskIds, onTaskClick }: {
   graph: PilotGraph;
   route: JourneyRoute | null;
+  baseline?: JourneyRoute | null;
+  comparisonDelta?: LineCollection;
+  representativeRoutes?: LineCollection;
   lens: FallbackLens;
-  overlays: { shade: boolean; cover: boolean; amenities: boolean; tasks: boolean };
+  overlays: { shade: boolean; greenery: boolean; cover: boolean; flood: boolean; amenities: boolean; tasks: boolean };
   shadeSegments: LineCollection;
+  greenerySegments: LineCollection;
+  ambientGreenery: LineCollection;
   coverSegments: LineCollection;
   ambientCover: LineCollection;
+  coverContext: CoverContextCollection;
+  floodContext: FloodContextCollection;
   selection?: LineCollection | null;
   assets: readonly CivicAsset[];
   prominentAssetIds: readonly string[];
@@ -31,7 +64,7 @@ export function FallbackMap({ graph, route, lens, overlays, shadeSegments, cover
   completedTaskIds: readonly string[];
   onTaskClick: (task: CivicTask) => void;
 }) {
-  const bbox = graph.metadata?.pilotBbox ?? [40.7, -74.03, 40.76, -73.97];
+  const bbox = fallbackMapBounds(graph, route, representativeRoutes?.features.flatMap((feature) => feature.geometry.coordinates) ?? []);
   const [south, west, north, east] = bbox;
   const width = 1200;
   const height = 820;
@@ -42,12 +75,19 @@ export function FallbackMap({ graph, route, lens, overlays, shadeSegments, cover
     height - (lat - south) / (north - south) * height,
   ] as const;
   const points = (coordinates: readonly Coordinate[]) => coordinates.map((coordinate) => point(coordinate).join(",")).join(" ");
+  const floodPath = (rings: readonly Coordinate[][]) => rings
+    .map((ring) => `M ${ring.map((coordinate) => point(coordinate).join(" ")).join(" L ")} Z`)
+    .join(" ");
   const prominent = new Set(prominentAssetIds);
+  const nodeById = new Map(graph.nodes.map((node) => [node.id, node]));
+  const edgeCoordinates = (edge: PilotGraph["edges"][number]) => edge.geometry ?? [nodeById.get(edge.from)!.coordinate, nodeById.get(edge.to)!.coordinate];
+  const coordinateInView = ([longitude, latitude]: Coordinate) => longitude >= west && longitude <= east && latitude >= south && latitude <= north;
   const streetEdges = graph.edges
-    .filter((edge, index) => edge.distanceMeters > 18 && index % 3 === 0)
+    .filter((edge, index) => edge.distanceMeters > 18 && index % 3 === 0 && edgeCoordinates(edge).some(coordinateInView))
     .slice(0, 1_100);
   const labels = [...graph.edges]
     .filter((edge) => edge.street && !/^unnamed/i.test(edge.street) && edge.distanceMeters > 80)
+    .filter((edge) => edgeCoordinates(edge).some(coordinateInView))
     .sort((a, b) => b.distanceMeters - a.distanceMeters)
     .filter((edge, index, candidates) => candidates.findIndex((candidate) => candidate.street === edge.street) === index)
     .slice(0, 11);
@@ -60,24 +100,39 @@ export function FallbackMap({ graph, route, lens, overlays, shadeSegments, cover
     <svg viewBox={`${viewX} 0 ${viewWidth} ${height}`} preserveAspectRatio="xMidYMid slice" role="img" aria-label="Happy Path route and neighborhood amenities">
       <defs>
         <pattern id="fallback-grid" width="70" height="70" patternUnits="userSpaceOnUse"><path d="M70 0H0V70" fill="none" stroke="#dcded9" strokeWidth="1" /></pattern>
+        <pattern id="fallback-flood-nuisance" width="12" height="12" patternUnits="userSpaceOnUse"><rect width="12" height="12" fill="#d8e4e8" fillOpacity=".5" /><path d="M-3 3 3-3M0 12 12 0M9 15 15 9" stroke="#426a7c" strokeWidth="2" strokeOpacity=".7" /></pattern>
+        <pattern id="fallback-flood-deep" width="12" height="12" patternUnits="userSpaceOnUse"><rect width="12" height="12" fill="#bfcfd8" fillOpacity=".62" /><path d="M-3 3 3-3M0 12 12 0M9 15 15 9M9-3 15 3M0 0 12 12M-3 9 3 15" stroke="#304860" strokeWidth="1.8" strokeOpacity=".8" /></pattern>
         <filter id="route-shadow" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="2" stdDeviation="2" floodColor="#344038" floodOpacity=".22" /></filter>
       </defs>
       <rect x={viewX} width={viewWidth} height={height} fill="#f2f1ed" />
       <rect x={viewX} width={viewWidth} height={height} fill="url(#fallback-grid)" opacity=".48" />
       <g className="fallback-parks" aria-hidden="true"><ellipse cx="1050" cy="110" rx="180" ry="120" /><ellipse cx="380" cy="670" rx="120" ry="80" /><ellipse cx="720" cy="350" rx="85" ry="58" /></g>
-      <g className="fallback-streets" aria-hidden="true">{streetEdges.map((edge) => <polyline key={edge.id} points={points(edge.geometry ?? [graph.nodes.find((node) => node.id === edge.from)!.coordinate, graph.nodes.find((node) => node.id === edge.to)!.coordinate])} />)}</g>
+      <g className="fallback-streets" aria-hidden="true">{streetEdges.map((edge) => <polyline key={edge.id} points={points(edgeCoordinates(edge))} />)}</g>
       <g className="fallback-labels" aria-hidden="true">{labels.map((edge) => {
-        const geometry = edge.geometry ?? [];
-        const center = geometry.length ? geometry[Math.floor(geometry.length / 2)] : graph.nodes.find((node) => node.id === edge.from)!.coordinate;
+        const geometry = edgeCoordinates(edge);
+        const center = geometry[Math.floor(geometry.length / 2)];
         const [x, y] = point(center);
         return <text key={edge.id} x={x} y={y}>{edge.street}</text>;
       })}</g>
 
-      {route && <g className="fallback-route" filter="url(#route-shadow)"><polyline className="route-casing" points={points(route.coordinates)} /><polyline className="route-line" points={points(route.coordinates)} /></g>}
+      {overlays.flood && <g className="fallback-flood-context" aria-label="Modeled 2050 flood potential">{floodContext.features.flatMap((feature) => feature.geometry.coordinates.map((rings, index) => <path key={`${feature.id}-${index}`} d={floodPath(rings)} fill={feature.properties.category === "deep_contiguous" ? "url(#fallback-flood-deep)" : "url(#fallback-flood-nuisance)"} fillRule="evenodd" stroke={feature.properties.category === "deep_contiguous" ? "#304860" : "#426a7c"} strokeWidth={feature.properties.category === "deep_contiguous" ? 1.5 : 1}><title>{feature.properties.label} · 2050 model, not live</title></path>))}</g>}
+
+      {overlays.greenery && <g className="ambient-greenery-lines">{ambientGreenery.features.map((feature, index) => <polyline key={`${String(feature.properties.edgeId)}-${index}`} className={String(feature.properties.greeneryBand)} points={points(feature.geometry.coordinates)}><title>{String(feature.properties.label)}</title></polyline>)}</g>}
       {overlays.shade && <g className="fallback-evidence-lines shade-lines">{shadeSegments.features.map((feature, index) => <polyline key={`${String(feature.properties.edgeId)}-${index}`} className={String(feature.properties.shadeBand)} points={points(feature.geometry.coordinates)}><title>{String(feature.properties.label)}</title></polyline>)}</g>}
+      {overlays.greenery && <g className="fallback-evidence-lines greenery-lines">{greenerySegments.features.map((feature, index) => <polyline key={`${String(feature.properties.edgeId)}-${index}`} className={String(feature.properties.greeneryBand)} points={points(feature.geometry.coordinates)}><title>{String(feature.properties.label)}</title></polyline>)}</g>}
       {overlays.cover && <g className="ambient-cover-lines">{ambientCover.features.map((feature, index) => <polyline key={`${String(feature.properties.edgeId)}-${index}`} className={Number(feature.properties.coverShare) >= .7 ? "more" : "some"} points={points(feature.geometry.coordinates)}><title>{String(feature.properties.label)}</title></polyline>)}</g>}
       {overlays.cover && <g className="fallback-evidence-lines cover-lines">{coverSegments.features.map((feature, index) => <polyline key={`${String(feature.properties.edgeId)}-${index}`} className={String(feature.properties.coverBand)} points={points(feature.geometry.coordinates)}><title>{String(feature.properties.label)}</title></polyline>)}</g>}
+      {overlays.cover && lens === "cover" && <g className="fallback-construction-lines">{coverContext.features.flatMap((feature, index) => feature.geometry.type === "MultiLineString" ? feature.geometry.coordinates.map((line, lineIndex) => <polyline key={`construction-${index}-${lineIndex}`} points={points(line)}><title>{String(feature.properties.label)}</title></polyline>) : [])}</g>}
+      {overlays.cover && <g className="fallback-cover-context">{coverContext.features.flatMap((feature, index) => {
+        if (feature.geometry.type !== "Point") return [];
+        const [x, y] = point(feature.geometry.coordinates);
+        return [<g key={`cover-context-${index}`} className={String(feature.properties.kind)} transform={`translate(${x} ${y})`}><rect x="-10" y="-10" width="20" height="20" rx="5" /><CoverContextGlyph kind={feature.properties.kind} /><title>{String(feature.properties.label)}</title></g>];
+      })}</g>}
       {selection && lens === "shade" && overlays.shade && <g className="fallback-selection">{selection.features.map((feature, index) => <polyline key={`${String(feature.properties.edgeId)}-${index}`} points={points(feature.geometry.coordinates)} />)}</g>}
+      {baseline && <polyline className="fallback-baseline" points={points(baseline.coordinates)} />}
+      {comparisonDelta && <g className="fallback-route-delta">{comparisonDelta.features.map((feature, index) => <polyline key={`${String(feature.properties.routeRole)}-${index}`} className={String(feature.properties.routeRole)} points={points(feature.geometry.coordinates)} />)}</g>}
+      {representativeRoutes && <g className="fallback-representative-routes">{representativeRoutes.features.map((feature, index) => <polyline key={`${String(feature.properties.role)}-${index}`} className={String(feature.properties.role)} points={points(feature.geometry.coordinates)} />)}</g>}
+      {route && <g className="fallback-route" filter="url(#route-shadow)"><polyline className="route-casing" points={points(route.coordinates)} /><polyline className="route-line" points={points(route.coordinates)} /></g>}
 
       <g className="fallback-assets">{visibleAssets.map((asset) => {
         const [x, y] = point(asset.coordinate as Coordinate);
@@ -95,7 +150,7 @@ export function FallbackMap({ graph, route, lens, overlays, shadeSegments, cover
         const completed = completedTasks.has(task.id);
         return <g key={task.id} className={`${selected ? "selected" : ""} ${completed ? "completed" : ""}`} transform={`translate(${x} ${y})`} role="button" tabIndex={0} aria-label={task.title} onClick={() => onTaskClick(task)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") onTaskClick(task); }}>
           <circle r={selected ? 15 : 12} />
-          <path d="m-5 0 3.2 3.2L5-4" />
+          <TaskGlyph action={task.action} />
           <title>{task.title}</title>
         </g>;
       })}</g>}
@@ -110,6 +165,17 @@ function AssetGlyph({ kind }: { kind: CivicAsset["kind"] }) {
   if (kind === "restroom") return <><circle cx="-3" cy="-4" r="1.5" /><circle cx="3" cy="-4" r="1.5" /><path d="M-5 6v-6c0-2 4-2 4 0v6M1 6l1-6c.3-2 2-2 2.3 0L5 6" /></>;
   if (kind === "transit") return <path d="M-6-6H6V6H-6ZM-3 3V-3l3 4 3-4v6" />;
   return <path d="M0-7C4-2 5 0 5 3a5 5 0 0 1-10 0c0-3 1-5 5-10Z" />;
+}
+
+function CoverContextGlyph({ kind }: { kind: string }) {
+  if (kind === "pops_arcade") return <path d="M-6 6V-6H6V6M-3 6V0a3 3 0 0 1 6 0v6M-6-3H6" />;
+  return <path d="M-7-3H7L5-7H-5ZM-5-3V7M5-3V7M-7 1H7" />;
+}
+
+function TaskGlyph({ action }: { action: CivicTask["action"] }) {
+  if (action === "photo") return <><path d="M-6-3h3l1.5-2h3L3-3h3V5H-6Z" /><circle cx="0" cy="1" r="2.4" /></>;
+  if (action === "observe") return <><path d="M-7 0s2.7-4 7-4 7 4 7 4-2.7 4-7 4-7-4-7-4Z" /><circle cx="0" cy="0" r="1.8" /></>;
+  return <path d="m-5 0 3.2 3.2L5-4" />;
 }
 
 function stableNumber(value: string) {

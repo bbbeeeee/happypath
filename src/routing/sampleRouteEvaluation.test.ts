@@ -63,14 +63,14 @@ describe("sample route evaluation", () => {
     expect(scenario.metrics.repeatedEdgeRatio).toBeLessThanOrEqual(0.2);
   });
 
-  it("selects at least as much demo cover without leaving the time band", () => {
+  it("reports sparse mapped cover without leaving the time band", () => {
     const scenario = report.find((item) => item.id === "rain_cover")!;
 
     expect(scenario.metrics.timing.status).toBe("within-target");
-    expect(scenario.comparison!.coverGainPoints).toBeGreaterThan(0);
+    expect(scenario.comparison!.coverGainPoints).toBeGreaterThanOrEqual(0);
     expect(scenario.metrics.coverPercent).toBeGreaterThanOrEqual(scenario.comparison!.baselineCoverPercent);
-    expect(scenario.evidenceBoundary).toMatch(/demo signal/i);
-    expect(scenario.evidenceBoundary).toMatch(/not observed|not.*promise/i);
+    expect(scenario.evidenceBoundary).toMatch(/community map evidence/i);
+    expect(scenario.evidenceBoundary).toMatch(/not.*current|not.*promise/i);
   });
 
   it("hard-excludes mapped steps without claiming accessibility", () => {

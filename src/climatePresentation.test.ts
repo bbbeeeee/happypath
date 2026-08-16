@@ -49,7 +49,8 @@ describe("demo climate context", () => {
       routePreference: { id: "likely_cover" },
     });
     expect(context?.evidence.currentConditionsVerified).toBe(false);
-    expect(context?.evidence.detail).toMatch(/live version/i);
+    expect(context?.evidence.detail).toMatch(/unassessed/i);
+    expect(context?.evidence.sourceIds).toEqual(["openstreetmap"]);
     expect(context?.evidence.detail).not.toMatch(/stay dry|keeps? you dry/i);
   });
 

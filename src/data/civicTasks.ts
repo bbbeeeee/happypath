@@ -4,6 +4,7 @@ import {
   listCivicAssets,
   type CivicCoordinate,
 } from "./civicAssets";
+import { coverEvidenceMetadata } from "../coverEvidence";
 import type { CivicTaskIntent } from "../planning/tripBrief";
 
 export type CivicTaskAction = "verify" | "observe" | "photo";
@@ -16,6 +17,12 @@ export interface CivicTaskPublisher {
   sourceId: string;
 }
 
+export interface CivicTaskTarget {
+  kind: "civic_asset" | "cover_feature" | "mapped_cover_way";
+  id: string;
+  sourceId: string;
+}
+
 export interface CivicTask {
   id: string;
   action: CivicTaskAction;
@@ -24,7 +31,7 @@ export interface CivicTask {
   prompt: string;
   locationLabel: string;
   coordinate: CivicCoordinate;
-  relatedAssetId: string;
+  target: CivicTaskTarget;
   sourceIds: string[];
   purpose: string;
   downstreamUse: string;
@@ -38,7 +45,7 @@ export interface CivicTask {
 }
 
 export interface CivicTaskFixture {
-  schemaVersion: 1;
+  schemaVersion: 2;
   generatedAt: string;
   publisher: CivicTaskPublisher;
   tasks: CivicTask[];
@@ -63,15 +70,27 @@ export interface SessionCivicObservation {
 
 const fixture = fixtureJson as unknown as CivicTaskFixture;
 const knownAssetIds = new Set(listCivicAssets().map((asset) => asset.id));
+const knownMappedCoverWayIds = new Set(coverEvidenceMetadata.mappedCover.edges.map((edge) => String(edge.wayId)));
 
 function validateFixture(value: CivicTaskFixture): CivicTaskFixture {
-  if (value.schemaVersion !== 1) throw new Error(`Unsupported civic task schema version: ${value.schemaVersion}`);
+  if (value.schemaVersion !== 2) throw new Error(`Unsupported civic task schema version: ${value.schemaVersion}`);
   if (!value.publisher.id || !value.publisher.name || !value.publisher.sourceId) throw new Error("Civic task publisher is incomplete");
   const ids = new Set<string>();
   for (const task of value.tasks) {
     if (ids.has(task.id)) throw new Error(`Duplicate civic task id: ${task.id}`);
     ids.add(task.id);
-    if (!knownAssetIds.has(task.relatedAssetId)) throw new Error(`Civic task ${task.id} has an unknown related asset`);
+    if (task.target.kind === "civic_asset" && !knownAssetIds.has(task.target.id)) {
+      throw new Error(`Civic task ${task.id} has an unknown civic-asset target`);
+    }
+    if (task.target.kind === "mapped_cover_way" && !knownMappedCoverWayIds.has(task.target.id)) {
+      throw new Error(`Civic task ${task.id} has an unknown mapped-cover target`);
+    }
+    if (task.target.kind === "cover_feature" && !/^(shed|pops|construction):/.test(task.target.id)) {
+      throw new Error(`Civic task ${task.id} has an invalid cover-feature target`);
+    }
+    if (!task.sourceIds.includes(task.target.sourceId)) {
+      throw new Error(`Civic task ${task.id} must cite its target source`);
+    }
     if (!task.sourceIds.includes(value.publisher.sourceId) || task.sourceIds.length < 2) {
       throw new Error(`Civic task ${task.id} must cite its publisher and underlying inventory`);
     }
