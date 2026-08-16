@@ -14,7 +14,7 @@ Let residents ask naturally for a route by distance—especially requests such a
 - [x] Add distance controls and compact result/closest-feasible copy.
 - [x] Add a shaded two-mile run to the deterministic product scenario suite.
 - [x] Verify focused/full tests, production build, and live OpenRouter/browser behavior.
-- [ ] Push the completed work to PR #3.
+- [x] Push the completed work to PR #3.
 
 ## Product boundary
 
