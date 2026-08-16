@@ -160,6 +160,8 @@ main { position: relative; width: 100vw; height: 100dvh; overflow: hidden; backg
 .custom-time label { display: flex; align-items: center; padding: 0 7px; }
 .custom-time input { min-width: 0; width: 100%; padding: 0; border: 0; outline: 0; background: transparent; color: var(--ink); font-size: 11px; font-weight: 700; }
 .custom-time label span { color: #8b918b; font-size: 9px; }
+.constraint-switch { min-height: 24px; margin-top: 3px; padding: 0; border: 0; background: transparent; color: #60756a; font-size: 9px; font-weight: 700; text-align: left; cursor: pointer; }
+.constraint-switch:hover { color: var(--ink); text-decoration: underline; text-underline-offset: 2px; }
 
 .brief-tags { display: flex; flex-wrap: wrap; gap: 5px; }
 .brief-tags span { padding: 4px 7px; border-radius: 6px; background: white; color: #59635c; font-size: 9px; font-weight: 650; }

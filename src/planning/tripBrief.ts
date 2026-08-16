@@ -3,10 +3,17 @@ export type RoutePriority = "shade" | "greenery" | "rest" | "water" | "restroom"
 export type EndCondition = "transit" | "park" | null;
 export type WalkingTimeIntent = "target" | "maximum";
 export type CivicTaskIntent = "any" | "verify" | "observe" | "photo" | null;
+export type TripActivity = "walk" | "run";
+
+export const METERS_PER_MILE = 1609.344;
+export const ROUTING_METERS_PER_MINUTE = 80;
 
 export interface TripBrief {
   shape: JourneyShape;
+  activity: TripActivity;
   destinationQuery: string | null;
+  /** Exact route-distance target for loops and wanders. Null uses time. */
+  distanceMiles: number | null;
   walkingMinutes: number;
   /** Whether Loop/Wander duration is an approximate target or a hard ceiling. */
   walkingTimeIntent: WalkingTimeIntent;
@@ -30,7 +37,9 @@ export interface TripBriefPatch extends Partial<Omit<TripBrief, "unsupported" | 
 
 export const DEFAULT_BRIEF: TripBrief = {
   shape: "destination",
+  activity: "walk",
   destinationQuery: null,
+  distanceMiles: null,
   walkingMinutes: 25,
   walkingTimeIntent: "target",
   detourMinutes: 5,
@@ -64,7 +73,7 @@ function unique<T>(values: T[]) {
   return [...new Set(values)];
 }
 
-function parseMinutes(prompt: string) {
+export function parseMinutes(prompt: string) {
   const numeric = prompt.match(/\b(\d{1,3})[\s-]*(?:minutes?|mins?)\b/i);
   if (numeric) return Number(numeric[1]);
   if (/\b(?:half (?:an )?hour|half-hour)\b/i.test(prompt)) return 30;
@@ -72,6 +81,33 @@ function parseMinutes(prompt: string) {
   const compact = prompt.toLowerCase().replace(/[ -]/g, "");
   const word = Object.entries(numberWords).find(([candidate]) => compact.includes(`${candidate}minute`));
   return word?.[1] ?? null;
+}
+
+export function parseDistanceMiles(prompt: string) {
+  const distancePattern = /(?:^|[\s(])([+-]?\d+(?:\.\d+)?)\s*[- ]?(miles?|mi|kilometers?|kilometres?|km)\b/gi;
+  for (const match of prompt.matchAll(distancePattern)) {
+    const value = Number(match[1]);
+    if (!Number.isFinite(value) || value <= 0) continue;
+    const contextBefore = prompt.slice(Math.max(0, (match.index ?? 0) - 60), match.index).toLowerCase();
+    const describesAmenityRadius = /(?:seats?|seating|benches?|water|fountains?|restrooms?|bathrooms?|amenit(?:y|ies)|parks?|transit)\s+(?:nearby\s+)?within\s*$/.test(contextBefore);
+    if (describesAmenityRadius) continue;
+    return /^mi(?:le)?s?$/i.test(match[2]) ? value : value * 0.621371;
+  }
+  return null;
+}
+
+export function parseTripActivity(prompt: string): TripActivity | null {
+  if (/\b(?:run|running|jog|jogging)\b/i.test(prompt)) return "run";
+  if (/\b(?:walk|walking|stroll|strolling)\b/i.test(prompt)) return "walk";
+  return null;
+}
+
+export function distanceMilesToRoutingMinutes(distanceMiles: number) {
+  return distanceMiles * METERS_PER_MILE / ROUTING_METERS_PER_MINUTE;
+}
+
+export function metersToMiles(distanceMeters: number) {
+  return distanceMeters / METERS_PER_MILE;
 }
 
 function parseWalkingTimeIntent(prompt: string, parsedMinutes: number | null): WalkingTimeIntent | null {
@@ -88,7 +124,7 @@ function parseWalkingTimeIntent(prompt: string, parsedMinutes: number | null): W
 }
 
 function parseDestination(prompt: string) {
-  const match = prompt.match(/(?:walk|get|take|bring|route|going|head)\s+(?:(?:me|us)\s+)?to\s+(.+?)(?=\s+(?:with|while|but|and\s+(?:avoid|keep|favor|make|let|help|include|pass|verify|check|confirm|photograph|photo|snap|report|observe)|in\s+\d+|up\s+to|no\s+more)|[,.!?]|$)/i);
+  const match = prompt.match(/(?:walk|run|jog|get|take|bring|route|going|head)\s+(?:(?:me|us)\s+)?to\s+(.+?)(?=\s+(?:with|while|but|and\s+(?:avoid|keep|favor|make|let|help|include|pass|verify|check|confirm|photograph|photo|snap|report|observe)|in\s+\d+|up\s+to|no\s+more)|[,.!?]|$)/i);
   return match?.[1]?.trim() || null;
 }
 
@@ -152,11 +188,17 @@ export function compileTripBrief(prompt: string, current: TripBrief = DEFAULT_BR
   const lower = text.toLowerCase();
   const parsedCivicTaskIntent = parseCivicTaskIntent(text);
   const parsedDestination = parseDestination(text);
-  const isRefinement = Boolean(current.prompt) && !/\b(loop|wander|walk me|get me|take me|route me)\b/i.test(text);
+  const parsedDistance = parseDistanceMiles(text);
+  const parsedActivity = parseTripActivity(text);
+  const isRefinement = Boolean(current.prompt) && !/\b(loop|wander|walk me|run|running|jog|jogging|get me|take me|route me)\b/i.test(text);
   let shape: JourneyShape = current.shape;
   if (/\bloop\b|back (?:to|where) (?:i|we) start/i.test(text)) shape = "loop";
   else if (/\bwander\b|walk (?:north|south|east|west)|finish|end near/i.test(text)) shape = "wander";
   else if (parsedDestination) shape = "destination";
+  else if (parsedDistance !== null && parsedActivity === "run") shape = "loop";
+  else if (parsedDistance !== null) shape = "wander";
+  else if (!current.destinationQuery && parseMinutes(text) !== null && parsedActivity === "run") shape = "loop";
+  else if (!current.destinationQuery && parsedActivity === "run") shape = "loop";
   else if (!current.destinationQuery && parseMinutes(text) !== null && /\b(?:walk|walking|stroll|roam|explore)\b/i.test(text)) shape = "wander";
   else if (!current.destinationQuery && parsedCivicTaskIntent) shape = "wander";
 
@@ -168,6 +210,16 @@ export function compileTripBrief(prompt: string, current: TripBrief = DEFAULT_BR
   const shorter = /shorter|less time/i.test(text);
   const longer = /longer|more time/i.test(text);
   const walkingMinutes = parsedMinutes ?? (shorter ? Math.max(10, current.walkingMinutes - 5) : longer ? Math.min(60, current.walkingMinutes + 5) : current.walkingMinutes);
+  const retainedDistance = current.distanceMiles === null
+    ? null
+    : shorter ? current.distanceMiles - 0.25 : longer ? current.distanceMiles + 0.25 : current.distanceMiles;
+  const distanceMiles = shape === "destination"
+    ? null
+    : parsedDistance !== null
+      ? parsedDistance
+      : parsedMinutesRaw !== null || /\b(?:use time|by time|minutes? instead|no distance)\b/i.test(text)
+        ? null
+        : retainedDistance;
 
   let detourMinutes = current.detourMinutes;
   if (/fastest|no detour/i.test(text)) detourMinutes = 0;
@@ -192,22 +244,31 @@ export function compileTripBrief(prompt: string, current: TripBrief = DEFAULT_BR
   const destinationQuery = shape === "destination" ? (parsedDestination ?? current.destinationQuery) : null;
   const mappedStepPreference = parseMappedStepPreference(text);
 
-  return {
+  const distanceLimitation = parsedDistance !== null && (parsedDistance < 0.25 || parsedDistance > 5)
+    ? ["This preview supports route distances from 0.25 to 5 miles"]
+    : [];
+  const destinationDistanceLimitation = parsedDestination && parsedDistance !== null
+    ? ["A fixed destination and exact distance can conflict, so this route uses the destination"]
+    : [];
+  const next: TripBrief = {
     ...current,
     shape,
+    activity: parsedActivity ?? current.activity,
     destinationQuery,
+    distanceMiles,
     walkingMinutes,
-    walkingTimeIntent: parsedWalkingTimeIntent ?? current.walkingTimeIntent,
+    walkingTimeIntent: parsedDistance !== null ? "target" : parsedWalkingTimeIntent ?? current.walkingTimeIntent,
     detourMinutes,
     priorities,
     avoidMappedSteps: mappedStepPreference ?? current.avoidMappedSteps,
     direction,
     endCondition,
     civicTaskIntent: parsedCivicTaskIntent === undefined ? current.civicTaskIntent : parsedCivicTaskIntent,
-    unsupported: unique([...collectUnsupported(text), ...(isRefinement ? current.unsupported : [])]),
+    unsupported: unique([...collectUnsupported(text), ...distanceLimitation, ...destinationDistanceLimitation, ...(isRefinement ? current.unsupported : [])]),
     prompt: text,
     interpretedBy: "fallback",
   };
+  return mergeTripBrief(next, {}, "fallback");
 }
 
 export function mergeTripBrief(base: TripBrief, patch: TripBriefPatch, interpretedBy: TripBrief["interpretedBy"]): TripBrief {
@@ -216,9 +277,13 @@ export function mergeTripBrief(base: TripBrief, patch: TripBriefPatch, interpret
     ...next,
     departureHour: Math.max(0, Math.min(23, Math.round(next.departureHour))),
     walkingMinutes: Math.max(10, Math.min(60, Math.round(next.walkingMinutes))),
-    walkingTimeIntent: (["target", "maximum"] as const).includes(next.walkingTimeIntent)
-      ? next.walkingTimeIntent
-      : "target",
+    walkingTimeIntent: next.distanceMiles !== null
+      ? "target"
+      : (["target", "maximum"] as const).includes(next.walkingTimeIntent) ? next.walkingTimeIntent : "target",
+    activity: next.activity === "run" ? "run" : "walk",
+    distanceMiles: next.shape === "destination" || next.distanceMiles === null || !Number.isFinite(next.distanceMiles)
+      ? null
+      : Math.max(0.25, Math.min(5, Math.round(next.distanceMiles * 100) / 100)),
     detourMinutes: ([0, 5, 10].includes(next.detourMinutes) ? next.detourMinutes : 5) as 0 | 5 | 10,
     priorities: unique(next.priorities).filter((priority): priority is RoutePriority => ["shade", "greenery", "rest", "water", "restroom", "construction"].includes(priority)),
     civicTaskIntent: (["any", "verify", "observe", "photo"] as const).includes(next.civicTaskIntent as Exclude<CivicTaskIntent, null>)
@@ -234,14 +299,20 @@ export function withDestinationOverride(brief: TripBrief, destination: string): 
   return mergeTripBrief(brief, {
     shape: "destination",
     destinationQuery,
+    distanceMiles: null,
     direction: null,
     endCondition: null,
   }, brief.interpretedBy);
 }
 
 export function briefSummary(brief: TripBrief) {
+  const activity = brief.activity === "run" ? "run" : "walk";
   const journey = brief.shape === "destination"
-    ? (brief.destinationQuery ? `To ${brief.destinationQuery}` : "Destination walk")
+    ? (brief.destinationQuery ? `To ${brief.destinationQuery}` : `Destination ${activity}`)
+    : brief.distanceMiles !== null
+      ? brief.shape === "loop"
+        ? brief.activity === "run" ? `${brief.distanceMiles}-mile run, back to your start` : `${brief.distanceMiles}-mile loop`
+        : `${brief.distanceMiles}-mile ${activity}`
     : brief.shape === "loop"
       ? brief.walkingTimeIntent === "maximum"
         ? `Loop for up to ${brief.walkingMinutes} minutes`

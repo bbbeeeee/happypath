@@ -1,8 +1,12 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import {
   DEFAULT_BRIEF,
+  compileTripBrief,
   mergeTripBrief,
   parseCivicTaskIntent,
+  parseDistanceMiles,
+  parseMinutes,
+  parseTripActivity,
   type TripBrief,
   type TripBriefPatch,
 } from "../src/planning/tripBrief.ts";
@@ -19,6 +23,7 @@ const directions = ["north", "south", "east", "west"] as const;
 const endConditions = ["transit", "park"] as const;
 const walkingTimeIntents = ["target", "maximum"] as const;
 const civicTaskIntents = ["any", "verify", "observe", "photo"] as const;
+const tripActivities = ["walk", "run"] as const;
 const ACCESSIBILITY_LIMITATION = "We can avoid mapped steps, but cannot verify curb ramps, slopes, obstructions, or ADA accessibility";
 
 export const tripBriefJsonSchema = {
@@ -29,9 +34,20 @@ export const tripBriefJsonSchema = {
       enum: journeyShapes,
       description: "The requested journey shape.",
     },
+    activity: {
+      type: "string",
+      enum: tripActivities,
+      description: "Whether the resident describes this route as a walk or a run.",
+    },
     destinationQuery: {
       type: ["string", "null"],
       description: "A destination name or address for destination walks, otherwise null.",
+    },
+    distanceMiles: {
+      type: ["number", "null"],
+      minimum: 0.25,
+      maximum: 5,
+      description: "Explicit route distance when the resident uses miles, otherwise null. Kilometer conversion is handled deterministically after interpretation.",
     },
     walkingMinutes: {
       type: "integer",
@@ -85,7 +101,9 @@ export const tripBriefJsonSchema = {
   },
   required: [
     "shape",
+    "activity",
     "destinationQuery",
+    "distanceMiles",
     "walkingMinutes",
     "walkingTimeIntent",
     "detourMinutes",
@@ -104,13 +122,15 @@ const systemPrompt = `You convert a resident's walking request into a Happy Path
 
 Return only the structured fields required by the schema. Treat the current brief as retained state during a refinement: keep a value unless the new request explicitly changes or removes it. The new request always wins when it is explicit. The initial current brief may be an empty destination draft; never return shape "destination" with destinationQuery null. A timed walk without a named destination is a wander.
 
-Supported priorities are shade, greenery, places to rest, water, restrooms, and less construction friction. Preserve the resident's destination wording without inventing an address. Preserve any integer walkingMinutes from 10 through 60. Use walkingTimeIntent "target" for ordinary requests such as "a 30-minute walk" and "maximum" only for explicit limits such as "up to 30 minutes". Use 0/5/10 for detourMinutes and a whole local hour from 0 through 23.
+Supported priorities are shade, greenery, places to rest, water, restrooms, and less construction friction. Preserve the resident's destination wording without inventing an address. Preserve any integer walkingMinutes from 10 through 60. For an explicit distance in miles, set distanceMiles and use null when the request is time-based. For kilometer requests, leave distanceMiles null; deterministic code converts the stated value. Use activity run only for run, running, jog, or jogging language; otherwise use walk. A distance run without a destination is normally a loop unless the resident asks to wander or finish elsewhere. Use walkingTimeIntent "target" for ordinary requests such as "a 30-minute walk" and "maximum" only for explicit limits such as "up to 30 minutes". Use 0/5/10 for detourMinutes and a whole local hour from 0 through 23.
 
 Interpret accessibility language narrowly and helpfully. If the resident asks for an accessible, wheelchair-friendly, mobility-friendly, stroller-friendly, or step-free route, set avoidMappedSteps to true and include this limitation in unsupported: "We can avoid mapped steps, but cannot verify curb ramps, slopes, obstructions, or ADA accessibility". If a refinement says steps or stairs are okay, set avoidMappedSteps to false. Do not claim safety, guaranteed accessibility, live quietness, live crowding, live weather, current construction state, or current amenity operation. Keep those requests visible in unsupported instead of pretending they were satisfied.
 
 Set civicTaskIntent only when the resident explicitly asks to help, verify, observe, report, document, photograph, or contribute to city/public data. Use any when they ask generally, verify for a structured confirmation, observe for a bounded report or observation, and photo for a picture. These are optional checks selected later from a pre-published registry; never invent a task, hazard, issue, or City request from an amenity or data gap. A request to skip the check sets it to null.
 
 Examples:
+- "A shaded 2-mile run" means shape loop, activity run, distanceMiles 2, and priority shade.
+- "Walk 3 kilometers west" means shape wander, activity walk, distanceMiles null, and direction west; deterministic code performs the unit conversion.
 - "A green 37-minute loop with a bench halfway" means shape loop, walkingMinutes 37, walkingTimeIntent target, priorities greenery and rest.
 - "Wander west for no more than 30 minutes and finish near a train" means shape wander, walkingMinutes 30, walkingTimeIntent maximum, direction west, endCondition transit.
 - "It’s raining. Find me a 25-minute walk with more likely cover" means shape wander, walkingMinutes 25, with the weather/cover limitation visible in unsupported.
@@ -164,7 +184,10 @@ function isStringArray(value: unknown): value is string[] {
 export function isTripBrief(value: unknown): value is TripBrief {
   if (!isRecord(value)) return false;
   return journeyShapes.includes(value.shape as (typeof journeyShapes)[number])
+    && tripActivities.includes(value.activity as (typeof tripActivities)[number])
     && (value.destinationQuery === null || (typeof value.destinationQuery === "string" && value.destinationQuery.trim().length > 0 && value.destinationQuery.length <= 160))
+    && (value.distanceMiles === null || (typeof value.distanceMiles === "number" && Number.isFinite(value.distanceMiles) && value.distanceMiles >= 0.25 && value.distanceMiles <= 5))
+    && !(value.shape === "destination" && value.distanceMiles !== null)
     && typeof value.walkingMinutes === "number" && Number.isInteger(value.walkingMinutes)
     && value.walkingMinutes >= 10 && value.walkingMinutes <= 60
     && walkingTimeIntents.includes(value.walkingTimeIntent as (typeof walkingTimeIntents)[number])
@@ -186,7 +209,9 @@ export function isTripBrief(value: unknown): value is TripBrief {
 function parseModelPatch(value: unknown): TripBriefPatch {
   if (!isRecord(value)
     || !journeyShapes.includes(value.shape as (typeof journeyShapes)[number])
+    || !(value.activity === undefined || tripActivities.includes(value.activity as (typeof tripActivities)[number]))
     || !(value.destinationQuery === null || typeof value.destinationQuery === "string")
+    || !(value.distanceMiles === undefined || value.distanceMiles === null || (typeof value.distanceMiles === "number" && Number.isFinite(value.distanceMiles)))
     || typeof value.walkingMinutes !== "number" || !Number.isFinite(value.walkingMinutes)
     || !walkingTimeIntents.includes(value.walkingTimeIntent as (typeof walkingTimeIntents)[number])
     || ![0, 5, 10].includes(value.detourMinutes as number)
@@ -202,9 +227,11 @@ function parseModelPatch(value: unknown): TripBriefPatch {
 
   return {
     shape: value.shape,
+    ...(value.activity !== undefined ? { activity: value.activity } : {}),
     destinationQuery: typeof value.destinationQuery === "string"
       ? value.destinationQuery.trim().slice(0, 160) || null
       : null,
+    ...(value.distanceMiles !== undefined ? { distanceMiles: value.distanceMiles } : {}),
     walkingMinutes: value.walkingMinutes,
     walkingTimeIntent: value.walkingTimeIntent,
     detourMinutes: value.detourMinutes,
@@ -306,6 +333,19 @@ export async function interpretTripBriefWithOpenRouter(
   const explicitCivicTaskIntent = parseCivicTaskIntent(prompt);
   if (explicitCivicTaskIntent !== undefined) patch.civicTaskIntent = explicitCivicTaskIntent;
   else if (!currentBrief.civicTaskIntent) patch.civicTaskIntent = null;
+  const explicitDistanceMiles = parseDistanceMiles(prompt);
+  const explicitActivity = parseTripActivity(prompt);
+  if (explicitDistanceMiles !== null) {
+    patch.distanceMiles = explicitDistanceMiles;
+    const deterministicBrief = compileTripBrief(prompt, currentBrief);
+    if (!patch.destinationQuery) patch.shape = deterministicBrief.shape;
+    patch.unsupported = [...new Set([...(patch.unsupported ?? []), ...deterministicBrief.unsupported])].slice(0, 4);
+  } else if (currentBrief.distanceMiles === null || parseMinutes(prompt) !== null || /\b(?:use time|by time|minutes? instead|no distance)\b/i.test(prompt)) {
+    patch.distanceMiles = null;
+  } else {
+    patch.distanceMiles = currentBrief.distanceMiles;
+  }
+  patch.activity = explicitActivity ?? currentBrief.activity;
   const brief = mergeTripBrief(currentBrief, patch, "model");
   return { ...brief, prompt };
 }

@@ -1,6 +1,7 @@
 import { demoCoverShare, routeCoverShare } from "../demoCover";
 import { defaultDestination, defaultOrigin, pilotGraph } from "../data/cityGraph";
 import { getPilotTransitEndpointCandidates } from "../data/transitEndpoints";
+import { distanceMilesToRoutingMinutes } from "../planning/tripBrief";
 import type { JourneyRoute, TripBrief } from "../types";
 import {
   planJourney,
@@ -12,6 +13,7 @@ export type SampleRouteScenarioId =
   | "destination"
   | "thirty_minute_wander"
   | "custom_time_loop"
+  | "two_mile_shaded_run"
   | "rain_cover"
   | "avoid_mapped_steps";
 
@@ -215,6 +217,20 @@ export function evaluateSampleRoutes(): SampleRouteEvaluation[] {
         departureHour: 15,
         walkingBudgetMinutes: 23,
         preferences: [{ featureId: "green", weight: 1 }],
+      },
+      { walkingTimeIntent: "target" },
+    ),
+    evaluateStandard(
+      "two_mile_shaded_run",
+      "Two-mile shaded run",
+      "A shaded two-mile run that loops back to the start",
+      "Distance is targeted from route geometry. Duration is a walking-graph estimate, not a claimed running pace.",
+      {
+        journeyShape: "loop",
+        originNodeId: defaultOrigin,
+        departureHour: 15,
+        walkingBudgetMinutes: distanceMilesToRoutingMinutes(2),
+        preferences: [{ featureId: "shade", weight: 1 }],
       },
       { walkingTimeIntent: "target" },
     ),

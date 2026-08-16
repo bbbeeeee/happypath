@@ -16,3 +16,10 @@
 - Climate, place, and civic layers are context, not mutually exclusive destinations. Keep the route as the stable base and model supporting layers as independent toggles; reserve a separate focused state only for explanatory copy.
 - Natural example copy is part of the parser surface. Phrases such as “half an hour” need deterministic fallback coverage before they appear in the UI.
 - Loading polish should expose truthful activity, preserve the previous successful route during refinements, and retain failed input for an easy retry.
+
+## 2026-08-16 — Distance as intent
+
+- A stated distance is a primary route constraint, not descriptive prose. Explicit distance should replace time, explicit minutes should replace distance, and ordinary refinements must retain whichever constraint is active.
+- Keep user-unit parsing and conversion deterministic. The language model can identify intent, but route geometry—not model arithmetic—must determine whether the result is near the requested distance.
+- A running request does not establish a trustworthy running pace. Target the mapped distance, label the activity naturally, and preserve the pedestrian-graph duration as an internal estimate.
+- Distance parsing needs context and bounds: do not confuse amenity search radii with route length, accept only positive values, and prevent fallback mode from creating impractically large searches.

@@ -60,10 +60,92 @@ describe("interpretTripBriefWithOpenRouter", () => {
     expect(body.provider).toEqual({ require_parameters: true, data_collection: "deny" });
     expect(body.messages[0].content).toMatch(/accessibility language narrowly/);
     expect(body.messages[0].content).toMatch(/37-minute loop/);
+    expect(body.messages[0].content).toMatch(/shaded 2-mile run/i);
     expect(body.messages[0].content).toMatch(/never invent a task/i);
     expect(tripBriefJsonSchema.required).toContain("civicTaskIntent");
+    expect(tripBriefJsonSchema.required).toEqual(expect.arrayContaining(["activity", "distanceMiles"]));
     const refinement = JSON.parse(body.messages[1].content);
     expect(refinement.currentBrief).toEqual(current);
+  });
+
+  it("deterministically preserves an explicit distance and running intent", async () => {
+    const fetchImpl = vi.fn(async () => completion({
+      shape: "wander",
+      activity: "walk",
+      destinationQuery: null,
+      distanceMiles: 4,
+      walkingMinutes: 25,
+      walkingTimeIntent: "target",
+      detourMinutes: 5,
+      departureHour: 15,
+      priorities: ["shade"],
+      avoidMappedSteps: false,
+      direction: null,
+      endCondition: null,
+      civicTaskIntent: null,
+      unsupported: [],
+    })) as unknown as typeof fetch;
+
+    const brief = await interpretTripBriefWithOpenRouter(
+      { prompt: "Map me a shaded 2-mile run" },
+      { apiKey: "test-key", fetchImpl },
+    );
+
+    expect(brief).toMatchObject({ shape: "loop", activity: "run", distanceMiles: 2, priorities: ["shade"] });
+  });
+
+  it("retains a distance target through an ordinary model refinement", async () => {
+    const currentBrief = compileTripBrief("Map me a shaded 2-mile run");
+    const fetchImpl = vi.fn(async () => completion({
+      shape: "loop",
+      activity: "run",
+      destinationQuery: null,
+      distanceMiles: null,
+      walkingMinutes: 25,
+      walkingTimeIntent: "target",
+      detourMinutes: 5,
+      departureHour: 15,
+      priorities: ["shade", "greenery"],
+      avoidMappedSteps: false,
+      direction: null,
+      endCondition: null,
+      civicTaskIntent: null,
+      unsupported: [],
+    })) as unknown as typeof fetch;
+
+    const brief = await interpretTripBriefWithOpenRouter(
+      { prompt: "Make it greener too", currentBrief },
+      { apiKey: "test-key", fetchImpl },
+    );
+
+    expect(brief).toMatchObject({ shape: "loop", activity: "run", distanceMiles: 2, priorities: ["shade", "greenery"] });
+  });
+
+  it("lets an explicit time request replace a retained distance target", async () => {
+    const currentBrief = compileTripBrief("Map me a shaded 2-mile run");
+    const fetchImpl = vi.fn(async () => completion({
+      shape: "loop",
+      activity: "walk",
+      destinationQuery: null,
+      distanceMiles: 2,
+      walkingMinutes: 30,
+      walkingTimeIntent: "target",
+      detourMinutes: 5,
+      departureHour: 15,
+      priorities: ["shade"],
+      avoidMappedSteps: false,
+      direction: null,
+      endCondition: null,
+      civicTaskIntent: null,
+      unsupported: [],
+    })) as unknown as typeof fetch;
+
+    const brief = await interpretTripBriefWithOpenRouter(
+      { prompt: "Make it a 30-minute walk instead", currentBrief },
+      { apiKey: "test-key", fetchImpl },
+    );
+
+    expect(brief).toMatchObject({ activity: "walk", distanceMiles: null, walkingMinutes: 30 });
   });
 
   it("accepts explicit civic-help intent and rejects model-invented tasks", async () => {

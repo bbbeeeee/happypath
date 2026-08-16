@@ -12,7 +12,7 @@ import { rainPromptIntent, routeShadeSegmentsGeoJSON } from "./climatePresentati
 import { buildShadeDetourScenario, evaluateShadeDetourScenario, type ShadeDetourScenario } from "./detour/shadeScenario";
 import { demoCoverGeoJSON, demoCoverShare, pickRainFriendlyRoute, routeCoverSegmentsGeoJSON, routeCoverShare } from "./demoCover";
 import { searchNycAddress } from "./geocoding";
-import { briefSummary, DEFAULT_BRIEF, mergeTripBrief, withDestinationOverride, type RoutePriority, type TripBrief as UiTripBrief } from "./planning/tripBrief";
+import { briefSummary, DEFAULT_BRIEF, distanceMilesToRoutingMinutes, mergeTripBrief, metersToMiles, withDestinationOverride, type RoutePriority, type TripBrief as UiTripBrief } from "./planning/tripBrief";
 import { interpretTripBrief } from "./planning/interpretTripBrief";
 import { buildRouteCityInsightRequest, requestRouteCityInsight } from "./planning/cityInsight";
 import { selectRouteThroughOptionalCivicTask } from "./planning/civicTaskRouting";
@@ -73,6 +73,7 @@ const EXAMPLE_REQUESTS = [
   "I have 30 minutes. Let me wander west and finish near a train.",
   "It’s raining and I have 25 minutes. Find a walk with more cover.",
   "I have 25 minutes. Find a walk where I can help verify city data.",
+  "Map me a shaded 2-mile run that loops back here.",
 ] as const;
 
 const EXAMPLE_SHORTCUTS = [
@@ -81,6 +82,7 @@ const EXAMPLE_SHORTCUTS = [
   { label: "Just wander", prompt: EXAMPLE_REQUESTS[2] },
   { label: "Stay drier", prompt: EXAMPLE_REQUESTS[3] },
   { label: "Help the map", prompt: EXAMPLE_REQUESTS[4] },
+  { label: "Go for a run", prompt: EXAMPLE_REQUESTS[5] },
 ] as const;
 
 const INITIAL_MAP_VIEWPORT: AmenityViewport = {
@@ -105,6 +107,10 @@ const PRIORITY_META: Record<RoutePriority, { label: string; icon: typeof SunIcon
 
 function formatMinutes(value: number) {
   return `${Math.round(value)} min`;
+}
+
+function formatMiles(value: number) {
+  return value.toFixed(1);
 }
 
 function formatClock(hour: number) {
@@ -272,12 +278,12 @@ function makeRoutingBrief(brief: UiTripBrief, originNodeId: string, destinationN
     return { ...common, journeyShape: "destination", destinationNodeId, detourAllowanceMinutes: brief.detourMinutes };
   }
   if (brief.shape === "loop") {
-    return { ...common, journeyShape: "loop", walkingBudgetMinutes: brief.walkingMinutes };
+    return { ...common, journeyShape: "loop", walkingBudgetMinutes: brief.distanceMiles === null ? brief.walkingMinutes : distanceMilesToRoutingMinutes(brief.distanceMiles) };
   }
   return {
     ...common,
     journeyShape: "wander",
-    walkingBudgetMinutes: brief.walkingMinutes,
+    walkingBudgetMinutes: brief.distanceMiles === null ? brief.walkingMinutes : distanceMilesToRoutingMinutes(brief.distanceMiles),
     direction: brief.direction ?? undefined,
     endCondition: brief.endCondition === "transit"
       ? { nodeIds: [...new Set(transitEndpoints.map((candidate) => candidate.graphNodeId))], label: "near a mapped subway entrance" }
@@ -316,6 +322,7 @@ function WalkControls({ brief, onChange, destinationText, onDestinationTextChang
   const changeShape = (shape: UiTripBrief["shape"]) => patchBrief({
     shape,
     destinationQuery: shape === "destination" ? brief.destinationQuery : null,
+    distanceMiles: shape === "destination" ? null : brief.distanceMiles,
     walkingTimeIntent: shape === "destination" ? brief.walkingTimeIntent : "target",
     direction: shape === "wander" ? brief.direction : null,
     endCondition: shape === "wander" ? brief.endCondition : null,
@@ -328,7 +335,7 @@ function WalkControls({ brief, onChange, destinationText, onDestinationTextChang
   };
 
   return <div className="walk-controls">
-    <div className="control-group"><span>Walk shape</span><Segmented value={brief.shape} label="Walk shape" options={[{ value: "destination", label: "Somewhere" }, { value: "loop", label: "Loop" }, { value: "wander", label: "Wander" }]} onChange={changeShape} /></div>
+    <div className="control-group"><span>Route shape</span><Segmented value={brief.shape} label="Route shape" options={[{ value: "destination", label: "Somewhere" }, { value: "loop", label: "Loop" }, { value: "wander", label: "Wander" }]} onChange={changeShape} /></div>
     {brief.shape === "destination" && <label className="destination-control"><span>Destination</span><input aria-label="Destination" value={destinationText} onChange={(event) => onDestinationTextChange(event.target.value)} placeholder="Where are you going?" /></label>}
     <div className="quick-picks" aria-label="What matters">
       {(["shade", "greenery", "rest", "water", "restroom"] as RoutePriority[]).map((priority) => {
@@ -339,9 +346,12 @@ function WalkControls({ brief, onChange, destinationText, onDestinationTextChang
       <button type="button" className={brief.avoidMappedSteps ? "active" : ""} aria-pressed={brief.avoidMappedSteps} onClick={() => patchBrief({ avoidMappedSteps: !brief.avoidMappedSteps })}><StairsIcon />Avoid mapped steps</button>
     </div>
     <div className="trip-controls">
-      <div className="time-control"><span>{brief.shape === "destination" ? "Extra time" : brief.walkingTimeIntent === "maximum" ? "Up to" : "About"}</span>{brief.shape === "destination"
+      <div className="time-control"><span>{brief.shape === "destination" ? "Extra time" : brief.distanceMiles !== null ? "Distance" : brief.walkingTimeIntent === "maximum" ? "Up to" : "About"}</span>{brief.shape === "destination"
         ? <Segmented value={String(brief.detourMinutes)} label="Extra time allowance" options={[{ value: "0", label: "Fastest" }, { value: "5", label: "+5 min" }, { value: "10", label: "+10 min" }]} onChange={(value) => patchBrief({ detourMinutes: Number(value) as 0 | 5 | 10 })} />
-        : <div className="custom-time"><button type="button" onClick={() => patchBrief({ walkingMinutes: 20, walkingTimeIntent: "target" })}>20</button><button type="button" onClick={() => patchBrief({ walkingMinutes: 30, walkingTimeIntent: "target" })}>30</button><label><input type="number" min="10" max="60" inputMode="numeric" aria-label="Custom walking time in minutes" value={brief.walkingMinutes} onChange={(event) => patchBrief({ walkingMinutes: Number(event.target.value), walkingTimeIntent: "target" })} /><span>min</span></label></div>}</div>
+        : <>{brief.distanceMiles !== null
+          ? <div className="custom-time distance-time"><button type="button" onClick={() => patchBrief({ distanceMiles: 1 })}>1</button><button type="button" onClick={() => patchBrief({ distanceMiles: 2 })}>2</button><label><input type="number" min="0.25" max="5" step="0.25" inputMode="decimal" aria-label="Custom route distance in miles" value={brief.distanceMiles} onChange={(event) => patchBrief({ distanceMiles: Number(event.target.value), walkingTimeIntent: "target" })} /><span>mi</span></label></div>
+          : <div className="custom-time"><button type="button" onClick={() => patchBrief({ walkingMinutes: 20, walkingTimeIntent: "target", distanceMiles: null })}>20</button><button type="button" onClick={() => patchBrief({ walkingMinutes: 30, walkingTimeIntent: "target", distanceMiles: null })}>30</button><label><input type="number" min="10" max="60" inputMode="numeric" aria-label="Custom walking time in minutes" value={brief.walkingMinutes} onChange={(event) => patchBrief({ walkingMinutes: Number(event.target.value), walkingTimeIntent: "target", distanceMiles: null })} /><span>min</span></label></div>}
+          <button type="button" className="constraint-switch" onClick={() => patchBrief({ distanceMiles: brief.distanceMiles === null ? 2 : null, walkingTimeIntent: "target" })}>{brief.distanceMiles === null ? "Use distance" : "Use time"}</button></>}</div>
       <label className="departure-control"><span><ClockIcon />Leaving</span><select value={brief.departureHour} onChange={(event) => patchBrief({ departureHour: Number(event.target.value) })}><option value={new Date().getHours()}>Now · {formatClock(new Date().getHours())}</option>{[8, 10, 12, 14, 16, 18].filter((hour) => hour !== new Date().getHours()).map((hour) => <option key={hour} value={hour}>{formatClock(hour)}</option>)}</select></label>
     </div>
   </div>;
@@ -366,7 +376,7 @@ function ComposeSheet({ brief, setBrief, prompt, setPrompt, originText, setOrigi
   const [manualChanged, setManualChanged] = useState(false);
   const animatedPlaceholder = useTypingPlaceholder(EXAMPLE_REQUESTS);
   const setManualBrief = (nextBrief: UiTripBrief) => { setManualChanged(true); setBrief(nextBrief); };
-  return <section className="sheet compose-sheet" aria-label="Plan a walk">
+  return <section className="sheet compose-sheet" aria-label="Plan a route">
     <div className="sheet-handle" />
     <div className="compose-heading"><span className="eyebrow">Plan a better walk</span><h1>What are you up to?</h1></div>
     <div className="location-stack">
@@ -375,7 +385,7 @@ function ComposeSheet({ brief, setBrief, prompt, setPrompt, originText, setOrigi
     </div>
     <label className="prompt-box">
       <SparkIcon />
-      <textarea aria-label="Describe your walk" value={prompt} disabled={busy} onChange={(event) => setPrompt(event.target.value)} placeholder={animatedPlaceholder || EXAMPLE_REQUESTS[0]} rows={4} />
+      <textarea aria-label="Describe your route" value={prompt} disabled={busy} onChange={(event) => setPrompt(event.target.value)} placeholder={animatedPlaceholder || EXAMPLE_REQUESTS[0]} rows={4} />
     </label>
     <div className="prompt-shortcuts" aria-label="Example walk requests"><span>Try</span>{EXAMPLE_SHORTCUTS.map((example) => <button type="button" key={example.label} title={example.prompt} disabled={busy} onClick={() => setPrompt(example.prompt)}>{example.label}</button>)}</div>
     <details className="manual-details"><summary>Choose the details instead</summary><WalkControls brief={brief} onChange={setManualBrief} destinationText={destinationText} onDestinationTextChange={(value) => { setManualChanged(true); setDestinationText(value); }} /></details>
@@ -453,10 +463,16 @@ function ResultSheet({ brief, route, result, assets, tasks, destinationText, set
   const sunSaved = result.baseline ? Math.max(0, result.baseline.directSunMinutes - route.directSunMinutes) : null;
   const greenGain = result.baseline ? Math.max(0, route.greeneryPercent - result.baseline.greeneryPercent) : null;
   const missingAmenities = routePriorityKinds(brief.priorities).filter((kind) => !assets.some((asset) => asset.kind === kind));
+  const routeMiles = metersToMiles(route.distanceMeters);
+  const distanceDifferenceMiles = brief.distanceMiles === null ? null : routeMiles - brief.distanceMiles;
   const headline = rainContext
     ? "A rain-friendly route sketch"
     : brief.civicTaskIntent && tasks.length
-      ? "A walk with one small way to help"
+      ? "A route with one small way to help"
+    : brief.activity === "run"
+      ? brief.distanceMiles !== null
+        ? brief.priorities.includes("shade") ? "A shaded run, mapped to your distance" : "A run mapped to your distance"
+        : brief.priorities.includes("shade") ? "A shaded run that fits your time" : "A run mapped to your time"
     : primary === "shade"
     ? route.directSunMinutes < 0.05
       ? "No direct sun expected at this time"
@@ -471,16 +487,23 @@ function ResultSheet({ brief, route, result, assets, tasks, destinationText, set
   const destinationTiming = roundedExtraMinutes > 0
     ? `${Math.round(route.durationMinutes)} minutes · ${roundedExtraMinutes} min longer than fastest`
     : `${Math.round(route.durationMinutes)} minutes · same walking time as fastest`;
+  const routeTiming = brief.distanceMiles !== null
+    ? `${formatMiles(routeMiles)}-mile ${brief.activity} · ${result.timing.status === "closest-feasible" ? `closest to your ${brief.distanceMiles}-mile goal` : `about your ${brief.distanceMiles}-mile goal`}`
+    : brief.shape === "loop"
+      ? `${Math.round(route.durationMinutes)}-minute loop · about ${brief.walkingMinutes} minutes`
+      : brief.shape === "wander"
+        ? `${Math.round(route.durationMinutes)}-minute wander · ${brief.walkingTimeIntent === "maximum" ? `under ${brief.walkingMinutes} minutes` : `about ${brief.walkingMinutes} minutes`}`
+        : destinationTiming;
   const hasDistinctBaseline = Boolean(result.baseline && result.baseline.candidateId !== route.candidateId);
   const timingDifference = Math.abs(Math.round(result.timing.differenceMinutes ?? 0));
   const usedSourceCount = usedSourcePresentations(brief, assets, rainContext, tasks).length;
   return <section className="sheet result-sheet" aria-label="Your Happy Path">
     <div className="sheet-handle" />
-    <div className="result-nav"><IconButton label="Plan a new walk" onClick={onBack}><BackIcon /></IconButton><span>Your Happy Path</span><span className="result-time">{formatMinutes(route.durationMinutes)}</span></div>
+    <div className="result-nav"><IconButton label="Plan a new route" onClick={onBack}><BackIcon /></IconButton><span>Your Happy Path</span><span className="result-time">{brief.distanceMiles !== null ? `${formatMiles(routeMiles)} mi` : formatMinutes(route.durationMinutes)}</span></div>
     {busy && <ThinkingStatus mode={busyMode ?? "refine"} />}
     {delta && <div className="route-delta"><SparkIcon />Route updated · {delta}</div>}
-    <div className="result-lead"><h1>{headline}</h1><p>{brief.shape === "loop" ? `${Math.round(route.durationMinutes)}-minute loop · about ${brief.walkingMinutes} minutes` : brief.shape === "wander" ? `${Math.round(route.durationMinutes)}-minute wander · ${brief.walkingTimeIntent === "maximum" ? `under ${brief.walkingMinutes} minutes` : `about ${brief.walkingMinutes} minutes`}` : destinationTiming}</p></div>
-    {result.timing.status === "closest-feasible" && <div className="timing-note" role="status"><ClockIcon /><span><strong>Closest walk we could make</strong><small>{timingDifference} minutes {route.durationMinutes < (result.timing.requestedMinutes ?? 0) ? "shorter" : "longer"} than requested.</small></span></div>}
+    <div className="result-lead"><h1>{headline}</h1><p>{routeTiming}</p></div>
+    {result.timing.status === "closest-feasible" && <div className="timing-note" role="status">{brief.distanceMiles !== null ? <RouteIcon /> : <ClockIcon />}<span><strong>Closest route we could make</strong><small>{brief.distanceMiles !== null && distanceDifferenceMiles !== null ? `${Math.abs(distanceDifferenceMiles).toFixed(1)} miles ${distanceDifferenceMiles < 0 ? "shorter" : "longer"} than requested.` : `${timingDifference} minutes ${route.durationMinutes < (result.timing.requestedMinutes ?? 0) ? "shorter" : "longer"} than requested.`}</small></span></div>}
     <div className="intent-summary"><div><span className="eyebrow">Your plan</span><strong className="brief-sentence">{summary[0]}</strong><small>{summary.slice(1).join(" · ")}</small></div><button type="button" onClick={() => setShowAdjustments((value) => !value)} aria-expanded={showAdjustments}>{showAdjustments ? "Close" : "Edit"}</button></div>
     {showAdjustments && <div className="adjust-panel"><WalkControls brief={draftBrief} onChange={setDraftBrief} destinationText={destinationText} onDestinationTextChange={(value) => { setDestinationText(value); setDraftBrief((current) => mergeTripBrief(current, { destinationQuery: value.trim() || null }, "controls")); }} /><button type="button" className="apply-adjustments" disabled={busy} onClick={applyAdjustments}>{busy ? "Updating your walk…" : "Update this walk"}</button></div>}
     <div className="benefit-list">
@@ -491,9 +514,9 @@ function ResultSheet({ brief, route, result, assets, tasks, destinationText, set
       {brief.avoidMappedSteps && <button type="button" onClick={onShowWhy}><StairsIcon /><span><strong>Avoids mapped steps</strong><small>Not an accessibility guarantee</small></span><ChevronIcon /></button>}
     </div>
     {tasks[0] && <button type="button" className="civic-task-card" onClick={() => onShowTask(tasks[0])}><span className="task-icon"><CivicTaskIcon task={tasks[0]} /></span><span><small>Optional stop · {tasks[0].estimatedMinutes} min</small><strong>{tasks[0].title}</strong><span>{tasks[0].locationLabel}</span></span><ChevronIcon /></button>}
-    {brief.civicTaskIntent && tasks.length === 0 && <div className="coverage-note task-miss"><strong>Your walk still works</strong><span>We couldn’t fit a published data check into this route and time. No task was invented to fill the gap.</span></div>}
+    {brief.civicTaskIntent && tasks.length === 0 && <div className="coverage-note task-miss"><strong>Your route still works</strong><span>We couldn’t fit a published data check into this route and time. No task was invented to fill the gap.</span></div>}
     {missingAmenities.length > 0 && <div className="coverage-note"><strong>Not found near this route</strong><span>{missingAmenities.map((kind) => ({ seating: "mapped seating", restroom: "a mapped restroom", drinking_fountain: "a mapped drinking fountain", transit: "a mapped subway entrance" })[kind]).join(" or ")} within 90 meters. Inventory coverage and current operation may vary.</span></div>}
-    <div className="confidence-row"><span className="confidence-dot" /><p><strong>Built from mapped walking paths</strong><small>{brief.priorities.includes("shade") ? "Shade is estimated from building shapes and the sun’s position." : "Some street and place details may be incomplete."}</small></p></div>
+    <div className="confidence-row"><span className="confidence-dot" /><p><strong>Built from mapped pedestrian paths</strong><small>{brief.priorities.includes("shade") ? "Shade is estimated from building shapes and the sun’s position." : "Some street and place details may be incomplete."}</small></p></div>
     {result.baseline && hasDistinctBaseline && <button type="button" className="text-action" onClick={() => setShowBaseline(!showBaseline)}><span className="baseline-swatch" />{showBaseline ? "Hide" : "Compare with"} fastest · {formatMinutes(result.baseline.durationMinutes)}</button>}
     {brief.unsupported.length > 0 && <div className="request-limit" role="status"><strong>What we can’t verify yet</strong><span>{brief.unsupported.map((item) => item.replace(/[.\s]+$/g, "")).join(" · ")}. The route still honors the supported choices in your plan.</span></div>}
     <button type="button" className="data-action" onClick={onShowData}><LayersIcon /><span><strong>Built with city and street data</strong><small>{usedSourceCount} linked {usedSourceCount === 1 ? "source" : "sources"} behind this walk</small></span><ChevronIcon /></button>
@@ -875,9 +898,12 @@ export function App() {
     if (!options.preserveWaypoint) setWaypointNodeId(null);
     if (isRefinement && oldRoute) {
       const minuteChange = Math.round(nextRoute.durationMinutes - oldRoute.durationMinutes);
+      const mileChange = metersToMiles(nextRoute.distanceMeters - oldRoute.distanceMeters);
       const sunChange = nextRoute.directSunMinutes - oldRoute.directSunMinutes;
-      const timeChange = minuteChange === 0 ? "same walking time" : `${Math.abs(minuteChange)} min ${minuteChange < 0 ? "shorter" : "longer"}`;
-      setDelta(`${timeChange}${Math.abs(sunChange) >= 0.5 ? ` · ${Math.abs(sunChange).toFixed(1)} ${sunChange <= 0 ? "fewer" : "more"} min in estimated sun` : ""}`);
+      const sizeChange = plannedBrief.distanceMiles !== null
+        ? Math.abs(mileChange) < 0.05 ? "same distance" : `${Math.abs(mileChange).toFixed(1)} mi ${mileChange < 0 ? "shorter" : "longer"}`
+        : minuteChange === 0 ? "same walking time" : `${Math.abs(minuteChange)} min ${minuteChange < 0 ? "shorter" : "longer"}`;
+      setDelta(`${sizeChange}${Math.abs(sunChange) >= 0.5 ? ` · ${Math.abs(sunChange).toFixed(1)} ${sunChange <= 0 ? "fewer" : "more"} min in estimated sun` : ""}`);
     } else setDelta("");
   }
 

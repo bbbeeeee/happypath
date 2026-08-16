@@ -4,7 +4,7 @@ import { evaluateSampleRoutes } from "./sampleRouteEvaluation";
 const report = evaluateSampleRoutes();
 
 describe("sample route evaluation", () => {
-  it("covers the five product scenarios deterministically", () => {
+  it("covers the product scenarios deterministically", () => {
     const first = report;
     const second = evaluateSampleRoutes();
 
@@ -13,10 +13,22 @@ describe("sample route evaluation", () => {
       "destination",
       "thirty_minute_wander",
       "custom_time_loop",
+      "two_mile_shaded_run",
       "rain_cover",
       "avoid_mapped_steps",
     ]);
     expect(first.every((scenario) => scenario.metrics.evaluatedCandidateCount > 0)).toBe(true);
+  });
+
+  it("targets the requested two-mile route geometry for a shaded run", () => {
+    const scenario = report.find((item) => item.id === "two_mile_shaded_run")!;
+    const miles = scenario.metrics.distanceMeters / 1609.344;
+
+    expect(scenario.metrics.timing.status).toBe("within-target");
+    expect(miles).toBeGreaterThanOrEqual(1.8);
+    expect(miles).toBeLessThanOrEqual(2.2);
+    expect(scenario.metrics.shadePercent).toBeGreaterThan(0);
+    expect(scenario.evidenceBoundary).toMatch(/not a claimed running pace/i);
   });
 
   it("keeps the destination recommendation inside its detour allowance", () => {

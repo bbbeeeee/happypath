@@ -20,12 +20,16 @@ const directions = ["north", "south", "east", "west"];
 const endConditions = ["transit", "park"];
 const walkingTimeIntents = ["target", "maximum"];
 const civicTaskIntents = ["any", "verify", "observe", "photo"];
+const tripActivities = ["walk", "run"];
 
 function isTripBrief(value: unknown): value is TripBrief {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
   const brief = value as Record<string, unknown>;
   return shapes.includes(brief.shape as string)
+    && (brief.activity === undefined || tripActivities.includes(brief.activity as string))
     && (brief.destinationQuery === null || (typeof brief.destinationQuery === "string" && brief.destinationQuery.length <= 160))
+    && (brief.distanceMiles === undefined || brief.distanceMiles === null || (typeof brief.distanceMiles === "number" && brief.distanceMiles >= 0.25 && brief.distanceMiles <= 5))
+    && !(brief.shape === "destination" && brief.distanceMiles !== undefined && brief.distanceMiles !== null)
     && typeof brief.walkingMinutes === "number" && Number.isInteger(brief.walkingMinutes)
     && brief.walkingMinutes >= 10 && brief.walkingMinutes <= 60
     // Accept one release of legacy model responses while the server schema rolls
@@ -65,6 +69,8 @@ export async function interpretTripBrief(
     return isTripBrief(payload.brief)
       ? {
           ...payload.brief,
+          activity: payload.brief.activity ?? currentBrief.activity,
+          distanceMiles: payload.brief.distanceMiles === undefined ? currentBrief.distanceMiles : payload.brief.distanceMiles,
           walkingTimeIntent: payload.brief.walkingTimeIntent ?? currentBrief.walkingTimeIntent,
           civicTaskIntent: payload.brief.civicTaskIntent ?? currentBrief.civicTaskIntent,
         }

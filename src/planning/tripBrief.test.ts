@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { briefSummary, compileTripBrief, DEFAULT_BRIEF, mergeTripBrief, withDestinationOverride } from "./tripBrief";
+import { briefSummary, compileTripBrief, DEFAULT_BRIEF, distanceMilesToRoutingMinutes, mergeTripBrief, withDestinationOverride } from "./tripBrief";
 
 describe("compileTripBrief", () => {
   it.each([
@@ -41,6 +41,60 @@ describe("compileTripBrief", () => {
     });
     expect(compileTripBrief("It’s raining and I have 25 minutes. Find a walk with more cover.")).toMatchObject({ shape: "wander", walkingMinutes: 25 });
     expect(compileTripBrief("I have 25 minutes. Find a walk where I can help verify city data.")).toMatchObject({ shape: "wander", walkingMinutes: 25, civicTaskIntent: "verify" });
+  });
+
+  it("turns a distance-based run into a route-distance target", () => {
+    const run = compileTripBrief("Map me a shaded 2-mile run that loops back here.");
+    expect(run).toMatchObject({
+      shape: "loop",
+      activity: "run",
+      distanceMiles: 2,
+      priorities: ["shade"],
+    });
+    expect(briefSummary(run)[0]).toBe("2-mile run, back to your start");
+    expect(distanceMilesToRoutingMinutes(2)).toBeCloseTo(40.2336, 3);
+  });
+
+  it("normalizes kilometers and lets a later time request replace distance", () => {
+    const metric = compileTripBrief("Walk 3 kilometers west with more shade");
+    const timed = compileTripBrief("Make it a 30-minute walk instead", metric);
+
+    expect(metric).toMatchObject({ shape: "wander", activity: "walk", direction: "west" });
+    expect(metric.distanceMiles).toBe(1.86);
+    expect(timed).toMatchObject({ distanceMiles: null, walkingMinutes: 30, activity: "walk" });
+  });
+
+  it("treats an exact distance as a target and adjusts distance refinements", () => {
+    const priorMaximum = compileTripBrief("Wander for up to 30 minutes");
+    const distance = compileTripBrief("Make it a 2-mile run", priorMaximum);
+    const shorter = compileTripBrief("A little shorter", distance);
+
+    expect(distance).toMatchObject({ distanceMiles: 2, walkingTimeIntent: "target", activity: "run" });
+    expect(shorter).toMatchObject({ distanceMiles: 1.75, walkingTimeIntent: "target" });
+  });
+
+  it("bounds distance safely and ignores amenity radii", () => {
+    const longRun = compileTripBrief("Give me a shaded 20-mile run");
+
+    expect(longRun.distanceMiles).toBe(5);
+    expect(longRun.unsupported).toContain("This preview supports route distances from 0.25 to 5 miles");
+    expect(compileTripBrief("Give me a -2 mile run").distanceMiles).toBeNull();
+    expect(compileTripBrief("Find seating within 2 miles").distanceMiles).toBeNull();
+  });
+
+  it("understands timed runs and running to a fixed destination", () => {
+    expect(compileTripBrief("Take me on a shaded run for 30 minutes")).toMatchObject({ shape: "loop", activity: "run", walkingMinutes: 30 });
+    expect(compileTripBrief("Run to Washington Square Park with more shade")).toMatchObject({ shape: "destination", activity: "run", destinationQuery: "Washington Square Park" });
+  });
+
+  it("uses a typed destination instead of an incompatible distance target", () => {
+    const run = compileTripBrief("Give me a shaded 2-mile run");
+    expect(withDestinationOverride(run, "Washington Square Park")).toMatchObject({
+      shape: "destination",
+      destinationQuery: "Washington Square Park",
+      distanceMiles: null,
+      activity: "run",
+    });
   });
 
   it("keeps an optional civic check separate from destination and amenity preferences", () => {
