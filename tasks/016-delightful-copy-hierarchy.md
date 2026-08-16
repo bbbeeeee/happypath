@@ -8,7 +8,7 @@
 - [x] Keep source links, refresh dates, and evidence boundaries available one level deeper.
 - [x] Run the full test and production-build suites.
 - [x] Capture and inspect route, rain, access-note, source, and City what-if screenshots.
-- [ ] Push the finished pass to the Full MVP preview PR.
+- [x] Push the finished pass to the Full MVP preview PR.
 
 ## Review
 
