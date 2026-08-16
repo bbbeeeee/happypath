@@ -1,0 +1,118 @@
+{
+  "schemaVersion": 1,
+  "id": "seward-park-transit-shade-v1",
+  "title": "Modeled shade on walks from nearby subway entrances to Seward Park",
+  "question": "How would a repeated shade gap affect the same representative public-anchor journeys if it reached 80% modeled shade?",
+  "geography": "Lower Manhattan subway entrances within roughly one kilometer of Seward Park",
+  "departureHour": 15,
+  "routePolicy": {
+    "detourAllowanceMinutes": 4,
+    "edgePreferenceId": "modeled_shade",
+    "edgePreferenceWeight": 1
+  },
+  "selectionPolicy": {
+    "minimumJourneyCount": 2,
+    "minimumAvoidedMinutesPerEdge": 0.01,
+    "targetShadePercent": 80,
+    "tieBreak": "weighted avoidable minutes, affected journey weight, length, then sorted edge IDs"
+  },
+  "gap": {
+    "id": "seward-park-rutgers-approach",
+    "label": "Rutgers Street entrance and central path through Seward Park"
+  },
+  "anchorPolicy": {
+    "originKind": "published subway entrance",
+    "destinationKind": "mapped public amenity",
+    "minimumRadiusMeters": 350,
+    "maximumRadiusMeters": 1050,
+    "distinctStationNames": true,
+    "publishedEntryRequired": true,
+    "journeyWeight": "equal"
+  },
+  "destination": {
+    "assetId": "drinking-fountain:M082-DF0212",
+    "nodeId": "9108914300",
+    "label": "Seward Park drinking fountain",
+    "coordinate": [-73.98921, 40.714851],
+    "sourceId": "nyc-parks-drinking-fountains",
+    "operationStatus": "unknown"
+  },
+  "journeys": [
+    {
+      "id": "delancey-essex-to-seward-park",
+      "label": "Delancey St–Essex St to Seward Park",
+      "purpose": "Transit entrance to mapped public amenity",
+      "origin": { "assetId": "transit:5fab056e2420b6c1", "nodeId": "7579132574", "label": "Delancey St–Essex St subway entrance", "coordinate": [-73.988299, 40.718117] },
+      "destinationAssetId": "drinking-fountain:M082-DF0212",
+      "destinationNodeId": "9108914300",
+      "weight": 1
+    },
+    {
+      "id": "grand-st-to-seward-park",
+      "label": "Grand St to Seward Park",
+      "purpose": "Transit entrance to mapped public amenity",
+      "origin": { "assetId": "transit:b2b753b5a3a034bb", "nodeId": "6330061736", "label": "Grand St subway entrance", "coordinate": [-73.993452, 40.718155] },
+      "destinationAssetId": "drinking-fountain:M082-DF0212",
+      "destinationNodeId": "9108914300",
+      "weight": 1
+    },
+    {
+      "id": "bowery-to-seward-park",
+      "label": "Bowery to Seward Park",
+      "purpose": "Transit entrance to mapped public amenity",
+      "origin": { "assetId": "transit:19535cfcaf9fafc6", "nodeId": "4215624277", "label": "Bowery subway entrance", "coordinate": [-73.993546, 40.72] },
+      "destinationAssetId": "drinking-fountain:M082-DF0212",
+      "destinationNodeId": "9108914300",
+      "weight": 1
+    },
+    {
+      "id": "second-avenue-to-seward-park",
+      "label": "2 Av to Seward Park",
+      "purpose": "Transit entrance to mapped public amenity",
+      "origin": { "assetId": "transit:2271393d1f570860", "nodeId": "4388524488", "label": "2 Av subway entrance", "coordinate": [-73.98897, 40.722792] },
+      "destinationAssetId": "drinking-fountain:M082-DF0212",
+      "destinationNodeId": "9108914300",
+      "weight": 1
+    },
+    {
+      "id": "canal-st-to-seward-park",
+      "label": "Canal St to Seward Park",
+      "purpose": "Transit entrance to mapped public amenity",
+      "origin": { "assetId": "transit:a1100fa8965c485b", "nodeId": "7641859755", "label": "Canal St subway entrance", "coordinate": [-74.000276, 40.717838] },
+      "destinationAssetId": "drinking-fountain:M082-DF0212",
+      "destinationNodeId": "9108914300",
+      "weight": 1
+    },
+    {
+      "id": "spring-st-to-seward-park",
+      "label": "Spring St to Seward Park",
+      "purpose": "Transit entrance to mapped public amenity",
+      "origin": { "assetId": "transit:fb6cb3481b894f74", "nodeId": "5152343466", "label": "Spring St subway entrance", "coordinate": [-73.996812, 40.722103] },
+      "destinationAssetId": "drinking-fountain:M082-DF0212",
+      "destinationNodeId": "9108914300",
+      "weight": 1
+    }
+  ],
+  "interventions": [
+    { "id": "modeled-shade-80", "label": "Hypothetical 80% modeled shade", "targetShadePercent": 80, "role": "primary" },
+    { "id": "modeled-shade-60", "label": "Lower-impact 60% modeled shade", "targetShadePercent": 60, "role": "alternative" }
+  ],
+  "sources": [
+    { "sourceId": "mta-subway-entrances-2024", "evidenceClass": "official_inventory", "snapshotHash": "sha256:fbd0b2a95c8f16ef81ffe2584e4decd5b5da10f6417f17d5976e9bab87d490f4" },
+    { "sourceId": "nyc-parks-drinking-fountains", "evidenceClass": "official_inventory", "snapshotHash": "sha256:0939d63685a37d924fa1ccac30b77031de6d907a7ebc357138c340e8c6dad829" },
+    { "sourceId": "openstreetmap", "evidenceClass": "mapped_network", "generatedAt": "2026-08-16T14:07:12.259Z" },
+    { "sourceId": "nyc-building-footprints", "evidenceClass": "official_inventory" },
+    { "sourceId": "building-shadow-model", "evidenceClass": "derived_model", "methodVersion": "building-shadow-polyline-sampling-v4-coherent-partitions", "validationStatus": "pending", "edgeCoverage": 1 }
+  ],
+  "limitations": [
+    "This is a frozen equal-weight public-anchor cohort, not observed individual app usage or population demand.",
+    "The static 2024 subway inventory does not verify live service, entrance access, elevators, or a step-free journey.",
+    "The Seward Park fountain is a mapped public anchor; its current operation and water availability are unknown.",
+    "Shade is derived from mapped buildings and modeled sun position, and the current validation status is pending.",
+    "The intervention is hypothetical and does not establish feasibility, cost, ownership, permitting, or City priority."
+  ],
+  "exclusions": [
+    "No resident histories, inferred destinations, or individual-level demand are used.",
+    "No claim is made that every relevant journey or neighborhood is represented."
+  ]
+}
