@@ -1481,12 +1481,12 @@ export function App() {
         "line-opacity": ["interpolate", ["linear"], ["zoom"], 13.2, 0.12, 15, 0.32],
       }, layout: { visibility: "none", "line-cap": "round", "line-join": "round" } });
       map.addSource("mapped-cover", { type: "geojson", data: ambientCoverLayer });
-      map.addLayer({ id: "mapped-cover-casing", type: "line", source: "mapped-cover", paint: {
+      map.addLayer({ id: "mapped-cover-casing", type: "line", source: "mapped-cover", minzoom: 13.2, paint: {
         "line-color": "#7284A2",
         "line-width": ["interpolate", ["linear"], ["zoom"], 13, 8, 17, 18],
         "line-opacity": 0.18,
       }, layout: { visibility: "none", "line-cap": "round", "line-join": "round" } });
-      map.addLayer({ id: "mapped-cover", type: "line", source: "mapped-cover", paint: {
+      map.addLayer({ id: "mapped-cover", type: "line", source: "mapped-cover", minzoom: 13.2, paint: {
         "line-color": "#536A91",
         "line-width": ["interpolate", ["linear"], ["zoom"], 13, 2.5, 17, 5],
         "line-opacity": ["interpolate", ["linear"], ["get", "coverShare"], 0.5, 0.58, 1, 0.92],
