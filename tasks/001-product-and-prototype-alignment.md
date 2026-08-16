@@ -1,6 +1,6 @@
 ---
 id: "001"
-title: Product and prototype alignment
+title: Product and documentation alignment
 phase: M0
 status: review
 owner: unassigned
@@ -9,73 +9,74 @@ parallel_with: []
 last_updated: 2026-08-15
 ---
 
-# 001 — Product and prototype alignment
+# 001 — Product and documentation alignment
 
 ## Outcome
 
-The project has one approved product contract, one documented prototype disposition, and a clean execution plan that downstream work can follow without inventing scope.
+The project has one coherent product contract, one documentation structure, and one end-to-end work plan ready to merge to `main` before implementation begins.
 
-## Why this package exists
+## Decisions recorded
 
-The repository currently contains a broad product PRD and two materially different prototype branches. Before implementation is combined, the team needs to agree on the resident P0, the city-data platform, the role of Detour, and which prototype assets are retained.
-
-## Inputs and dependencies
-
-- [Product requirements](../docs/PRD.md)
-- [Core UX](../docs/UX.md)
-- [Data and inference](../docs/data-and-inference.md)
-- [Detour](../docs/DETOUR.md)
-- [Prototype inventory](../docs/PROTOTYPES.md)
-- `codex/happy-path-mvp`
-- `bryan`
+- Supported geography targets Manhattan from the Battery through Midtown, approximately south of Central Park.
+- The delivery target is the P1 resident experience plus one Detour planning proof.
+- Destination routing is the technical foundation; Loop and Wander are P1 journeys.
+- The product should integrate a broad set of NYC public-data layers while keeping the resident experience simple.
+- Real City and open data should support resident route facts wherever practical.
+- The demo should feel polished, friendly, and magical rather than like a technical prototype.
+- No existing branch is designated as the implementation base.
+- No visual or architectural concepts from `bryan` are retained in the current plan.
+- This PR updates docs and task planning only.
+- Implementation proceeds later through focused PRs to `main`.
 
 ## Deliverables
 
-- approved canonical docs;
-- confirmed P0 and deferred scope;
-- confirmed pilot boundary;
-- selected implementation base;
-- list of exact reusable prototype files or systems;
-- branch-integration strategy;
-- updated task board.
+- approved [PRD](../docs/PRD.md);
+- approved [UX and product-language guide](../docs/UX.md);
+- approved [data and inference specification](../docs/data-and-inference.md);
+- approved [Detour PRD](../docs/DETOUR.md);
+- approved [build plan](../docs/BUILD.md);
+- approved [prototype disposition](../docs/PROTOTYPES.md);
+- approved task board and work packages;
+- documentation PR merged to `main`.
 
 ## Work breakdown
 
 - [x] `001-A` — Audit `main` documentation and task files.
 - [x] `001-B` — Audit the purpose and major assets of both prototype branches.
-- [x] `001-C` — Consolidate resident product, city-data platform, and Detour direction.
+- [x] `001-C` — Consolidate resident product, civic-data platform, and Detour direction.
 - [x] `001-D` — Replace stale task scaffolding with end-to-end work packages.
-- [ ] `001-E` — Confirm or revise the Lower Manhattan pilot.
-- [ ] `001-F` — Confirm `codex/happy-path-mvp` as the implementation base.
-- [ ] `001-G` — Decide whether selected visual concepts from `bryan` should be retained.
-- [ ] `001-H` — Approve P0, stretch, P1, and later boundaries.
-- [ ] `001-I` — Create the implementation-integration branch or pull-request sequence.
+- [x] `001-E` — Set the Manhattan geography target through Midtown.
+- [x] `001-F` — Decide that no prototype branch is the implementation base.
+- [x] `001-G` — Decide not to retain `bryan` visual concepts.
+- [x] `001-H` — Set P1 as the delivery target and later scope explicitly.
+- [x] `001-I` — Define docs-first, implementation-later PR sequencing.
+- [ ] `001-J` — Complete final product review and requested edits.
+- [ ] `001-K` — Merge the documentation PR to `main`.
+- [ ] `001-L` — Create implementation issues or PR-sized slices from tasks 002–009.
 
 ## Acceptance criteria
 
-- [ ] The team can state the P0 resident experience in one paragraph.
+- [ ] The product can be summarized in one clear paragraph.
 - [ ] The role of NYC public data is explicit and measurable.
-- [ ] Detour is connected architecturally but cannot block the resident proof.
-- [ ] Every prototype branch has a retain, extract, archive, or reject disposition.
+- [ ] The P1 user experience and demo quality bar are clear.
+- [ ] Detour is connected to the same architecture and included as one planning proof.
+- [ ] Prototype branches are references only.
 - [ ] No live task depends on superseded requirements.
-- [ ] Downstream packages have stable shared contracts to target.
+- [ ] Downstream packages have stable contracts and clear dependencies.
+- [ ] The documentation can be merged without application-code changes.
 
 ## Out of scope
 
-- implementation changes;
+- application implementation;
+- selecting a final technical stack;
 - merging prototype branches;
-- data validation;
-- final visual design.
-
-## Risks and decisions
-
-- Expanding P0 to every desired route mode would make the project difficult to integrate and validate.
-- Treating either prototype as automatically canonical would bypass product and evidence decisions.
+- validating City datasets;
+- deploying the demo.
 
 ## Verification
 
-Approval should be recorded in the documentation pull request. Any requested changes must update the PRD and affected work-package acceptance criteria before this package is marked `done`.
+Review the full documentation set and PR diff. Confirm that geography, P1 scope, product voice, real-data standard, prototype disposition, Detour role, and task sequence are consistent before merging.
 
 ## Handoff
 
-Packages 002–006 may proceed in parallel once the product contract and implementation base are approved.
+After the docs merge, tasks 002–006 can begin in parallel through implementation issues and focused PRs.
