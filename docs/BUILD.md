@@ -1,199 +1,287 @@
 # Happy Path — Build Plan
 
-> The detailed work packages live in [`tasks/`](../tasks/README.md). This document defines milestones, dependencies, and integration gates without duplicating live task status.
+> Detailed work packages live in [`tasks/`](../tasks/README.md). This document defines the delivery sequence, shared contracts, and quality gates without duplicating live task status.
 
-## 1. Delivery strategy
+## 1. Current phase
 
-Build one coherent resident vertical slice first, while designing the data contracts broadly enough to support additional city layers and Detour.
+The current pull request is documentation and planning only.
 
-The implementation should proceed through five milestones:
+The sequence is:
 
-1. **Align** — approve product scope and select reusable prototype assets.
-2. **Ground** — validate the pilot graph, source registry, and core city layers.
-3. **Route** — compute evidence-backed alternatives and route metrics.
-4. **Experience** — add the Trip Brief, map UX, receipt, and refinement.
-5. **Prove** — validate, deploy, present several data-rich demos, then add one Detour scenario.
+1. approve and merge the key docs to `main`;
+2. convert work packages into focused implementation issues or PRs;
+3. implement through reviewable branches targeting `main`;
+4. assemble the P1 demo from real, cleaned Manhattan data;
+5. add one Detour planning proof using the same city model.
 
-## 2. Work-package dependency graph
+No prototype branch is designated as the implementation base. Existing prototypes may provide reusable code or evidence after file-level review.
+
+## 2. Delivery goal
+
+Build a P1 demonstration that feels like a real, polished consumer product inside its supported Manhattan area.
+
+The visible product should be simple:
+
+> **One friendly request → an easy-to-check Trip Brief → one considered walk → clear reasons → natural refinement.**
+
+The underlying system should be broad enough to combine many NYC data layers and reuse the same features for Detour.
+
+### P1 resident target
+
+- Manhattan from the Battery through Midtown, approximately south of Central Park;
+- destination, loop, and wander journey shapes;
+- conversational Trip Brief and one refinement;
+- time-aware shade plus several additional civic-data layers;
+- at least three validated layer families affecting the result;
+- at least five official NYC datasets integrated and inspectable;
+- friendly, polished mobile UI and copy;
+- route claims grounded primarily in actual City and open data.
+
+### P1 planning target
+
+- one Detour analysis;
+- representative journeys;
+- one repeated route burden;
+- one hypothetical intervention;
+- before-and-after rerouting;
+- clear assumptions and uncertainty.
+
+## 3. Delivery principles
+
+### 3.1 Real underneath, magical on top
+
+The product may preprocess, cache, simplify, and curate data aggressively. Resident-facing route facts and numerical benefits should come from real source data and deterministic calculations.
+
+### 3.2 Curate for quality
+
+A bounded supported area and rehearsed demo journeys are acceptable. The product should not expose locations, prompts, or layers that have not reached a credible quality bar.
+
+### 3.3 Clean data is a product feature
+
+Data preparation includes:
+
+- deduplication;
+- geometry cleanup;
+- sensible labeling;
+- compact payloads;
+- source and date metadata;
+- coverage and confidence;
+- resident-friendly display fields.
+
+### 3.4 Keep technical language backstage
+
+Internal contracts can be precise and technical. Resident UI and demo language should be friendly, concise, and product-forward.
+
+### 3.5 Detour reuses the resident system
+
+Do not build a separate planning ingestion stack. Detour should reuse the graph, layer registry, route features, evidence, and validation system.
+
+## 4. Work-package dependency graph
 
 ```text
-001 Product and prototype alignment
+001 Product and documentation alignment
         │
         ├─────────────┬─────────────┬─────────────┐
         ↓             ↓             ↓             ↓
-002 Data platform  003 Routing   004 Core UX   005 AI contracts
+002 Data platform  003 Routing   004 Product UX  005 AI and copy
         │             │             │             │
         └──────┬──────┴──────┬──────┴─────────────┘
                ↓             ↓
        006 Civic layers   shared fixtures
                └──────┬──────┘
                       ↓
-             007 Integration and QA
+             007 Integration and polish
                       ↓
              008 Demo and deployment
+                      ↘
+                       009 Detour proof
 
-009 Detour begins after route metrics and selected civic layers are stable.
-010 Civic Assets & Actions remains a later extension.
+010 Civic Assets & Actions follows the core product and Detour.
 ```
 
-Tasks 002–006 are designed to proceed substantially in parallel after the product contract is approved. They meet through explicit data, route, Trip Brief, receipt, and map-presentation schemas.
+Tasks 002–006 can proceed substantially in parallel after the docs and shared contracts are accepted.
 
-## 3. Milestones
+## 5. Milestones
 
-### M0 — Product alignment
+### M0 — Approve the plan
 
 Exit conditions:
 
-- consolidated PRD approved;
-- Lower Manhattan retained or replaced through an explicit decision;
-- `codex/happy-path-mvp` disposition recorded;
-- `bryan` visual prototype disposition recorded;
-- P0 and deferred scope understood;
-- task owners can work without inventing product requirements.
+- PRD, UX, data/inference, Detour, prototype, build, and task docs approved;
+- Manhattan supported area accepted;
+- P1 scope understood;
+- no prototype branch designated as the base;
+- implementation will proceed through focused PRs to `main`.
 
 Primary task: [001](../tasks/001-product-and-prototype-alignment.md)
 
-### M1 — Grounded city model
+### M1 — Grounded Manhattan model
 
 Exit conditions:
 
+- supported-area boundary and preprocessing partitions defined;
 - source registry has capability status for target layers;
-- pilot graph and building-height data pass coverage checks;
-- shade model is visually and numerically reviewed;
-- core amenity and friction layers are ingested or explicitly rejected;
-- every feature record retains source, date, method, coverage, and confidence;
-- fixture datasets are available to frontend and AI work.
+- pedestrian graph, buildings, and shade pass core validation;
+- priority amenity and friction layers are ingested or explicitly rejected;
+- real data is transformed into compact product-ready fixtures;
+- every feature retains source, date, coverage, method, and confidence.
 
 Primary tasks: [002](../tasks/002-data-platform-and-pilot-audit.md), [006](../tasks/006-civic-data-layers-and-amenities.md)
 
-### M2 — Evidence-backed routing
+### M2 — Evidence-backed journey engine
 
 Exit conditions:
 
-- fastest route is credible for the pilot;
-- minute-based detour limits replace percentage-only controls;
-- distinct route alternatives are generated and deduplicated;
-- at least three layer families influence route, requirement, waypoint, or receipt;
-- best-extra-minute frontier is available;
-- hard constraints are validated;
+- destination routes work across the supported area;
+- loop and wander produce credible journeys for the demo set;
+- explicit time budgets are enforced;
+- route alternatives are distinct and plausible;
+- at least three validated data families affect route, requirement, waypoint, or receipt;
+- continuity and amenity metrics exist;
 - route results expose stable evidence contracts.
 
 Primary task: [003](../tasks/003-routing-and-route-metrics.md)
 
-### M3 — Resident experience
+### M3 — Magical resident experience
 
 Exit conditions:
 
-- mobile compose, interpret, result, inspect, and refine states exist;
-- natural-language input and deterministic quick controls edit one Trip Brief;
-- route receipt and City data used drawer are evidence-linked;
-- AI failure falls back safely;
-- data layers are selected contextually rather than through a large layer panel;
-- loading, unsupported, partial-coverage, and no-route states are complete.
+- compose, interpret, loading, result, inspect, compare, and refine states exist;
+- destination, loop, and wander share one interaction model;
+- UI copy follows [UX.md](UX.md);
+- map remains clean despite broad data integration;
+- City data used is understandable and inspectable;
+- route changes feel immediate and intentional;
+- technical jargon and debug output are absent from resident screens.
 
 Primary tasks: [004](../tasks/004-core-ux-and-map-presentation.md), [005](../tasks/005-ai-trip-brief-and-explanations.md)
 
-### M4 — Integrated proof
+### M4 — Integrated P1 proof
 
 Exit conditions:
 
-- ten route pairs and twenty sampled blocks or assets reviewed;
-- three demo scenarios use meaningfully different city-data combinations;
-- mobile payload and warmed interaction meet the agreed budget;
-- production deployment is stable;
-- hackathon narrative clearly connects resident utility, city data, and Detour;
-- one prepared Detour scenario is available if it does not endanger the resident demo.
+- real data and resident UI are integrated end to end;
+- supported journeys are reviewed and polished;
+- mobile load, map rendering, and refinement meet explicit performance budgets;
+- loading and failure behavior is graceful;
+- at least four rehearsed scenarios use different City-data combinations;
+- one Detour scenario works from the same feature registry;
+- the product feels coherent from a clean browser session.
 
-Primary tasks: [007](../tasks/007-integration-quality-and-performance.md), [008](../tasks/008-demo-deployment-and-submission.md), optionally [009](../tasks/009-detour-planning-extension.md)
+Primary tasks: [007](../tasks/007-integration-quality-and-performance.md), [008](../tasks/008-demo-deployment-and-submission.md), [009](../tasks/009-detour-planning-extension.md)
 
-## 4. Shared contracts
+## 6. Shared contracts
 
-Parallel work should meet through these stable interfaces:
+Parallel work meets through these stable interfaces.
 
-### LayerDefinition
+### `LayerDefinition`
 
-Describes source, capability status, route features, Detour features, visualization, freshness, and claim boundaries.
+Source, capability status, product fields, route features, Detour features, visualization, freshness, confidence, and claim boundaries.
 
-### TripBrief
+### `TripBrief`
 
-Describes origin, destination, time, detour allowance, supported preferences, hard requirements, waypoint needs, and unsupported criteria.
+Journey shape, origin, destination or end condition, time budget, supported preferences, hard requirements, waypoint needs, and unsupported criteria.
 
-### RouteCandidate
+### `RouteCandidate`
 
-Contains immutable geometry reference, travel metrics, hard-constraint status, layer metrics, evidence coverage, and confidence.
+Immutable geometry reference, travel metrics, hard-constraint status, feature metrics, evidence coverage, and confidence.
 
-### RouteReceipt
+### `RouteReceipt`
 
-Contains benefits, costs, compromises, evidence-linked claims, source IDs, and confidence.
+Human benefits, costs, compromises, source-linked claims, and uncertainty.
 
-### MapPresentation
+### `MapPresentation`
 
-Contains allowed ambient layers, route-segment emphasis, required icons, warnings, callouts, and explanation-only evidence. It expresses semantic priority, not pixel placement.
+Registered layers, emphasized segments, required assets, warnings, and callouts. It expresses semantic priority, not pixel placement.
 
-### DetourScenario
+### `DetourScenario`
 
-Contains geography, representative trips, planning lens, intervention, baseline burden, scenario burden, evidence, and assumptions.
+Geography, representative journeys, planning lens, intervention, baseline burden, scenario burden, evidence, and assumptions.
 
-## 5. Integration gates
+## 7. Quality gates
 
 ### Data gate
 
-A source cannot affect routing until it passes the validation gate in [data-and-inference.md](data-and-inference.md).
+A source can be shown before it is routing-ready, but it cannot affect route selection until its coverage and claim boundaries are accepted.
+
+### Route gate
+
+Every recommended route must be a valid returned candidate inside its time and hard constraints.
 
 ### Claim gate
 
-Every displayed numerical or qualitative claim must map to a deterministic metric or explicit personal-preference record.
+Every resident-facing numerical or factual claim must map to route output, source evidence, or explicit user preference.
 
-### UX gate
+### Product-language gate
 
-A new layer cannot add a default control or icon merely because it exists. It must support a user need, route reason, warning, or planning analysis.
+Primary screens must not expose raw dataset fields, source IDs, internal schema names, debug logs, or engineering language. Technical details remain available in deeper evidence views.
 
-### Scope gate
+### Visual gate
 
-Loop, Wander, persistent personalization, custom icons, contribution, and broad Detour tooling cannot delay the fixed-destination resident proof.
+A new data layer cannot add clutter merely because it exists. It appears only when it helps answer the current request or explain the route.
 
 ### Demo gate
 
-A prepared scenario must use real route and source outputs. Mocked operational states or intervention effects must be labeled and must not be presented as City findings.
+Resident claims use real source data and deterministic outputs. Hypothetical planning scenarios are clearly labeled. Prepared demo journeys are allowed; fabricated route benefits are not.
 
-## 6. Current implementation assets
+### Performance gate
 
-See [PROTOTYPES.md](PROTOTYPES.md) for full disposition.
+The app should load only the geography, time slices, and layers needed for the current interaction. Large graph, shadow, and asset payloads must be partitioned, compressed, cached, or loaded on demand.
 
-The current recommended implementation base is `codex/happy-path-mvp` because it already contains:
+## 8. Implementation approach
 
-- a cropped Lower Manhattan pedestrian graph;
-- NYC building, tree, and park ingestion;
-- time-specific shadow data;
-- Shade and Greener routing;
-- mapped-step exclusion;
-- MapLibre UI and route receipt;
-- tests and a pilot audit.
+After the docs merge:
 
-This is an asset, not an automatic final architecture. Reuse should follow the approved contracts and validation requirements.
+1. create implementation issues from the current work packages;
+2. land shared TypeScript or API schemas and fixtures first;
+3. build data, routing, UI, and AI in parallel against those fixtures;
+4. integrate through small PRs to `main` rather than one large prototype merge;
+5. evaluate reusable prototype files only when they reduce risk;
+6. run product-copy and map-cleanliness review alongside technical review;
+7. freeze feature breadth before final demo polish.
 
-## 7. Definition of done
+## 9. Demo realism strategy
+
+### Acceptable
+
+- supporting only Manhattan below Central Park;
+- choosing strong demo origins and destinations;
+- preprocessing City data;
+- precomputing shadows or other expensive features;
+- caching inference for rehearsed requests while retaining live fallback;
+- hiding unsupported prompts;
+- showing one scripted hypothetical Detour intervention.
+
+### Not acceptable
+
+- hard-coded route benefits not produced by the engine;
+- fake live amenity, crowd, weather, or construction status;
+- hypothetical City changes presented as implemented;
+- unsupported destinations silently snapping to a prepared demo;
+- technical failures disguised as confidence.
+
+## 10. Definition of done
 
 A work package is done only when:
 
 1. its deliverable exists in the agreed location;
 2. acceptance criteria are checked;
-3. tests or review evidence are recorded;
-4. documentation and source/claim boundaries are updated;
+3. test or review evidence is recorded;
+4. data and product-language boundaries are documented;
 5. downstream fixtures or interfaces are available;
 6. known limitations and follow-up work are explicit;
 7. the task board status is updated in the same change.
 
-## 8. Scope discipline
+## 11. Scope discipline
 
 When time is constrained, preserve in this order:
 
-1. credible pedestrian routing;
-2. validated time-aware shade;
-3. evidence and confidence;
-4. Trip Brief and Route Receipt;
-5. several meaningful city-data layers;
-6. refinement and map inspection;
-7. additional resident modes;
-8. Detour scenario;
-9. custom visuals and later extensions.
+1. a coherent, friendly resident experience;
+2. credible pedestrian routes;
+3. validated City-data benefits and honest uncertainty;
+4. fast, clean map presentation;
+5. destination, loop, and wander demo coverage;
+6. natural-language refinement;
+7. broad additional layers;
+8. one Detour proof;
+9. later live data and civic contribution features.
