@@ -24,7 +24,7 @@ interface CoverContextCollection {
   }>;
 }
 
-type FallbackBbox = [south: number, west: number, north: number, east: number];
+type FallbackBbox = readonly [south: number, west: number, north: number, east: number];
 
 export function fallbackMapBounds(graph: PilotGraph, route: JourneyRoute | null, additionalCoordinates: readonly Coordinate[] = []): FallbackBbox {
   const coordinates = [...(route?.coordinates ?? []), ...additionalCoordinates];
@@ -40,7 +40,11 @@ export function fallbackMapBounds(graph: PilotGraph, route: JourneyRoute | null,
   return [south - latitudePadding, west - longitudePadding, north + latitudePadding, east + longitudePadding];
 }
 
-export function FallbackMap({ graph, route, baseline, comparisonDelta, representativeRoutes, activity = [], showActivity = false, selectedActivityRouteId, lens, overlays, shadeSegments, greenerySegments, ambientGreenery, coverSegments, ambientCover, coverContext, floodContext, selection, assets, prominentAssetIds, selectedAssetId, onAssetClick, tasks, selectedTaskId, completedTaskIds, onTaskClick, onActivityRouteClick }: {
+export function fallbackMapCoordinate([x, y]: readonly [number, number], [south, west, north, east]: FallbackBbox): Coordinate {
+  return [west + x / 1200 * (east - west), south + (820 - y) / 820 * (north - south)];
+}
+
+export function FallbackMap({ graph, route, baseline, comparisonDelta, representativeRoutes, activity = [], showActivity = false, selectedActivityRouteId, lens, overlays, shadeSegments, greenerySegments, ambientGreenery, coverSegments, ambientCover, coverContext, floodContext, selection, assets, prominentAssetIds, selectedAssetId, onMapClick, onAssetClick, tasks, selectedTaskId, completedTaskIds, onTaskClick, onActivityRouteClick }: {
   graph: PilotGraph;
   route: JourneyRoute | null;
   baseline?: JourneyRoute | null;
@@ -62,6 +66,7 @@ export function FallbackMap({ graph, route, baseline, comparisonDelta, represent
   assets: readonly CivicAsset[];
   prominentAssetIds: readonly string[];
   selectedAssetId?: string | null;
+  onMapClick?: (coordinate: Coordinate) => void;
   onAssetClick: (asset: CivicAsset) => void;
   tasks: readonly CivicTask[];
   selectedTaskId?: string | null;
@@ -106,7 +111,16 @@ export function FallbackMap({ graph, route, baseline, comparisonDelta, represent
   const completedTasks = new Set(completedTaskIds);
 
   return <div className="fallback-map" aria-label="Street map preview">
-    <svg viewBox={`${viewX} 0 ${viewWidth} ${height}`} preserveAspectRatio="xMidYMid slice" role="img" aria-label="Happy Path route and neighborhood amenities">
+    <svg viewBox={`${viewX} 0 ${viewWidth} ${height}`} preserveAspectRatio="xMidYMid slice" role="img" aria-label="Happy Path route and neighborhood amenities" onClick={onMapClick ? (event) => {
+      const svg = event.currentTarget;
+      const matrix = svg.getScreenCTM();
+      if (!matrix) return;
+      const screenPoint = svg.createSVGPoint();
+      screenPoint.x = event.clientX;
+      screenPoint.y = event.clientY;
+      const viewPoint = screenPoint.matrixTransform(matrix.inverse());
+      onMapClick(fallbackMapCoordinate([viewPoint.x, viewPoint.y], bbox));
+    } : undefined}>
       <defs>
         <pattern id="fallback-grid" width="70" height="70" patternUnits="userSpaceOnUse"><path d="M70 0H0V70" fill="none" stroke="#dcded9" strokeWidth="1" /></pattern>
         <pattern id="fallback-flood-nuisance" width="12" height="12" patternUnits="userSpaceOnUse"><rect width="12" height="12" fill="#d8e4e8" fillOpacity=".5" /><path d="M-3 3 3-3M0 12 12 0M9 15 15 9" stroke="#426a7c" strokeWidth="2" strokeOpacity=".7" /></pattern>
@@ -157,7 +171,7 @@ export function FallbackMap({ graph, route, baseline, comparisonDelta, represent
         const [x, y] = point(asset.coordinate as Coordinate);
         const isProminent = prominent.has(asset.id);
         const isSelected = asset.id === selectedAssetId;
-        return <g key={asset.id} className={`fallback-asset asset-${asset.kind} ${isProminent ? "prominent" : ""} ${isSelected ? "selected" : ""}`} transform={`translate(${x} ${y})`} role="button" tabIndex={0} aria-label={asset.name} onClick={() => onAssetClick(asset)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") onAssetClick(asset); }}>
+        return <g key={asset.id} className={`fallback-asset asset-${asset.kind} ${isProminent ? "prominent" : ""} ${isSelected ? "selected" : ""}`} transform={`translate(${x} ${y})`} role="button" tabIndex={0} aria-label={asset.name} onClick={(event) => { event.stopPropagation(); if (onMapClick) onMapClick(asset.coordinate as Coordinate); else onAssetClick(asset); }} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") onAssetClick(asset); }}>
           <circle r={prominent.has(asset.id) ? 14 : 10} />
           <AssetGlyph kind={asset.kind} />
           <title>{asset.name}</title>
@@ -167,7 +181,7 @@ export function FallbackMap({ graph, route, baseline, comparisonDelta, represent
         const [x, y] = point(task.coordinate as Coordinate);
         const selected = task.id === selectedTaskId;
         const completed = completedTasks.has(task.id);
-        return <g key={task.id} className={`${selected ? "selected" : ""} ${completed ? "completed" : ""}`} transform={`translate(${x} ${y})`} role="button" tabIndex={0} aria-label={task.title} onClick={() => onTaskClick(task)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") onTaskClick(task); }}>
+        return <g key={task.id} className={`${selected ? "selected" : ""} ${completed ? "completed" : ""}`} transform={`translate(${x} ${y})`} role="button" tabIndex={0} aria-label={task.title} onClick={(event) => { event.stopPropagation(); if (onMapClick) onMapClick(task.coordinate as Coordinate); else onTaskClick(task); }} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") onTaskClick(task); }}>
           <circle r={selected ? 15 : 12} />
           <TaskGlyph action={task.action} />
           <title>{task.title}</title>

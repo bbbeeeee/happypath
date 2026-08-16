@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fallbackMapBounds } from "./FallbackMap";
+import { fallbackMapBounds, fallbackMapCoordinate } from "./FallbackMap";
 import type { JourneyRoute, PilotGraph } from "../types";
 
 describe("fallbackMapBounds", () => {
@@ -16,5 +16,17 @@ describe("fallbackMapBounds", () => {
     expect(west).toBeLessThan(-73.994);
     expect(east).toBeGreaterThan(-73.988);
     expect(north - south).toBeLessThan(0.02);
+  });
+});
+
+describe("fallbackMapCoordinate", () => {
+  const bbox = [40.7, -74.03, 40.76, -73.97] as const;
+
+  it("translates visual map points back into geographic coordinates", () => {
+    const center = fallbackMapCoordinate([600, 410], bbox);
+    expect(center[0]).toBeCloseTo(-74);
+    expect(center[1]).toBeCloseTo(40.73);
+    expect(fallbackMapCoordinate([0, 0], bbox)).toEqual([-74.03, 40.76]);
+    expect(fallbackMapCoordinate([1200, 820], bbox)).toEqual([-73.97, 40.7]);
   });
 });

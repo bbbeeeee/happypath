@@ -74,6 +74,7 @@ describe("pilot civic asset fixture", () => {
       if (asset.kind !== "transit") throw new Error("Expected a transit asset");
       expect(asset.details.inventoryYear).toBe("2024");
       expect(asset.details.stopName).toBeTruthy();
+      expect(asset.details.daytimeRoutes.length).toBeGreaterThan(0);
       expect(asset.details.entranceType).toBeTruthy();
       expect(asset.operation.currentState).toBe("unknown");
       expect(asset.operation.satisfiesHardRequirement).toBe(false);

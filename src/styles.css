@@ -172,13 +172,19 @@ main { position: relative; width: 100vw; height: 100dvh; overflow: hidden; backg
 .location-stack { position: relative; display: grid; border: 1px solid var(--line); border-radius: 9px; overflow: hidden; background: white; }
 .location-stack::before { content: ""; position: absolute; left: 17px; top: 24px; bottom: 24px; border-left: 1px dashed #a8afa8; }
 .location-stack.start-only::before { display: none; }
-.location-input { position: relative; min-width: 0; display: grid; grid-template-columns: 16px 36px minmax(0, 1fr); align-items: center; gap: 8px; padding: 10px 12px; }
+.location-input { position: relative; min-width: 0; display: grid; grid-template-columns: 16px 36px minmax(0, 1fr); align-items: center; gap: 8px; padding: 10px 12px; transition: background .16s ease, box-shadow .16s ease; cursor: text; }
 .location-input + .location-input { border-top: 1px solid #ebe8e0; }
+.location-input:hover { background: #f7f8f5; }
+.location-input.map-selection-active { z-index: 2; background: #f0f2fa; box-shadow: inset 3px 0 var(--indigo); }
+.location-input.map-selection-active .field-label { color: #52659f; }
+.location-input.map-selection-active .location-dot { border-color: var(--indigo); }
+.location-input.map-selection-active .destination-dot { background: var(--indigo); }
 .location-dot { position: relative; z-index: 1; width: 9px; height: 9px; border: 2px solid var(--ink); border-radius: 50%; background: white; }
 .destination-dot { width: 10px; height: 10px; border: 0; border-radius: 3px; background: var(--ink); }
 .field-label { color: #858b85; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; }
 .location-input input { min-width: 0; width: 100%; padding: 0; border: 0; outline: 0; background: transparent; color: var(--ink); font-size: 12px; font-weight: 600; }
 .location-input input::placeholder { color: #a5aaa5; font-weight: 400; }
+.map-picking .maplibregl-canvas, .map-picking .fallback-map svg { cursor: crosshair; }
 
 .prompt-box { display: grid; grid-template-columns: 22px minmax(0,1fr); gap: 9px; align-items: start; margin-top: 10px; padding: 13px 14px; border: 1px solid #aeb4ad; border-radius: 9px; background: white; box-shadow: 0 1px 0 rgba(255,255,255,.6); }
 .prompt-box:focus-within { border-color: var(--indigo); box-shadow: 0 0 0 3px rgba(100,120,184,.13); }
@@ -563,6 +569,7 @@ main { position: relative; width: 100vw; height: 100dvh; overflow: hidden; backg
 .asset-popover > div > svg { width: 24px; height: 24px; color: var(--moss); }
 .asset-popover .icon-button { width: 32px; height: 32px; box-shadow: none; }
 .asset-popover h3 { margin: 7px 0 4px; font-size: 18px; line-height: 1.15; font-weight: 650; }
+.asset-transit-lines { display: block; margin-bottom: 4px; color: var(--ink); font-size: 10px; line-height: 1.35; }
 .asset-popover p { margin: 0 0 6px; color: #657068; font-size: 11px; }
 .asset-popover small { display: block; color: #786d62; font-size: 10px; line-height: 1.4; }
 .asset-popover .source-freshness { margin-top: 5px; color: #8b918b; }

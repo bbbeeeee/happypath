@@ -3,6 +3,7 @@ import { listCivicAssets, type CivicAsset, type CivicAssetKind } from "./data/ci
 import {
   assetAvailabilityCopy,
   assetMarkerSvg,
+  assetTransitLinesLabel,
   assetTypeLabel,
   assetsGeoJSON,
   civicTaskMarkerSvg,
@@ -95,6 +96,13 @@ describe("asset presentation", () => {
     for (const kind of Object.keys(expected) as CivicAssetKind[]) {
       expect(assetTypeLabel(listCivicAssets([kind])[0])).toBe(expected[kind]);
     }
+  });
+
+  it("labels the published subway routes at a transit stop", () => {
+    const transit = listCivicAssets(["transit"])[0];
+    if (transit.kind !== "transit") throw new Error("Expected a transit asset");
+    expect(assetTransitLinesLabel(transit)).toBe(`Listed lines: ${transit.details.daytimeRoutes.join(", ")}`);
+    expect(assetTransitLinesLabel(seating)).toBeNull();
   });
 
   it("keeps published inventory facts friendly and qualified", () => {

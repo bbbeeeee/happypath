@@ -166,6 +166,11 @@ export function assetTypeLabel(asset: CivicAsset): string {
   return "Subway entrance";
 }
 
+export function assetTransitLinesLabel(asset: CivicAsset): string | null {
+  if (asset.kind !== "transit" || asset.details.daytimeRoutes.length === 0) return null;
+  return `Listed lines: ${asset.details.daytimeRoutes.join(", ")}`;
+}
+
 export function assetAvailabilityCopy(asset: CivicAsset): string {
   if (asset.operation.routingAvailability === "published_unavailable") {
     return "The city listing says this may be unavailable. Check before relying on it.";
