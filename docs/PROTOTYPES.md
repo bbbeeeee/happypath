@@ -1,33 +1,20 @@
-# Happy Path — Prototype Inventory
+# Happy Path — Prototype Notes
 
-> Prototype branches are evidence and reusable references. They do not define product scope or the implementation base.
+> Existing prototype branches are historical references and evidence. They do not define product scope, architecture, implementation workflow, or the future build.
 
 ## 1. Current decision
 
-This pull request updates product documentation and project planning only.
+This work establishes the product requirements and execution plan.
 
-After the docs are approved and merged to `main`, implementation should proceed through focused branches and pull requests based on the approved requirements. The team may copy or adapt useful code from an existing prototype, but no prototype branch is designated as the application base.
+Future builders should use the approved docs as the source of truth and may choose whatever technical approach best satisfies them. No existing prototype branch is designated as the implementation base, and no prototype-specific branch strategy is required.
 
 ## 2. `main`
 
-### Role
-
-`main` is the canonical product and planning branch.
-
-After this documentation PR is approved, it should contain:
-
-- the core PRD;
-- resident UX and product-language guidance;
-- data and inference contracts;
-- Detour requirements;
-- build sequencing;
-- end-to-end work packages.
-
-Implementation should be merged to `main` later through reviewable PRs.
+`main` is the canonical repository branch for the approved product documentation and future integrated work.
 
 ## 3. `codex/happy-path-mvp`
 
-### What it proves
+This branch contains useful historical experiments, including:
 
 - a cropped Lower Manhattan pedestrian graph;
 - address and map endpoint selection;
@@ -39,54 +26,18 @@ Implementation should be merged to `main` later through reviewable PRs.
 - a MapLibre route UI;
 - route tests and an initial pilot audit.
 
-### Potentially reusable work
-
-- source-ingestion scripts;
-- pilot graph and feature derivations;
-- shadow and greenery calculations;
-- route tests and sample fixtures;
-- selected map and receipt components.
-
-### Important limitations
-
-- geography is smaller than the current Battery-to-59th-Street target;
-- fixed A-to-B routing only;
-- fixed percentage detour ceiling;
-- limited candidate diversity;
-- no conversational Trip Brief, loop, wander, or Detour proof;
-- validation and payload work remain incomplete.
-
-### Disposition
-
-Keep as a technical reference. During implementation, evaluate individual files and concepts against the approved contracts. Do not merge the branch wholesale and do not let its current architecture narrow the product requirements.
+These experiments demonstrate that several core ideas are feasible. Future builders may inspect them for reference, but they are not required to reuse the code, stack, architecture, data layout, or interaction patterns.
 
 ## 4. `bryan`
 
-### What it contains
+This branch contains a vendored `isometric-nyc` rendering and tile-generation project.
 
-A vendored `isometric-nyc` rendering and tile-generation project with an isometric pixel-art map, OpenSeaDragon viewer, Python and Three.js generation pipelines, model-inference tooling, and upstream project documentation.
+No Happy Path visual or architectural concepts from this branch are part of the current plan.
 
-### Disposition
+Keep it as historical experimentation only unless a future product decision explicitly changes that.
 
-No Happy Path visual concepts or implementation dependencies are being retained from this branch in the current plan.
+## 5. Principle
 
-Keep it isolated as historical experimentation. Do not merge its vendored stack, tasks, docs, tile-host dependencies, or rendering architecture into the Happy Path implementation unless a future explicit decision reopens that question.
+> **The docs define the product. Prototypes only show what has been tried.**
 
-## 5. Implementation-start checklist
-
-Before implementation begins:
-
-- [ ] merge the approved documentation PR to `main`;
-- [ ] confirm the Manhattan supported area and data-preprocessing strategy;
-- [ ] convert the work packages into implementation issues or PR-sized work;
-- [ ] define fixture versions for `LayerDefinition`, `TripBrief`, `RouteCandidate`, `RouteReceipt`, `MapPresentation`, and `DetourScenario`;
-- [ ] audit reusable prototype code file by file;
-- [ ] create focused implementation branches from current `main`;
-- [ ] preserve relevant attribution and license notices;
-- [ ] avoid combining prototype histories or unrelated upstream code.
-
-## 6. Principle
-
-> **Reuse evidence, not assumptions.**
-
-A prototype is valuable when it proves a route, data, or interface idea. The approved docs decide what the product becomes.
+Future implementation should be evaluated against the PRD, UX, data, Detour, build, and task documents rather than against any existing branch.
