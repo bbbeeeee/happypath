@@ -525,8 +525,8 @@ async function registerCoverContextMarkerImages(map: MapLibreMap) {
 
 function registerFloodPatternImages(map: MapLibreMap) {
   const patterns = [
-    { id: "flood-nuisance-pattern", color: [66, 106, 124, 125], secondDiagonal: false },
-    { id: "flood-deep-pattern", color: [48, 72, 96, 165], secondDiagonal: true },
+    { id: "flood-nuisance-pattern", color: [66, 106, 124, 125], background: [66, 106, 124, 34], secondDiagonal: false },
+    { id: "flood-deep-pattern", color: [48, 72, 96, 165], background: [48, 72, 96, 52], secondDiagonal: true },
   ] as const;
   for (const pattern of patterns) {
     if (map.hasImage(pattern.id)) continue;
@@ -534,10 +534,11 @@ function registerFloodPatternImages(map: MapLibreMap) {
     const bytes = new Uint8ClampedArray(width * width * 4);
     for (let y = 0; y < width; y += 1) {
       for (let x = 0; x < width; x += 1) {
+        const offset = (y * width + x) * 4;
+        bytes.set(pattern.background, offset);
         const diagonal = (x + y) % 8 <= 1;
         const reverse = pattern.secondDiagonal && ((width - x + y) % 8 <= 1);
         if (!diagonal && !reverse) continue;
-        const offset = (y * width + x) * 4;
         bytes.set(pattern.color, offset);
       }
     }
