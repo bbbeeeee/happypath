@@ -42,6 +42,7 @@ const auditDefinitions = [
   { id: "nyc-exclusive-pedestrian-signals", group: "current", productRole: "context", contribution: "Shows exclusive pedestrian phases and other published crossing treatments." },
   { id: "mta-elevator-assets", group: "current", productRole: "context", contribution: "Shows subway elevator assets and their daily-published inventory status." },
   { id: "nyc-cool-options", group: "current", productRole: "context", contribution: "Loads cooling centers, pools, spray showers, and other options from the official finder feed." },
+  { id: "nyc-permitted-events", group: "current", productRole: "context", contribution: "Shows permitted events on route blocks during their published permit windows without treating them as live closures." },
   { id: "building-shadow-model", group: "derived", productRole: "route", contribution: "Estimates hourly street shade from building height, sun position, and the street map." },
   { id: "greenery-edge-model", group: "derived", productRole: "route", contribution: "Estimates which streets are near mapped trees and parks." },
   { id: "footnote-civic-checks-demo", group: "derived", productRole: "route", contribution: "Adds optional stops where a partner could ask someone to check a public-space detail." },

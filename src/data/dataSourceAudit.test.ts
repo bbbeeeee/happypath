@@ -12,19 +12,19 @@ describe("public data source audit", () => {
 
   it("keeps current, derived, future, route, and context counts explicit", () => {
     expect(dataSourceAuditSummary()).toMatchObject({
-      total: 26,
-      registered: 26,
-      current: 20,
+      total: 27,
+      registered: 27,
+      current: 21,
       derived: 3,
       future: 3,
       route: 11,
-      context: 11,
+      context: 12,
     });
   });
 
   it("keeps weather, cooling, and mobility records contextual", () => {
     const byId = new Map(listAuditedDataSources().map((source) => [source.id, source]));
-    for (const id of ["nws-manhattan-weather", "nyc-cool-options", "nyc-ramp-program-progress", "nyc-pedestrian-ramps", "nyc-accessible-pedestrian-signals", "nyc-exclusive-pedestrian-signals", "mta-elevator-assets"]) {
+    for (const id of ["nws-manhattan-weather", "nyc-cool-options", "nyc-permitted-events", "nyc-ramp-program-progress", "nyc-pedestrian-ramps", "nyc-accessible-pedestrian-signals", "nyc-exclusive-pedestrian-signals", "mta-elevator-assets"]) {
       expect(byId.get(id)).toMatchObject({ group: "current", productRole: "context" });
     }
   });

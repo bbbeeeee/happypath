@@ -12,3 +12,9 @@ vite.config.d.ts
 .DS_Store
 .gstack/qa-reports/
 .gstack/
+
+# Local build output, generated data, and tooling pins
+src/app/
+buildings.db
+synthetic_data/
+.python-version
