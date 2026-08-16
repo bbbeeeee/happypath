@@ -300,14 +300,23 @@ All three should share the same visual language and Trip Brief. The user should 
 5. Warning or hard constraint
 6. Secondary context
 
-### 5.2 Clean by default
+### 5.2 Clean and complete by default
+
+The map should always feel like a full Manhattan street map, even when a particular City dataset has partial or uneven coverage.
 
 The default map should show:
 
+- a complete, legible street and place context across the visible supported area;
 - one route;
 - one continuous evidence treatment at most;
 - only route-relevant assets and warnings;
 - a compact legend only when needed.
+
+Optional data layers should **add information**, not replace the map underneath them.
+
+A street with no tree, shed, seating, or other layer record should still look like an ordinary street. Do not blank it out, heavily dim it, mask it, or make it appear unsupported simply because one overlay has no observation there.
+
+When lack of coverage materially affects a recommendation, communicate that uncertainty locally on the relevant route segment, in the receipt, or in the evidence view. Do not turn ordinary map areas into large visual “unknown” zones unless the uncertainty itself is the thing the user is inspecting.
 
 Do not display every integrated City layer merely to prove it exists.
 
@@ -319,6 +328,8 @@ Use ambient or segment treatments for:
 - greenery;
 - grade;
 - experimental activity or noise context.
+
+Continuous overlays should be transparent enough that streets, parks, landmarks, and route context remain recognizable beneath them.
 
 The route line must remain dominant and legible.
 
@@ -419,7 +430,7 @@ It should not sound:
 
 ### 7.1 Real data by default
 
-Resident route geometry, route metrics, assets, and source explanations should use actual pilot data wherever the claim implies current or historical reality.
+Resident route geometry, route metrics, assets, and source explanations should use actual supported-area data wherever the claim implies current or historical reality.
 
 ### 7.2 Curated does not mean fake
 
@@ -485,11 +496,13 @@ Every state should preserve a clear next action.
 5. One route is visually dominant.
 6. The primary benefit and cost are understandable within a few seconds.
 7. Every visible layer is relevant to the request, route, or warning.
-8. The product uses friendly resident language in all primary states.
-9. Technical data and provenance remain available without dominating the route.
-10. A refinement updates the same Trip Brief and visibly changes the route.
-11. Partial coverage and uncertainty are understandable without technical documentation.
-12. The interface feels complete on a representative mobile viewport.
-13. At least four rehearsed demos work from a clean session using real pilot data for resident claims.
-14. No resident-facing screen exposes raw dataset fields, internal schemas, debug logs, or unexplained technical jargon.
-15. A user can reach the first meaningful recommendation quickly enough for the interaction to feel immediate.
+8. The base map remains visually complete and legible regardless of optional data-layer coverage.
+9. Partial layer coverage does not make ordinary streets look missing or unsupported.
+10. The product uses friendly resident language in all primary states.
+11. Technical data and provenance remain available without dominating the route.
+12. A refinement updates the same Trip Brief and visibly changes the route.
+13. Partial coverage and uncertainty are understandable without technical documentation.
+14. The interface feels complete on a representative mobile viewport.
+15. At least four rehearsed demos work from a clean session using real supported-area data for resident claims.
+16. No resident-facing screen exposes raw dataset fields, internal schemas, debug logs, or unexplained technical jargon.
+17. A user can reach the first meaningful recommendation quickly enough for the interaction to feel immediate.
