@@ -70,7 +70,7 @@ function collectPriorities(text: string): RoutePriority[] {
   const priorities: RoutePriority[] = [];
   if (/shade|shady|sun|cooler/i.test(text)) priorities.push("shade");
   if (/green|tree|park[- ]?lined/i.test(text)) priorities.push("greenery");
-  if (/sit|seat|bench|rest\b/i.test(text)) priorities.push("rest");
+  if (/\b(?:sit|seat|seating|bench|benches|rest)\b/i.test(text)) priorities.push("rest");
   if (/water|fountain/i.test(text)) priorities.push("water");
   if (/restroom|bathroom|toilet/i.test(text)) priorities.push("restroom");
   if (/construction|shed|work zone/i.test(text)) priorities.push("construction");

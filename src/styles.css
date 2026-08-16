@@ -203,6 +203,8 @@ main { position: relative; width: 100vw; height: 100dvh; overflow: hidden; backg
 
 @media (max-width: 800px) {
   body { overflow: hidden; }
+  .map-fallback { place-content: start center; padding: 105px 48px 0; }
+  .map-fallback strong { font-size: 21px; }
   .top-bar { inset: 14px 14px auto; }
   .brand { font-size: 19px; }
   .brand small { font-size: 7px; }

@@ -28,6 +28,12 @@ describe("compileTripBrief", () => {
     expect(loop).toMatchObject({ shape: "loop", walkingMinutes: 20, detourMinutes: 5 });
   });
 
+  it("does not mistake transit for a request to sit", () => {
+    const brief = compileTripBrief("Wander north for 25 minutes and end near transit. Avoid mapped steps.");
+    expect(brief.endCondition).toBe("transit");
+    expect(brief.priorities).not.toContain("rest");
+  });
+
   it("keeps unsupported claims visible", () => {
     const brief = compileTripBrief("Find the safest wheelchair accessible route that is quiet and has a bathroom open now");
     expect(brief.unsupported).toHaveLength(4);

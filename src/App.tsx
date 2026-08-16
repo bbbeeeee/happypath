@@ -474,6 +474,6 @@ export function App() {
       : result && <ResultSheet brief={brief} route={route} result={result} assets={activeAssets} delta={delta} onBack={() => { setRoute(null); setResult(null); setDetail(null); setActiveAsset(null); setError(""); }} onRefine={(value) => plan(value, true)} onShowWhy={() => setDetail("why")} onShowData={() => setDetail("data")} onShowDetour={() => setDetail("detour")} detourScenario={detourScenario} showBaseline={showBaseline} setShowBaseline={setShowBaseline} busy={busy} modelFallback={modelFallback} />}
     {detail && route && <DetailPanel mode={detail} brief={brief} route={route} assets={activeAssets} detourScenario={detourScenario} onClose={() => setDetail(null)} />}
     {activeAsset && <aside className="asset-popover" role="dialog" aria-label={activeAsset.name}><div><AssetIcon kind={activeAsset.kind} /><IconButton label="Close" onClick={() => setActiveAsset(null)}><CloseIcon /></IconButton></div><span className="eyebrow">Mapped nearby</span><h3>{activeAsset.name}</h3><p>{activeAsset.locationLabel}</p><small>Official inventory record. Current operation is unknown.</small></aside>}
-    <div className="map-key" aria-hidden="true"><span><i className="route-key" />Happy Path</span>{brief.priorities.includes("shade") && <span><i className="shade-key" />Estimated shade</span>}</div>
+    {!mapError && <div className="map-key" aria-hidden="true"><span><i className="route-key" />Happy Path</span>{brief.priorities.includes("shade") && <span><i className="shade-key" />Estimated shade</span>}</div>}
   </main>;
 }
