@@ -1,16 +1,25 @@
 # Happy Path
 
-Happy Path is a hackathon project exploring new ways to map paths through New York City.
+Happy Path is an intelligent walking-route interface over New York City public data.
 
-The project is intentionally documentation-first. We will shape the product together before choosing an engineering stack or adding application code.
+A person describes how they want to move through the city, Happy Path turns that request into an inspectable Trip Brief, computes a valid route from street-level evidence, and explains what the detour buys. The same city model later powers **Detour**, a planning workspace for identifying amenity and infrastructure gaps.
 
 ## Start here
 
-- [Product requirements document](docs/PRD.md)
+- [Product requirements](docs/PRD.md)
+- [Core experience and map UX](docs/UX.md)
 - [Data and inference specification](docs/data-and-inference.md)
-- [Idea workspace](docs/ideas/README.md)
-- [Parallel task board](tasks/README.md)
+- [Detour planning extension](docs/DETOUR.md)
+- [Build plan and dependencies](docs/BUILD.md)
+- [Prototype inventory](docs/PROTOTYPES.md)
+- [Project task board](tasks/README.md)
 
-## Current scope
+## Current direction
 
-This repository currently contains planning documents only. There is no `src` directory, runtime, dependency set, or deployment configuration yet.
+- **Pilot:** bounded Lower Manhattan area
+- **First journey:** fixed origin to destination
+- **Hero proof:** time-aware shade using NYC building geometry and solar position
+- **Broader platform:** greenery, sheds and construction, mapped steps, elevation, seating, restrooms, water, public spaces, transit, and other validated city layers
+- **Interaction:** one sentence → visible Trip Brief → computed route → evidence-backed receipt → natural refinement
+
+`main` is documentation-first while implementation prototypes remain on separate branches. See [PROTOTYPES.md](docs/PROTOTYPES.md) before merging or replacing any prototype work.
