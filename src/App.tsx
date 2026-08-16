@@ -443,6 +443,8 @@ interface ComposeSheetProps {
   setOriginText: (value: string) => void;
   destinationText: string;
   setDestinationText: (value: string) => void;
+  mapEndpointSelection: "origin" | "destination" | null;
+  onMapEndpointSelectionChange: (selection: "origin" | "destination" | null) => void;
   busy: boolean;
   busyMode: ThinkingMode | null;
   error: string;
@@ -450,17 +452,18 @@ interface ComposeSheetProps {
   onSelectExample: (example: ExampleJourney) => void | Promise<void>;
 }
 
-function ComposeSheet({ brief, setBrief, prompt, setPrompt, originText, setOriginText, destinationText, setDestinationText, busy, busyMode, error, onPlan, onSelectExample }: ComposeSheetProps) {
+function ComposeSheet({ brief, setBrief, prompt, setPrompt, originText, setOriginText, destinationText, setDestinationText, mapEndpointSelection, onMapEndpointSelectionChange, busy, busyMode, error, onPlan, onSelectExample }: ComposeSheetProps) {
   const [manualChanged, setManualChanged] = useState(false);
   const animatedPlaceholder = useTypingPlaceholder(HERO_REQUESTS);
   const setManualBrief = (nextBrief: UiTripBrief) => { setManualChanged(true); setBrief(nextBrief); };
   return <section className="sheet compose-sheet" aria-label="Plan a route">
     <div className="sheet-handle" />
     <div className="compose-heading"><span className="eyebrow">Plan a better walk</span><h1>Where and how would you like to walk?</h1></div>
-    <div className="location-stack">
-      <label className="location-input"><span className="location-dot origin-dot" /><span className="field-label">From</span><input aria-label="Starting point" value={originText} disabled={busy} onChange={(event) => setOriginText(event.target.value)} /></label>
-      <label className="location-input"><span className="location-dot destination-dot" /><span className="field-label">To</span><input aria-label="Destination" value={destinationText} disabled={busy} onChange={(event) => { setDestinationText(event.target.value); setManualChanged(true); }} placeholder="Optional — or ask for a loop or wander" /></label>
+    <div className={`location-stack ${mapEndpointSelection ? "selecting-on-map" : ""}`}>
+      <label className={`location-input ${mapEndpointSelection === "origin" ? "map-selection-active" : ""}`}><span className="location-dot origin-dot" /><span className="field-label">From</span><input aria-label="Starting point" value={originText} disabled={busy} aria-describedby={mapEndpointSelection === "origin" ? "map-selection-hint" : undefined} onFocus={() => onMapEndpointSelectionChange("origin")} onKeyDown={(event) => { if (event.key === "Escape") onMapEndpointSelectionChange(null); }} onChange={(event) => { onMapEndpointSelectionChange(null); setOriginText(event.target.value); }} /></label>
+      <label className={`location-input ${mapEndpointSelection === "destination" ? "map-selection-active" : ""}`}><span className="location-dot destination-dot" /><span className="field-label">To</span><input aria-label="Destination" value={destinationText} disabled={busy} aria-describedby={mapEndpointSelection === "destination" ? "map-selection-hint" : undefined} onFocus={() => onMapEndpointSelectionChange("destination")} onKeyDown={(event) => { if (event.key === "Escape") onMapEndpointSelectionChange(null); }} onChange={(event) => { onMapEndpointSelectionChange(null); setDestinationText(event.target.value); setManualChanged(true); }} placeholder="Optional — or ask for a loop or wander" /></label>
     </div>
+    <p id="map-selection-hint" className={`map-selection-hint ${mapEndpointSelection ? "active" : ""}`} aria-live="polite">{mapEndpointSelection ? `Click the map to choose your ${mapEndpointSelection === "origin" ? "starting point" : "destination"}.` : "Focus From or To, then click the map to choose that place."}</p>
     <label className="prompt-box">
       <SparkIcon />
       <textarea aria-label="Describe your route" value={prompt} disabled={busy} onChange={(event) => setPrompt(event.target.value)} placeholder={animatedPlaceholder || HERO_REQUESTS[0]} rows={4} />
@@ -943,6 +946,7 @@ export function App() {
   const dragEndpointRef = useRef<(kind: "origin" | "destination", coordinate: Coordinate) => void>(() => undefined);
   const routeSteerRef = useRef<(coordinate: Coordinate) => void>(() => undefined);
   const routeFeatureClickRef = useRef<(edgeId: string | null, coordinate: Coordinate) => void>(() => undefined);
+  const endpointMapClickRef = useRef<(coordinate: Coordinate) => void>(() => undefined);
   const overlayVisibilityRef = useRef<MapOverlays>(DEFAULT_MAP_OVERLAYS);
   const [preferences, setPreferences] = useState<UserPreferences | null>(() => loadUserPreferences());
   const [brief, setBrief] = useState<UiTripBrief>(() => newTripBriefFromPreferences(preferences));
@@ -951,6 +955,7 @@ export function App() {
   const [destinationNodeId, setDestinationNodeId] = useState(defaultDestination);
   const [originText, setOriginText] = useState(endpointName(defaultOrigin));
   const [destinationText, setDestinationText] = useState("");
+  const [mapEndpointSelection, setMapEndpointSelection] = useState<"origin" | "destination" | null>(null);
   const [result, setResult] = useState<PlannedJourneyResult | null>(null);
   const [route, setRoute] = useState<JourneyRoute | null>(null);
   const [routeActivity, setRouteActivity] = useState<RouteActivityLog[]>(() => loadRouteActivity());
@@ -1139,6 +1144,28 @@ export function App() {
     return node.id;
   }
 
+  async function selectEndpointFromMap(kind: "origin" | "destination", coordinate: Coordinate) {
+    setMapEndpointSelection(null);
+    setError("");
+    try {
+      if (!isInsidePilot(coordinate)) throw new Error(`Happy Path is exploring ${supportedArea.label} for now.`);
+      await ensureGraphCoverage([coordinate]);
+      const node = nearestGraphNodeWithin(coordinate);
+      if (!node) throw new Error("Choose a place a little closer to a mapped walking street.");
+      const label = endpointName(node.id);
+      if (kind === "origin") {
+        setOriginNodeId(node.id);
+        setOriginText(label);
+        return;
+      }
+      setDestinationNodeId(node.id);
+      setDestinationText(label);
+      setBrief((current) => withDestinationOverride(current, label));
+    } catch (caught) {
+      setError(planningErrorMessage(caught));
+    }
+  }
+
   async function compute(nextBrief: UiTripBrief, isRefinement = false, options: { rainFriendly?: boolean; originId?: string; destinationId?: string; originQuery?: string; destinationQuery?: string; wanderEndpointId?: string | null; preserveWaypoint?: boolean } = {}) {
     const oldRoute = route;
     const plannedBrief = nextBrief.priorities.includes("construction")
@@ -1286,6 +1313,7 @@ export function App() {
     setBrief(newTripBriefFromPreferences(preferences));
     setDestinationNodeId(defaultDestination);
     setDestinationText("");
+    setMapEndpointSelection(null);
     setRoute(null);
     setResult(null);
     setDetail(null);
@@ -1389,6 +1417,10 @@ export function App() {
     void compute({ ...brief, destinationQuery: destinationName, interpretedBy: "controls" }, true, { rainFriendly: rainContext, destinationId: node.id });
   };
   routeSteerRef.current = (coordinate) => { void steerRoute(coordinate); };
+  endpointMapClickRef.current = (coordinate) => {
+    if (!mapEndpointSelection || route || appMode !== "walk" || busy) return;
+    void selectEndpointFromMap(mapEndpointSelection, coordinate);
+  };
   routeFeatureClickRef.current = (edgeId, coordinate) => {
     if (appMode === "planner") {
       if (edgeId) setSelectedPlannerEdgeId(edgeId);
@@ -1422,6 +1454,7 @@ export function App() {
       setMapViewport({ west: bounds.getWest(), south: bounds.getSouth(), east: bounds.getEast(), north: bounds.getNorth(), zoom: map.getZoom() });
     };
     map.on("moveend", captureViewport);
+    map.on("click", (event) => endpointMapClickRef.current([event.lngLat.lng, event.lngLat.lat]));
     map.on("load", () => {
       setMapReady(true);
       setMapError(false);
@@ -1802,16 +1835,18 @@ export function App() {
       if (map.getLayer(layer)) map.setLayoutProperty(layer, "visibility", visible ? "visible" : "none");
     };
     const hasRoute = Boolean(route);
-    visibility("baseline", hasRoute && showBaseline && Boolean(result?.baseline));
-    visibility("baseline-delta", hasRoute && showBaseline && comparisonDelta.features.length > 0);
-    visibility("recommended-delta", hasRoute && showBaseline && comparisonDelta.features.length > 0);
+    const showWhatIf = appMode === "planner" && plannerView === "what_if";
+    const showCurrentRoute = hasRoute && !(appMode === "planner" && plannerView !== "what_if");
+    visibility("baseline", showCurrentRoute && showBaseline && Boolean(result?.baseline));
+    visibility("baseline-delta", showCurrentRoute && showBaseline && comparisonDelta.features.length > 0);
+    visibility("recommended-delta", showCurrentRoute && showBaseline && comparisonDelta.features.length > 0);
     visibility("endpoints", false);
-    visibility("happy-casing", hasRoute);
-    visibility("happy", hasRoute);
-    visibility("route-shade", hasRoute && mapOverlays.shade);
+    visibility("happy-casing", showCurrentRoute);
+    visibility("happy", showCurrentRoute);
+    visibility("route-shade", showCurrentRoute && mapOverlays.shade);
     visibility("ambient-greenery", mapOverlays.greenery);
-    visibility("route-greenery", hasRoute && mapOverlays.greenery);
-    visibility("route-cover", hasRoute && mapOverlays.cover);
+    visibility("route-greenery", showCurrentRoute && mapOverlays.greenery);
+    visibility("route-cover", showCurrentRoute && mapOverlays.cover);
     visibility("mapped-cover", mapOverlays.cover);
     visibility("mapped-cover-casing", mapOverlays.cover);
     visibility("cover-context-vicinities", mapOverlays.cover);
@@ -1820,7 +1855,6 @@ export function App() {
     visibility("cover-construction", appMode === "planner" && mapLens === "cover" && mapOverlays.cover);
     ["flood-nuisance", "flood-deep", "flood-nuisance-outline", "flood-deep-outline"]
       .forEach((layer) => visibility(layer, mapOverlays.flood));
-    const showWhatIf = appMode === "planner" && plannerView === "what_if";
     const showLocalActivity = appMode === "planner" && plannerView !== "what_if" && activityMapData.features.length > 0;
     const showSelection = showWhatIf && representativeGap.features.length > 0;
     visibility("planner-selection", showSelection);
@@ -1836,17 +1870,17 @@ export function App() {
 
   useEffect(() => {
     const map = mapRef.current;
-    if (!route || !map || !mapReady) return;
+    if (!route || !map || !mapReady || (appMode === "planner" && plannerView !== "what_if")) return;
     const frame = window.requestAnimationFrame(() => {
       map.resize();
       map.fitBounds(boundsForRoute(route), { padding: { top: 90, right: 70, bottom: 90, left: window.innerWidth > 800 ? 460 : 70 }, maxZoom: appMode === "planner" ? 15.3 : 16, duration: 650 });
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [route, appMode, mapReady]);
+  }, [route, appMode, plannerView, mapReady]);
 
   useEffect(() => {
     const map = mapRef.current;
-    if (appMode !== "planner" || !map || !mapReady || representativeRoutes.features.length === 0) return;
+    if (appMode !== "planner" || plannerView !== "what_if" || !map || !mapReady || representativeRoutes.features.length === 0) return;
     const coordinates = representativeRoutes.features.flatMap((feature) => feature.geometry.coordinates);
     const west = Math.min(...coordinates.map(([longitude]) => longitude));
     const east = Math.max(...coordinates.map(([longitude]) => longitude));
@@ -1858,7 +1892,7 @@ export function App() {
       duration: 650,
     }));
     return () => window.cancelAnimationFrame(frame);
-  }, [appMode, mapReady, representativeRoutes]);
+  }, [appMode, plannerView, mapReady, representativeRoutes]);
 
   useEffect(() => {
     if (!mapOverlays.shade || !buildingShadeDetailVisible(mapViewport.zoom)) {
@@ -2004,12 +2038,12 @@ export function App() {
   };
 
   return <main className={`${route ? "has-result" : "is-compose"} mode-${appMode}`}>
-    <div className="map-shell"><div className="map" ref={mapContainer} /><div className="map-wash" />{mapError && <FallbackMap graph={pilotGraph} route={route} baseline={showBaseline ? result?.baseline ?? null : null} comparisonDelta={comparisonDelta} representativeRoutes={representativeRoutes} lens={mapLens} overlays={mapOverlays} shadeSegments={shadeSegments} greenerySegments={greeneryRouteSegments} ambientGreenery={ambientGreeneryLayer} coverSegments={coverRouteSegments} ambientCover={ambientCoverLayer} coverContext={coverContextLayer} floodContext={floodContextLayer} selection={appMode === "planner" ? representativeGap : null} assets={viewportAssets} prominentAssetIds={activeAssets.map((asset) => asset.id)} selectedAssetId={activeAsset?.id} onAssetClick={(asset) => { setActiveTask(null); setActiveTaskPoint(null); setActiveFlood(null); setActiveFloodPoint(null); setActiveAsset(asset); setActiveAssetPoint({ x: Math.round(window.innerWidth * .68), y: 160 }); }} tasks={visibleTasks} selectedTaskId={activeTask?.id} completedTaskIds={Object.keys(taskObservations)} onTaskClick={(task) => { setActiveAsset(null); setActiveAssetPoint(null); setActiveFlood(null); setActiveFloodPoint(null); setActiveTask(task); setActiveTaskPoint({ x: Math.round(window.innerWidth * .68), y: 160 }); }} />}</div>
+    <div className="map-shell"><div className="map" ref={mapContainer} /><div className="map-wash" />{mapError && <FallbackMap graph={pilotGraph} route={route} baseline={showBaseline ? result?.baseline ?? null : null} comparisonDelta={comparisonDelta} representativeRoutes={representativeRoutes} activity={routeActivity} showActivity={appMode === "planner" && plannerView !== "what_if"} selectedActivityRouteId={selectedActivityRouteId} onActivityRouteClick={selectActivityRoute} lens={mapLens} overlays={mapOverlays} shadeSegments={shadeSegments} greenerySegments={greeneryRouteSegments} ambientGreenery={ambientGreeneryLayer} coverSegments={coverRouteSegments} ambientCover={ambientCoverLayer} coverContext={coverContextLayer} floodContext={floodContextLayer} selection={appMode === "planner" ? representativeGap : null} assets={viewportAssets} prominentAssetIds={activeAssets.map((asset) => asset.id)} selectedAssetId={activeAsset?.id} onAssetClick={(asset) => { setActiveTask(null); setActiveTaskPoint(null); setActiveFlood(null); setActiveFloodPoint(null); setActiveAsset(asset); setActiveAssetPoint({ x: Math.round(window.innerWidth * .68), y: 160 }); }} tasks={visibleTasks} selectedTaskId={activeTask?.id} completedTaskIds={Object.keys(taskObservations)} onTaskClick={(task) => { setActiveAsset(null); setActiveAssetPoint(null); setActiveFlood(null); setActiveFloodPoint(null); setActiveTask(task); setActiveTaskPoint({ x: Math.round(window.innerWidth * .68), y: 160 }); }} />}</div>
     <div className="top-bar"><div className="brand-cluster"><Brand /><PreferencesPopover preferences={preferences} onSave={savePreferences} onReset={resetPreferences} appliesNow={!route} /><div className="mode-switch" aria-label="Product view"><button type="button" className={appMode === "walk" ? "active" : ""} aria-pressed={appMode === "walk"} onClick={() => switchMode("walk")}>Walk</button><button type="button" className={appMode === "planner" ? "active" : ""} aria-pressed={appMode === "planner"} onClick={() => switchMode("planner")}>City view</button></div></div><div className="map-actions">{!mapError && <IconButton label="Center map" onClick={() => mapRef.current?.easeTo({ center: graphNodeById(originNodeId)?.coordinate, zoom: 14.5 })}><LocateIcon /></IconButton>}{route && appMode === "walk" && <IconButton label="Map details" onClick={() => { setActiveAsset(null); setActiveAssetPoint(null); setActiveTask(null); setActiveTaskPoint(null); setDetail("data"); }}><LayersIcon /></IconButton>}</div></div>
     {appMode === "planner"
       ? <RepresentativePlannerSheet scenario={representativeScenario} showIntervention={showRepresentativeIntervention} onShowIntervention={() => setShowRepresentativeIntervention(true)} onBack={() => switchMode("walk")} activity={routeActivity} activityPersisted={activityPersisted} view={plannerView} onViewChange={setPlannerView} selectedActivityRouteId={selectedActivityRouteId} onSelectActivityRoute={selectActivityRoute} onClearActivity={clearLocalRouteActivity} />
       : !route
-        ? <ComposeSheet brief={brief} setBrief={setBrief} prompt={prompt} setPrompt={setPrompt} originText={originText} setOriginText={setOriginText} destinationText={destinationText} setDestinationText={setDestinationText} busy={busy} busyMode={busyMode} error={error} onPlan={() => void plan()} onSelectExample={selectExample} />
+        ? <ComposeSheet brief={brief} setBrief={setBrief} prompt={prompt} setPrompt={setPrompt} originText={originText} setOriginText={setOriginText} destinationText={destinationText} setDestinationText={setDestinationText} mapEndpointSelection={mapEndpointSelection} onMapEndpointSelectionChange={setMapEndpointSelection} busy={busy} busyMode={busyMode} error={error} onPlan={() => void plan()} onSelectExample={selectExample} />
         : result && <ResultSheet brief={brief} route={route} result={result} assets={activeAssets} tasks={routeTasks} destinationText={destinationText} setDestinationText={setDestinationText} delta={delta} error={error} feedback={activeRouteActivity?.feedback ?? []} activityPersisted={activityPersisted} onBack={startNewWalk} onRefine={(value) => plan(value, true)} onAdjust={adjust} onShowWhy={() => { setActiveAsset(null); setActiveAssetPoint(null); setActiveTask(null); setActiveTaskPoint(null); setDetail("why"); }} onShowAsset={(asset) => { setActiveTask(null); setActiveTaskPoint(null); setActiveAsset(asset); setActiveAssetPoint(null); setDetail("asset"); }} onShowTask={(task) => { setActiveAsset(null); setActiveAssetPoint(null); setActiveTask(task); setActiveTaskPoint(null); setDetail("task"); }} onShowData={() => { setActiveAsset(null); setActiveAssetPoint(null); setActiveTask(null); setActiveTaskPoint(null); setDetail("data"); }} onOpenPlanner={() => { setPlannerView("what_if"); switchMode("planner"); }} onSaveFeedback={saveActiveRouteFeedback} onRemoveFeedback={removeActiveRouteFeedback} detourScenario={detourScenario} showBaseline={showBaseline} setShowBaseline={setShowBaseline} busy={busy} busyMode={busyMode} modelFallback={modelFallback} rainContext={rainContext} />}
     {appMode === "walk" && detail && route && <DetailPanel mode={detail} brief={brief} route={route} assets={activeAssets} tasks={routeTasks} activeAsset={activeAsset} activeTask={activeTask} taskObservation={activeTask ? taskObservations[activeTask.id] ?? null : null} detourScenario={detourScenario} rainContext={rainContext} onCompleteTask={(response) => { if (!activeTask) return; setTaskObservations((current) => ({ ...current, [activeTask.id]: createSessionCivicObservation(activeTask, response) })); }} onRemoveTaskObservation={() => { if (!activeTask) return; setTaskObservations((current) => { const next = { ...current }; delete next[activeTask.id]; return next; }); }} onClose={() => { setDetail(null); if (detail === "asset") { setActiveAsset(null); setActiveAssetPoint(null); } if (detail === "task") { setActiveTask(null); setActiveTaskPoint(null); } }} />}
     {activeAsset && detail !== "asset" && <aside className={`asset-popover ${assetPopoverOpensLeft ? "opens-left" : ""}`} style={assetPopoverStyle} role="dialog" aria-label={assetTypeLabel(activeAsset)}><div><AssetIcon kind={activeAsset.kind} /><IconButton label="Close" onClick={() => { setActiveAsset(null); setActiveAssetPoint(null); }}><CloseIcon /></IconButton></div><span className="eyebrow">{appMode === "planner" ? "Place on the map" : "Near your walk"}</span><h3>{assetTypeLabel(activeAsset)}</h3><p>{activeAsset.locationLabel}</p><small>{assetAvailabilityCopy(activeAsset)}</small><small className="source-freshness">{civicAssetEvidence(activeAsset).freshnessLabel}</small>{appMode === "walk" && <button type="button" className="asset-more" onClick={() => setDetail("asset")}>See details</button>}</aside>}
@@ -2017,6 +2051,6 @@ export function App() {
     {activeCover && <aside className="asset-popover cover-popover" style={coverPopoverStyle} role="dialog" aria-label="Cover evidence"><div><UmbrellaIcon /><IconButton label="Close" onClick={() => { setActiveCover(null); setActiveCoverPoint(null); }}><CloseIcon /></IconButton></div><span className="eyebrow">Cover evidence</span><h3>{activeCover.label}</h3><p>{activeCover.locationLabel}</p><small>{activeCover.detail}</small>{activeCover.taskId && <button type="button" className="asset-more" onClick={() => { const task = allCivicTasks.find((candidate) => candidate.id === activeCover.taskId); if (!task) return; setAppMode("walk"); setActiveCover(null); setActiveCoverPoint(null); setActiveTask(task); setActiveTaskPoint(null); setDetail("task"); }}>Help verify this</button>}{activeCover.sourceId && sourceRegistryPresentation(activeCover.sourceId) && <a className="asset-more" href={sourceRegistryPresentation(activeCover.sourceId)!.officialUrl} target="_blank" rel="noreferrer">Open source</a>}</aside>}
     {activeFlood && <aside className="asset-popover flood-popover" style={floodPopoverStyle} role="dialog" aria-label="Modeled flood potential"><div><CloudRainIcon /><IconButton label="Close" onClick={() => { setActiveFlood(null); setActiveFloodPoint(null); }}><CloseIcon /></IconButton></div><span className="eyebrow">2050 model · not live</span><h3>{activeFlood.label}</h3><p>{activeFlood.depthBand}</p><small>{activeFlood.detail}</small><a className="asset-more" href={floodEvidenceMetadata.source.datasetUrl} target="_blank" rel="noreferrer">Open DEP model source</a></aside>}
     {((appMode === "planner" && plannerView === "what_if") || (appMode === "walk" && Boolean(route) && detail === "data")) && <MapLensControl overlays={mapOverlays} onToggle={toggleMapOverlay} hour={shadeHour} onHourChange={setShadeHour} planner={appMode === "planner"} hasRoute={Boolean(route)} shadeDetailVisible={buildingShadeDetailVisible(mapViewport.zoom)} canEdit={!mapError} editing={editRoute} onEditingChange={(editing) => { setEditRoute(editing); if (editing) setMapLens("route"); }} />}
-    <div className="map-key" role="list" aria-label="Visible map layers">{appMode === "planner" && plannerView !== "what_if" && routeActivity.length > 0 && <><span role="listitem"><i className="activity-route-key" />Mapped routes</span>{routeActivity.some((item) => item.feedback.length) && <span role="listitem"><i className="activity-note-key" />Route notes</span>}</>}{route && !(appMode === "planner" && plannerView !== "what_if") && <span role="listitem"><i className="route-key" />Happy Path</span>}{showBaseline && result?.baseline && !(appMode === "planner" && plannerView !== "what_if") && <span role="listitem"><i className="baseline-key" />Fastest route</span>}{mapOverlays.shade && plannerView === "what_if" && <span role="listitem"><i className="shade-deep-key" />{route || buildingShadeDetailVisible(mapViewport.zoom) ? `Shade at ${formatClock(shadeHour)}` : "Zoom in for shade"}</span>}{mapOverlays.greenery && plannerView === "what_if" && <span role="listitem"><i className="greenery-key" />Trees &amp; parks nearby</span>}{mapOverlays.cover && plannerView === "what_if" && <><span role="listitem"><i className="cover-key" />Mapped cover</span><span role="listitem"><i className="cover-context-key" />Approx. cover-record vicinity</span></>}{mapOverlays.flood && plannerView === "what_if" && <span role="listitem"><i className="flood-key" />Flood potential · 2050 model</span>}{mapOverlays.amenities && plannerView === "what_if" && <span role="listitem"><i className="amenity-key" />Nearby places</span>}{mapOverlays.tasks && plannerView === "what_if" && <span role="listitem"><i className="task-key" />Optional check</span>}</div>
+    <div className="map-key" role="list" aria-label="Visible map layers">{appMode === "planner" && plannerView !== "what_if" && routeActivity.length > 0 && <><span role="listitem"><i className="activity-route-key" />Mapped routes</span>{routeActivity.some((item) => item.feedback.length) && <span role="listitem"><i className="activity-note-key" />Route notes</span>}</>}{route && !(appMode === "planner" && plannerView !== "what_if") && <span role="listitem"><i className="route-key" />Happy Path</span>}{showBaseline && result?.baseline && !(appMode === "planner" && plannerView !== "what_if") && <span role="listitem"><i className="baseline-key" />Fastest route</span>}{mapOverlays.shade && ((appMode === "planner" && plannerView === "what_if") || detail === "data") && <span role="listitem"><i className="shade-deep-key" />{route || buildingShadeDetailVisible(mapViewport.zoom) ? `Shade at ${formatClock(shadeHour)}` : "Zoom in for shade"}</span>}{mapOverlays.greenery && ((appMode === "planner" && plannerView === "what_if") || detail === "data") && <span role="listitem"><i className="greenery-key" />Trees &amp; parks nearby</span>}{mapOverlays.cover && ((appMode === "planner" && plannerView === "what_if") || detail === "data") && <><span role="listitem"><i className="cover-key" />Mapped cover</span><span role="listitem"><i className="cover-context-key" />Approx. cover-record vicinity</span></>}{mapOverlays.flood && ((appMode === "planner" && plannerView === "what_if") || detail === "data") && <span role="listitem"><i className="flood-key" />Flood potential · 2050 model</span>}{mapOverlays.amenities && ((appMode === "planner" && plannerView === "what_if") || detail === "data") && <span role="listitem"><i className="amenity-key" />Nearby places</span>}{mapOverlays.tasks && ((appMode === "planner" && plannerView === "what_if") || detail === "data") && <span role="listitem"><i className="task-key" />Optional check</span>}</div>
   </main>;
 }

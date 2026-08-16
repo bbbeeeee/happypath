@@ -167,7 +167,7 @@ export function coverContextVicinityGeoJSON(context: { features: readonly CoverC
     features: context.features.flatMap((feature): CoverContextVicinityFeature[] => {
       if (feature.geometry.type !== "Point") return [];
       const [longitude, latitude] = feature.geometry.coordinates;
-      const radiusMeters = feature.properties.kind === "pops_arcade" ? 22 : 14;
+      const radiusMeters = feature.properties.kind === "pops_arcade" ? 30 : 20;
       const sides = feature.properties.kind === "pops_arcade" ? 6 : 4;
       const angleOffset = feature.properties.kind === "pops_arcade" ? Math.PI / 6 : Math.PI / 4;
       const latitudeDegrees = radiusMeters / 110_574;
