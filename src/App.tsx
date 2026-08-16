@@ -390,6 +390,10 @@ export function App() {
 
   useEffect(() => {
     if (!mapContainer.current || mapRef.current) return;
+    if (!document.createElement("canvas").getContext("webgl2")) {
+      setMapError(true);
+      return;
+    }
     let map: MapLibreMap;
     try {
       map = new maplibregl.Map({ container: mapContainer.current, style: MAP_STYLE, center: [-73.997, 40.731], zoom: 14.2, attributionControl: false });
