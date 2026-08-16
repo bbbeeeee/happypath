@@ -206,7 +206,7 @@ function ComposeSheet({ brief, setBrief, prompt, setPrompt, originText, setOrigi
       <button type="button" className={brief.avoidMappedSteps ? "active" : ""} aria-pressed={brief.avoidMappedSteps} onClick={() => setBrief(mergeTripBrief(brief, { avoidMappedSteps: !brief.avoidMappedSteps }, "controls"))}><StairsIcon />Avoid mapped steps</button>
     </div>
     <div className="trip-controls">
-      <div><span>{brief.shape === "destination" ? "Extra time" : "Walking time"}</span>{brief.shape === "destination"
+      <div><span>{brief.shape === "destination" ? "Extra time" : brief.shape === "loop" ? "Loop length" : "Time limit"}</span>{brief.shape === "destination"
         ? <Segmented value={String(brief.detourMinutes)} label="Extra time allowance" options={[{ value: "0", label: "Fastest" }, { value: "5", label: "+5 min" }, { value: "10", label: "+10 min" }]} onChange={(value) => setBrief(mergeTripBrief(brief, { detourMinutes: Number(value) as 0 | 5 | 10 }, "controls"))} />
         : <Segmented value={String(brief.walkingMinutes)} label="Walking time" options={[{ value: "15", label: "15" }, { value: "20", label: "20" }, { value: "25", label: "25" }, { value: "30", label: "30 min" }]} onChange={(value) => setBrief(mergeTripBrief(brief, { walkingMinutes: Number(value) }, "controls"))} />}</div>
       <label className="departure-control"><span><ClockIcon />Leaving</span><select value={brief.departureHour} onChange={(event) => setBrief(mergeTripBrief(brief, { departureHour: Number(event.target.value) }, "controls"))}><option value={new Date().getHours()}>Now · {formatClock(new Date().getHours())}</option>{[8, 10, 12, 14, 16, 18].filter((hour) => hour !== new Date().getHours()).map((hour) => <option key={hour} value={hour}>{formatClock(hour)}</option>)}</select></label>
@@ -259,7 +259,7 @@ function ResultSheet({ brief, route, result, assets, delta, onBack, onRefine, on
     <div className="sheet-handle" />
     <div className="result-nav"><IconButton label="Plan another walk" onClick={onBack}><BackIcon /></IconButton><span>Your Happy Path</span><span className="result-time">{formatMinutes(route.durationMinutes)}</span></div>
     {delta && <div className="route-delta"><SparkIcon />Route updated · {delta}</div>}
-    <div className="result-lead"><p>{headline}</p><h2>{brief.shape === "loop" ? `${Math.round(route.durationMinutes)}-minute loop` : brief.shape === "wander" ? `A ${Math.round(route.durationMinutes)}-minute wander` : `${Math.round(route.durationMinutes)} minutes · ${Math.round(route.extraMinutesVsBaseline ?? 0)} longer`}</h2></div>
+    <div className="result-lead"><p>{headline}</p><h2>{brief.shape === "loop" ? `${Math.round(route.durationMinutes)}-minute loop` : brief.shape === "wander" ? `${Math.round(route.durationMinutes)}-minute wander · within your ${brief.walkingMinutes}-minute limit` : `${Math.round(route.durationMinutes)} minutes · ${Math.round(route.extraMinutesVsBaseline ?? 0)} longer`}</h2></div>
     <div className="benefit-list">
       {brief.priorities.includes("shade") && <button type="button" onClick={onShowWhy}><SunIcon /><span>{route.directSunMinutes < 0.05 ? <><strong>Nighttime departure</strong><small>No modeled direct sun at {formatClock(brief.departureHour)}</small></> : sunSaved !== null && sunSaved >= 0.05 ? <><strong>{sunSaved.toFixed(1)} fewer min</strong><small>in estimated direct sun</small></> : <><strong>{route.shadePercent.toFixed(0)}% estimated shade</strong><small>along this route at {formatClock(brief.departureHour)}</small></>}</span><ChevronIcon /></button>}
       {brief.priorities.includes("greenery") && <button type="button" onClick={onShowWhy}><LeafIcon /><span>{greenGain !== null && greenGain >= 0.5 ? <><strong>{greenGain.toFixed(0)} points greener</strong><small>than the fastest route</small></> : <><strong>{route.greeneryPercent.toFixed(0)}% mapped greenery</strong><small>from nearby tree and park records</small></>}</span><ChevronIcon /></button>}
@@ -375,7 +375,8 @@ export function App() {
     if (isRefinement && oldRoute) {
       const minuteChange = Math.round(nextRoute.durationMinutes - oldRoute.durationMinutes);
       const sunChange = nextRoute.directSunMinutes - oldRoute.directSunMinutes;
-      setDelta(`${Math.abs(minuteChange)} min ${minuteChange <= 0 ? "shorter" : "longer"}${Math.abs(sunChange) >= 0.5 ? ` · ${Math.abs(sunChange).toFixed(1)} ${sunChange <= 0 ? "fewer" : "more"} min in estimated sun` : ""}`);
+      const timeChange = minuteChange === 0 ? "same walking time" : `${Math.abs(minuteChange)} min ${minuteChange < 0 ? "shorter" : "longer"}`;
+      setDelta(`${timeChange}${Math.abs(sunChange) >= 0.5 ? ` · ${Math.abs(sunChange).toFixed(1)} ${sunChange <= 0 ? "fewer" : "more"} min in estimated sun` : ""}`);
     } else setDelta("");
   }
 

@@ -155,6 +155,6 @@ export function briefSummary(brief: TripBrief) {
     ? (brief.destinationQuery ? `To ${brief.destinationQuery}` : "Destination walk")
     : brief.shape === "loop"
       ? `${brief.walkingMinutes}-minute loop`
-      : `${brief.walkingMinutes}-minute wander`;
+      : `Wander for up to ${brief.walkingMinutes} minutes`;
   return [journey, ...brief.priorities.map((priority) => ({ shade: "Less direct sun", greenery: "Greener streets", rest: "Places to rest", water: "Water nearby", restroom: "Restroom nearby", construction: "Less construction friction" })[priority])];
 }
