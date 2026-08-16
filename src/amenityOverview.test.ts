@@ -101,7 +101,7 @@ describe("amenity overview presentation", () => {
   });
 
   it("shrinks cluster cells with zoom and separates records at block scale", () => {
-    expect(amenityClusterCellMeters(12.4)).toBeGreaterThan(500);
+    expect(amenityClusterCellMeters(12.4)).toBeGreaterThan(900);
     expect(amenityClusterCellMeters(13.5)).toBe(150);
     expect(amenityClusterCellMeters(15.5)).toBeLessThan(50);
     expect(amenityClusterCellMeters(17)).toBe(14);

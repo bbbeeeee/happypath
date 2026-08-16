@@ -32,6 +32,10 @@ describe("modeled flood context", () => {
     const context = await loadFloodContextGeoJSON();
     expect(floodEvidenceMetadata.source.datasetId).toBe("9i7c-xyvv");
     expect(floodEvidenceMetadata.source.sourceId).toBe("nyc-stormwater-flood-map-2050");
+    expect(floodEvidenceMetadata.source).toMatchObject({
+      serviceItemId: "af6844bff1d74fbfa85597c32b6f34c4",
+      serviceOwner: "NYCDEP_KarolinaR",
+    });
     expect(floodEvidenceMetadata.scenario).toMatchObject({ rainfallRateInchesPerHour: 2.13, seaLevelCondition: "2050_projection", live: false });
     expect(floodEvidenceMetadata.counts.nuisance_ponding_areas).toBeGreaterThan(0);
     expect(floodEvidenceMetadata.counts.deep_contiguous_areas).toBeGreaterThan(0);

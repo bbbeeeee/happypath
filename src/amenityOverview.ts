@@ -91,7 +91,7 @@ function spreadAcrossViewport(assets: readonly CivicAsset[], viewport: AmenityVi
 export function amenityClusterCellMeters(zoom: number) {
   if (!Number.isFinite(zoom)) return 96;
   if (zoom >= 16.25) return 14;
-  if (zoom < 13.5) return Math.min(900, Math.round(150 * 4 ** (13.5 - zoom)));
+  if (zoom < 13.5) return Math.min(1_200, Math.round(150 * 6 ** (13.5 - zoom)));
   return Math.max(28, Math.round(150 / 2 ** Math.max(0, zoom - 13.5)));
 }
 

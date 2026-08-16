@@ -54,6 +54,8 @@ interface FloodEvidenceSummary {
     datasetId: "9i7c-xyvv";
     datasetUrl: string;
     serviceUrl: string;
+    serviceItemId: "af6844bff1d74fbfa85597c32b6f34c4";
+    serviceOwner: "NYCDEP_KarolinaR";
     retrievedAt: string;
     sourceUpdatedAt: string;
     snapshotHash: string;
