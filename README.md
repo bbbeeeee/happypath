@@ -29,4 +29,4 @@ The same city model also powers **Detour**, a planning extension for identifying
 - **Experience:** one friendly request → an easy-to-check interpretation → one clear route → useful reasons → natural refinement
 - **Planning connection:** one Detour proof using the same data and route features
 
-This branch updates product documentation and task planning only. Implementation will proceed later through focused pull requests to `main`; no existing prototype branch is designated as the application base.
+This work establishes the product requirements and execution plan. Future implementation should build from these docs and may choose whatever technical and development workflow best satisfies them; no existing prototype branch or architecture is prescribed.
