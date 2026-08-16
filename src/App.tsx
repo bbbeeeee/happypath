@@ -1447,20 +1447,11 @@ export function App() {
       }, layout: { visibility: "none", "line-cap": "round", "line-join": "round" } });
       map.addSource("cover-context", { type: "geojson", data: EMPTY_COVER_CONTEXT });
       map.addSource("cover-context-vicinities", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
-      map.addLayer({ id: "cover-context-vicinities", type: "fill", source: "cover-context-vicinities", minzoom: 13, paint: {
+      map.addLayer({ id: "cover-context-vicinities", type: "fill", source: "cover-context-vicinities", minzoom: 14, paint: {
         "fill-color": ["match", ["get", "kind"], "pops_arcade", "#536A91", "#9B8051"],
-        "fill-opacity": ["interpolate", ["linear"], ["zoom"], 13, 0.08, 16, 0.16],
-        "fill-outline-color": ["match", ["get", "kind"], "pops_arcade", "#7889A8", "#B39A70"],
+        "fill-opacity": ["interpolate", ["linear"], ["zoom"], 14, 0.09, 17, 0.2],
       }, layout: { visibility: "none" } });
       map.addLayer({ id: "cover-construction", type: "line", source: "cover-context", filter: ["==", ["get", "kind"], "construction_closure"], paint: { "line-color": "#C66A4B", "line-width": 3, "line-dasharray": [1, 1.5], "line-opacity": 0.72 }, layout: { visibility: "none" } });
-      map.addLayer({ id: "cover-context-points", type: "circle", source: "cover-context", filter: ["==", ["geometry-type"], "Point"], paint: {
-        "circle-radius": ["interpolate", ["linear"], ["zoom"], 14, 5, 17, 10],
-        "circle-color": ["match", ["get", "kind"], "pops_arcade", "#3D587F", "#8A7C4A"],
-        "circle-stroke-color": ["match", ["get", "kind"], "pops_arcade", "#3D587F", "#8A7C4A"],
-        "circle-stroke-width": 1,
-        "circle-stroke-opacity": 0.24,
-        "circle-opacity": 0.08,
-      }, layout: { visibility: "none" }, minzoom: 14 });
       registerFloodPatternImages(map);
       map.addSource("flood-context", { type: "geojson", data: EMPTY_FLOOD_CONTEXT });
       map.addLayer({ id: "flood-nuisance", type: "fill", source: "flood-context", filter: ["==", ["get", "categoryCode"], 1], paint: {
@@ -1517,6 +1508,28 @@ export function App() {
       map.addSource("representative-routes", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
       map.addLayer({ id: "representative-baseline", type: "line", source: "representative-routes", filter: ["==", ["get", "role"], "baseline"], paint: { "line-color": "#6D716C", "line-width": 3, "line-opacity": 0.26 }, layout: { visibility: "none", "line-cap": "round" } });
       map.addLayer({ id: "representative-scenario", type: "line", source: "representative-routes", filter: ["==", ["get", "role"], "scenario"], paint: { "line-color": ["case", ["get", "routeChanged"], "#F05A47", "#6478B8"], "line-width": 4, "line-opacity": 0.56 }, layout: { visibility: "none", "line-cap": "round" } });
+      map.addSource("route-activity", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+      map.addLayer({ id: "route-activity-casing", type: "line", source: "route-activity", filter: ["==", ["get", "kind"], "route"], paint: { "line-color": "#FFFFFF", "line-width": ["case", ["get", "selected"], 10, 7], "line-opacity": 0.84 }, layout: { visibility: "none", "line-cap": "round", "line-join": "round" } });
+      map.addLayer({ id: "route-activity-lines", type: "line", source: "route-activity", filter: ["==", ["get", "kind"], "route"], paint: {
+        "line-color": ["case", ["get", "selected"], "#F05A47", ["get", "needsAttention"], "#B86149", [">", ["get", "feedbackCount"], 0], "#6478B8", "#567563"],
+        "line-width": ["case", ["get", "selected"], 6, ["interpolate", ["linear"], ["get", "timesMapped"], 1, 2.5, 5, 5]],
+        "line-opacity": ["case", ["get", "selected"], 0.96, 0.54],
+      }, layout: { visibility: "none", "line-cap": "round", "line-join": "round" } });
+      map.addLayer({ id: "route-activity-notes", type: "circle", source: "route-activity", filter: ["==", ["get", "kind"], "feedback"], paint: {
+        "circle-radius": ["interpolate", ["linear"], ["get", "feedbackCount"], 1, 6, 5, 10],
+        "circle-color": ["case", ["get", "needsAttention"], "#B86149", "#344A3E"],
+        "circle-stroke-color": "#FFFFFF",
+        "circle-stroke-width": 2,
+        "circle-opacity": 0.94,
+      }, layout: { visibility: "none" } });
+      ["route-activity-lines", "route-activity-notes"].forEach((layerId) => {
+        map.on("mouseenter", layerId, () => { map.getCanvas().style.cursor = "pointer"; });
+        map.on("mouseleave", layerId, () => { map.getCanvas().style.cursor = ""; });
+        map.on("click", layerId, (event) => {
+          const routeId = event.features?.[0]?.properties?.routeId;
+          if (routeId) setSelectedActivityRouteId(String(routeId));
+        });
+      });
       const showAssetPopover = (event: MapLayerMouseEvent) => {
         const id = event.features?.[0]?.properties?.id;
         setDetail(null);
@@ -1577,8 +1590,8 @@ export function App() {
       };
       void registerCoverContextMarkerImages(map).then(() => {
         const symbolLayers = [
-          { id: "cover-arcade-icons", kind: "pops_arcade", image: "cover-context-pops_arcade", minzoom: 13.2 },
-          { id: "cover-shed-icons", kind: "sidewalk_shed_permit", image: "cover-context-sidewalk_shed_permit", minzoom: 14.25 },
+          { id: "cover-arcade-icons", kind: "pops_arcade", image: "cover-context-pops_arcade", minzoom: 15.6 },
+          { id: "cover-shed-icons", kind: "sidewalk_shed_permit", image: "cover-context-sidewalk_shed_permit", minzoom: 16.2 },
         ] as const;
         for (const layer of symbolLayers) {
           if (map.getLayer(layer.id)) continue;
@@ -1692,7 +1705,7 @@ export function App() {
         map.on("mouseleave", layer, () => { map.getCanvas().style.cursor = ""; });
         map.on("click", layer, routeFeatureClick);
       });
-      ["mapped-cover", "cover-construction", "cover-context-vicinities", "cover-context-points"].forEach((layer) => {
+      ["mapped-cover", "cover-construction", "cover-context-vicinities"].forEach((layer) => {
         map.on("mouseenter", layer, () => { map.getCanvas().style.cursor = "pointer"; });
         map.on("mouseleave", layer, () => { map.getCanvas().style.cursor = ""; });
         map.on("click", layer, showCoverPopover);
@@ -1780,6 +1793,7 @@ export function App() {
     (map.getSource("flood-context") as GeoJSONSource | undefined)?.setData(floodContextLayer);
     (map.getSource("planner-selection") as GeoJSONSource | undefined)?.setData(appMode === "planner" ? representativeGap : plannerScenario?.selection.geojson ?? { type: "FeatureCollection", features: [] });
     (map.getSource("representative-routes") as GeoJSONSource | undefined)?.setData(representativeRoutes);
+    (map.getSource("route-activity") as GeoJSONSource | undefined)?.setData(activityMapData);
     (map.getSource("endpoints") as GeoJSONSource | undefined)?.setData(endpointsGeoJSON(route));
     (map.getSource("assets") as GeoJSONSource | undefined)?.setData(assetsGeoJSON(activeAssets, activeAsset?.id));
     (map.getSource("overview-assets") as GeoJSONSource | undefined)?.setData(overviewAssets);
@@ -1801,20 +1815,24 @@ export function App() {
     visibility("mapped-cover", mapOverlays.cover);
     visibility("mapped-cover-casing", mapOverlays.cover);
     visibility("cover-context-vicinities", mapOverlays.cover);
-    visibility("cover-context-points", mapOverlays.cover);
     visibility("cover-arcade-icons", mapOverlays.cover);
     visibility("cover-shed-icons", mapOverlays.cover);
     visibility("cover-construction", appMode === "planner" && mapLens === "cover" && mapOverlays.cover);
     ["flood-nuisance", "flood-deep", "flood-nuisance-outline", "flood-deep-outline"]
       .forEach((layer) => visibility(layer, mapOverlays.flood));
-    const showSelection = appMode === "planner" && representativeGap.features.length > 0;
+    const showWhatIf = appMode === "planner" && plannerView === "what_if";
+    const showLocalActivity = appMode === "planner" && plannerView !== "what_if" && activityMapData.features.length > 0;
+    const showSelection = showWhatIf && representativeGap.features.length > 0;
     visibility("planner-selection", showSelection);
     visibility("planner-selection-casing", showSelection);
-    visibility("representative-baseline", appMode === "planner" && representativeRoutes.features.length > 0);
-    visibility("representative-scenario", appMode === "planner" && showRepresentativeIntervention && representativeRoutes.features.length > 0);
+    visibility("representative-baseline", showWhatIf && representativeRoutes.features.length > 0);
+    visibility("representative-scenario", showWhatIf && showRepresentativeIntervention && representativeRoutes.features.length > 0);
+    visibility("route-activity-casing", showLocalActivity);
+    visibility("route-activity-lines", showLocalActivity);
+    visibility("route-activity-notes", showLocalActivity && plannerView === "notes");
     ["overview-clusters", "overview-cluster-count", "overview-icons", "assets", "asset-icons"].forEach((layer) => visibility(layer, mapOverlays.amenities));
     ["civic-task-halo", "civic-task-hit", "civic-task-icons"].forEach((layer) => visibility(layer, mapOverlays.tasks));
-  }, [route, result, showBaseline, comparisonDelta, representativeGap, representativeRoutes, showRepresentativeIntervention, activeAssets, activeAsset?.id, overviewAssets, taskFeatures, shadeSegments, ambientGreeneryLayer, greeneryRouteSegments, ambientCoverLayer, coverRouteSegments, coverContextLayer, coverContextVicinities, floodContextLayer, plannerScenario, mapLens, mapOverlays, appMode, mapReady]);
+  }, [route, result, showBaseline, comparisonDelta, representativeGap, representativeRoutes, showRepresentativeIntervention, activityMapData, plannerView, activeAssets, activeAsset?.id, overviewAssets, taskFeatures, shadeSegments, ambientGreeneryLayer, greeneryRouteSegments, ambientCoverLayer, coverRouteSegments, coverContextLayer, coverContextVicinities, floodContextLayer, plannerScenario, mapLens, mapOverlays, appMode, mapReady]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -1999,6 +2017,6 @@ export function App() {
     {activeCover && <aside className="asset-popover cover-popover" style={coverPopoverStyle} role="dialog" aria-label="Cover evidence"><div><UmbrellaIcon /><IconButton label="Close" onClick={() => { setActiveCover(null); setActiveCoverPoint(null); }}><CloseIcon /></IconButton></div><span className="eyebrow">Cover evidence</span><h3>{activeCover.label}</h3><p>{activeCover.locationLabel}</p><small>{activeCover.detail}</small>{activeCover.taskId && <button type="button" className="asset-more" onClick={() => { const task = allCivicTasks.find((candidate) => candidate.id === activeCover.taskId); if (!task) return; setAppMode("walk"); setActiveCover(null); setActiveCoverPoint(null); setActiveTask(task); setActiveTaskPoint(null); setDetail("task"); }}>Help verify this</button>}{activeCover.sourceId && sourceRegistryPresentation(activeCover.sourceId) && <a className="asset-more" href={sourceRegistryPresentation(activeCover.sourceId)!.officialUrl} target="_blank" rel="noreferrer">Open source</a>}</aside>}
     {activeFlood && <aside className="asset-popover flood-popover" style={floodPopoverStyle} role="dialog" aria-label="Modeled flood potential"><div><CloudRainIcon /><IconButton label="Close" onClick={() => { setActiveFlood(null); setActiveFloodPoint(null); }}><CloseIcon /></IconButton></div><span className="eyebrow">2050 model · not live</span><h3>{activeFlood.label}</h3><p>{activeFlood.depthBand}</p><small>{activeFlood.detail}</small><a className="asset-more" href={floodEvidenceMetadata.source.datasetUrl} target="_blank" rel="noreferrer">Open DEP model source</a></aside>}
     {((appMode === "planner" && plannerView === "what_if") || (appMode === "walk" && Boolean(route) && detail === "data")) && <MapLensControl overlays={mapOverlays} onToggle={toggleMapOverlay} hour={shadeHour} onHourChange={setShadeHour} planner={appMode === "planner"} hasRoute={Boolean(route)} shadeDetailVisible={buildingShadeDetailVisible(mapViewport.zoom)} canEdit={!mapError} editing={editRoute} onEditingChange={(editing) => { setEditRoute(editing); if (editing) setMapLens("route"); }} />}
-    <div className="map-key" role="list" aria-label="Visible map layers">{route && <span role="listitem"><i className="route-key" />Happy Path</span>}{showBaseline && result?.baseline && <span role="listitem"><i className="baseline-key" />Fastest route</span>}{mapOverlays.shade && <span role="listitem"><i className="shade-deep-key" />{route || buildingShadeDetailVisible(mapViewport.zoom) ? `Shade at ${formatClock(shadeHour)}` : "Zoom in for shade"}</span>}{mapOverlays.greenery && <span role="listitem"><i className="greenery-key" />Trees &amp; parks nearby</span>}{mapOverlays.cover && <><span role="listitem"><i className="cover-key" />Mapped cover</span><span role="listitem"><i className="cover-context-key" />Approx. cover-record vicinity</span></>}{mapOverlays.flood && <span role="listitem"><i className="flood-key" />Flood potential · 2050 model</span>}{mapOverlays.amenities && <span role="listitem"><i className="amenity-key" />Nearby places</span>}{mapOverlays.tasks && <span role="listitem"><i className="task-key" />Optional check</span>}</div>
+    <div className="map-key" role="list" aria-label="Visible map layers">{appMode === "planner" && plannerView !== "what_if" && routeActivity.length > 0 && <><span role="listitem"><i className="activity-route-key" />Mapped routes</span>{routeActivity.some((item) => item.feedback.length) && <span role="listitem"><i className="activity-note-key" />Route notes</span>}</>}{route && !(appMode === "planner" && plannerView !== "what_if") && <span role="listitem"><i className="route-key" />Happy Path</span>}{showBaseline && result?.baseline && !(appMode === "planner" && plannerView !== "what_if") && <span role="listitem"><i className="baseline-key" />Fastest route</span>}{mapOverlays.shade && plannerView === "what_if" && <span role="listitem"><i className="shade-deep-key" />{route || buildingShadeDetailVisible(mapViewport.zoom) ? `Shade at ${formatClock(shadeHour)}` : "Zoom in for shade"}</span>}{mapOverlays.greenery && plannerView === "what_if" && <span role="listitem"><i className="greenery-key" />Trees &amp; parks nearby</span>}{mapOverlays.cover && plannerView === "what_if" && <><span role="listitem"><i className="cover-key" />Mapped cover</span><span role="listitem"><i className="cover-context-key" />Approx. cover-record vicinity</span></>}{mapOverlays.flood && plannerView === "what_if" && <span role="listitem"><i className="flood-key" />Flood potential · 2050 model</span>}{mapOverlays.amenities && plannerView === "what_if" && <span role="listitem"><i className="amenity-key" />Nearby places</span>}{mapOverlays.tasks && plannerView === "what_if" && <span role="listitem"><i className="task-key" />Optional check</span>}</div>
   </main>;
 }
