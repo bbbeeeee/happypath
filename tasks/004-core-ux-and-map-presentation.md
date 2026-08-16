@@ -33,6 +33,7 @@ The demo must feel real and magical, not like a technical proof. The interface h
 - editable Trip Brief;
 - map-first result, comparison, inspection, and refinement;
 - Route Receipt and City data used view;
+- full, legible base-map treatment across the supported geography;
 - fixed visual system for route qualities, amenities, warnings, and uncertainty;
 - complete friendly product-copy library;
 - polished loading, empty, partial-data, and failure states;
@@ -60,20 +61,23 @@ The demo must feel real and magical, not like a technical proof. The interface h
 - [ ] `004-J` — Implement the City data used drawer with plain-language source explanations.
 - [ ] `004-K` — Define fixed primitives for continuous layers, assets, warnings, and uncertainty.
 - [ ] `004-L` — Implement deterministic priority, collision, density, and zoom rules.
-- [ ] `004-M` — Ensure broad layer integration never turns the map into a GIS dashboard.
+- [ ] `004-M` — Keep the base map visually complete regardless of optional layer coverage; uncovered streets remain normal streets rather than blank, masked, or heavily dimmed areas.
+- [ ] `004-N` — Ensure continuous overlays remain transparent enough to preserve street, park, landmark, and route context.
+- [ ] `004-O` — Ensure broad layer integration never turns the map into a GIS dashboard.
 
 ### Product language and states
 
-- [ ] `004-N` — Write friendly copy for compose, loading, result, compare, inspect, refine, and evidence states.
-- [ ] `004-O` — Create a translation layer from technical claims to resident language.
-- [ ] `004-P` — Implement first-use, geocoding, outside-area, no-route, hard-requirement, inference-failure, partial-data, no-better-route, and recovery states.
-- [ ] `004-Q` — Remove raw dataset fields, source IDs, schema names, debug text, and unexplained jargon from primary screens.
+- [ ] `004-P` — Write friendly copy for compose, loading, result, compare, inspect, refine, and evidence states.
+- [ ] `004-Q` — Create a translation layer from technical claims to resident language.
+- [ ] `004-R` — Implement first-use, geocoding, outside-area, no-route, hard-requirement, inference-failure, partial-data, no-better-route, and recovery states.
+- [ ] `004-S` — Remove raw dataset fields, source IDs, schema names, debug text, and unexplained jargon from primary screens.
 
 ### Quality
 
-- [ ] `004-R` — Review phone and desktop layout, keyboard use, focus, contrast, tap targets, reduced motion, and non-color distinctions.
-- [ ] `004-S` — Run product-copy review for warmth, clarity, consistency, and honest uncertainty.
-- [ ] `004-T` — Test the complete flows from a clean session with realistic fixtures.
+- [ ] `004-T` — Review phone and desktop layout, keyboard use, focus, contrast, tap targets, reduced motion, and non-color distinctions.
+- [ ] `004-U` — Run product-copy review for warmth, clarity, consistency, and honest uncertainty.
+- [ ] `004-V` — Test the complete flows from a clean session with realistic fixtures.
+- [ ] `004-W` — Test partial layer coverage and verify that it does not visually erase or de-emphasize ordinary streets.
 
 ## Acceptance criteria
 
@@ -84,6 +88,8 @@ The demo must feel real and magical, not like a technical proof. The interface h
 - [ ] One route is visually dominant.
 - [ ] The primary benefit and cost are understandable within a few seconds.
 - [ ] Every visible layer is relevant to the current request, result, or warning.
+- [ ] The base map feels complete throughout the supported geography, including streets with no record in an optional evidence layer.
+- [ ] Missing layer coverage is communicated through local evidence or explanation rather than large blank or dimmed map areas.
 - [ ] City data is inspectable without dominating the main experience.
 - [ ] Copy is friendly, calm, concise, and product-forward in every primary state.
 - [ ] Technical jargon does not leak into resident-facing screens.
@@ -97,7 +103,7 @@ The demo must feel real and magical, not like a technical proof. The interface h
 - arbitrary user-controlled GIS layers;
 - full turn-by-turn navigation;
 - a bespoke icon family unless it clearly improves the demo after core polish;
-- the Detour planner interface;
+- the full Detour planner interface;
 - redesigning the `bryan` prototype.
 
 ## Risks and decisions
@@ -106,10 +112,11 @@ The demo must feel real and magical, not like a technical proof. The interface h
 - Technical transparency should be available one level deeper, not placed in the primary receipt.
 - AI may suggest relevant content but cannot control pixel layout or hide required warnings.
 - Copy and data-cleaning work are part of product quality, not final-stage decoration.
+- Treating no-data streets as visually empty would make partial datasets feel like missing geography; overlays must add information without taking the base city away.
 
 ## Verification
 
-Run destination, loop, wander, amenity, partial-data, and failure scenarios on mobile and desktop. Capture screenshots or recordings and complete a copy, accessibility, and map-cleanliness review.
+Run destination, loop, wander, amenity, partial-data, and failure scenarios on mobile and desktop. Capture screenshots or recordings and complete a copy, accessibility, map-completeness, and layer-cleanliness review.
 
 ## Handoff
 
