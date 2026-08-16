@@ -1,67 +1,144 @@
-# Happy Path — Data and inference specification
+# Happy Path — Data and Inference Specification
 
-> Companion specification for the [Happy Path PRD](PRD.md). The PRD remains authoritative for product scope and acceptance criteria.
+> Companion to the [Happy Path PRD](PRD.md). The PRD owns product scope; this document owns source, feature, evidence, inference, validation, and data-delivery contracts.
 
 | Field | Decision |
 | --- | --- |
-| Product | Happy Path |
-| Planning extension | Detour |
-| Initial geography | One bounded, data-rich NYC pilot |
-| First measurable route proof | Time-aware shade, presented as estimated direct-sun exposure rather than measured temperature |
-| Other MVP dimensions | Add one or two only after pilot coverage and claim-quality checks |
-| Data strategy | Preprocess public data into evidence on a pedestrian graph; do not query many City APIs during a route request |
+| Supported geography | Manhattan from the Battery through Midtown, approximately south of Central Park |
+| P1 journey shapes | Destination, loop, and wander |
+| First quantitative proof | Time-aware estimated direct-sun exposure |
+| Data strategy | Broad layer registry; route only on validated evidence |
+| Experience strategy | Clean and curate data so the product feels simple and fast |
+| Inference strategy | Interpret, select, and explain; never invent route or city facts |
+| Planning extension | Detour reuses the same graph, layers, metrics, and evidence |
+| Live-data direction | Add weather, alerts, and verified observations through the same layer contract |
 | Last updated | 2026-08-15 |
 
 ## 1. Purpose
 
 This document defines:
 
-1. which public and open sources can support Happy Path;
-2. how those sources become street- and route-level evidence;
-3. where language inference is useful and where deterministic systems remain authoritative;
-4. how route claims retain provenance, freshness, coverage, and confidence;
-5. which sources belong in the MVP, later route modes, and the Detour extension.
+1. how NYC and open sources become useful city layers;
+2. how those layers attach to pedestrian routes and public assets;
+3. which layers may be shown, used for routing, or used by Detour;
+4. how natural-language inference controls a deterministic journey engine;
+5. how claims retain provenance, coverage, freshness, and confidence;
+6. how data is cleaned and packaged for a polished mobile demo;
+7. how future live inputs can enrich the product without redesigning it.
 
-It does not commit every listed source to the hackathon build. A feature enters the product only after its source passes the pilot validation gate in section 8.
+The goal is not to expose every dataset as a filter. Happy Path should intelligently assemble the small set of evidence that matters for the current walk while maintaining a much broader city model underneath.
 
-## 2. System boundary
+## 2. Core rule
 
-> **Inference interprets the user and the evidence. It does not invent the city.**
+> **Inference interprets the person and the evidence. It does not invent the city.**
 
 | System | Authority |
 | --- | --- |
-| Route engine | Pedestrian connectivity, geometry, distance, time, budget arithmetic, candidate generation, and hard-constraint enforcement |
-| Feature pipeline | Spatial and temporal joins, route metrics, coverage, freshness, and deterministic feature derivation |
-| Language and preference layer | Compile prompts and Quick Picks into the Trip Brief, map supported preferences, rank valid candidates, explain tradeoffs, and apply opted-in preferences |
-| Evidence layer | Track source, derivation, observation date, confidence, allowed claims, and prohibited claims |
+| Route engine | Pedestrian connectivity, geometry, distance, time, candidate generation, detour limits, loops, endpoint search, and hard requirements |
+| Feature pipeline | Spatial and temporal joins, physical derivations, route metrics, coverage, and freshness |
+| Language layer | Compile natural language into a Trip Brief, ask one useful clarification, patch refinements, and select supported feature IDs |
+| Ranking policy | Deterministic baseline; optional bounded model tie-break among supplied valid candidates |
+| Explanation layer | Turn supplied benefits, tradeoffs, sources, and uncertainty into friendly product language |
+| Evidence layer | Retain source, method, date, coverage, confidence, allowed claims, and prohibited claims |
+| Renderer | Convert registered layer and presentation IDs into fixed map treatments and collision behavior |
+| Detour engine | Generate representative journeys, calculate burdens, apply interventions, and reroute before and after |
+
+Inference may not create geometry, change time arithmetic, treat missing evidence as favorable, silently relax a requirement, or calculate intervention impact.
+
+## 3. End-to-end architecture
 
 ```text
-prompt + Quick Picks + saved preferences
-                    ↓
-            editable Trip Brief
-                    ↓
-       valid endpoints and route candidates
-                    ↓
-       measured features + evidence records
-                    ↓
-      bounded ranking + deterministic checks
-                    ↓
-       evidence-linked route receipt
+NYC, open, and time-sensitive sources
+        ↓
+source registry + validation
+        ↓
+cleaned city layers and public assets
+        ↓
+enriched Manhattan pedestrian graph
+        ↓
+valid route, loop, and endpoint candidates
+        ↓
+Trip Brief + deterministic ranking policy
+        ↓
+validated candidate selection
+        ↓
+Route Receipt + MapPresentation
+        ↓
+resident refinement
+
+The same layers and metrics
+        ↓
+representative journeys + counterfactual network
+        ↓
+Detour burden and intervention analysis
 ```
 
-Inference may select or rank only candidates produced by the route engine. It may not create geometry, change time arithmetic, treat missing evidence as favorable, or silently relax a requirement.
+Interactive requests should read preprocessed data. Do not query many City APIs while someone is waiting for a route. Only genuinely time-sensitive sources should be refreshed frequently.
 
-## 3. Canonical planning contract
+## 4. Layer capability model
 
-The user-facing journey shapes map to stable internal values:
+A source or derived layer advances through explicit states.
 
-| Product language | Internal value |
+| Status | Meaning |
 | --- | --- |
-| Go somewhere | `destination` |
-| Loop | `loop` |
-| Wander | `wander` |
+| `cataloged` | Source, schema, terms, and intended use are known |
+| `ingested` | Supported-area data is downloaded, normalized, and reproducible |
+| `visualizable` | Geometry or assets can be shown accurately with appropriate caveats |
+| `routing-ready` | Coverage and validation are sufficient to affect route selection or a hard requirement |
+| `detour-ready` | The layer can support burden, gap, or intervention analysis |
+| `live-context` | Time-sensitive data can influence the current request within a defined freshness window |
+| `experimental` | It provides context or research value but relies on incomplete coverage or a proxy |
+| `rejected` | It is unsuitable for the proposed claim or geography |
 
-The Trip Brief must represent these implementation-relevant fields without creating a second hidden interpretation:
+A layer may have several capabilities. Sidewalk sheds, for example, may be visualizable and Detour-ready before their exact pedestrian effect is reliable enough for routing.
+
+### `LayerDefinition`
+
+```yaml
+layer_id: seating
+name: Mapped places to sit
+source_ids:
+  - nyc_dot_seating
+
+capabilities:
+  ingested: true
+  visualizable: true
+  routing_ready: true
+  detour_ready: true
+  live_context: false
+  experimental: false
+
+route_features:
+  - time_to_first_seat
+  - maximum_rest_gap
+  - seating_detour_minutes
+
+detour_features:
+  - long_rest_gap
+  - candidate_seating_intervention
+
+visualization:
+  kind: discrete_asset
+  icon_id: seating
+  default_visibility_rule: request_or_route_relevant
+
+claims:
+  allowed:
+    - mapped place to sit
+    - estimated walking time between mapped seating
+  prohibited:
+    - every available place to sit
+    - currently unoccupied seating
+
+freshness:
+  source_updated_at: timestamp
+  retrieved_at: timestamp
+  validation_status: pending | passed | failed
+```
+
+## 5. Shared product contracts
+
+### 5.1 `TripBrief`
 
 ```yaml
 journey_shape: destination | loop | wander
@@ -70,88 +147,121 @@ destination_or_end_condition: object | null
 departure_time: ISO-8601
 
 walking_budget_minutes: number | null
-outing_budget_minutes: number | null
-stop_dwell_minutes: number
-detour_allowance_minutes: number
+detour_allowance_minutes: number | null
 
-preferences: []
-requirements: []
-avoidances: []
-taste_anchors: []
+preferences:
+  - feature_id: string
+    weight: number
+    input_origin: prompt | quick_control | refinement | default
 
-unsupported_or_unverified: []
-clarification: object | null
+requirements:
+  - requirement_id: string
+    state: required | avoid
+    confirmed: boolean
+
+waypoint_needs:
+  - asset_type: seating | restroom | water | public_space | transit
+    state: prefer | required
+
+context:
+  weather: object | null
+  alerts: []
+
+unsupported_or_unverified:
+  - phrase: string
+    reason: string
+
+clarification:
+  required: boolean
+  question: string | null
+  material_reason: string | null
 ```
 
-Each interpreted field uses the metadata defined in the PRD:
+Destination requests use a detour allowance relative to a direct baseline. Loops and wanders use a walking-time budget.
 
-```yaml
-input_origin: prompt | quick_pick | refinement | saved_preference | default
-requirement_state: prefer | required | avoid
-interpretation_confidence: confirmed | high | medium | low
-```
+Persistent preference memory is not required for P1. Current-request taste anchors remain soft and cannot create hard requirements.
 
-Walking time plus displayed stop dwell must not exceed the total outing budget. A saved preference is always soft; it cannot override the current request or create a hard requirement.
-
-### Candidate contract
-
-Every candidate passed to a model has an immutable ID and measured values:
+### 5.2 `RouteCandidate`
 
 ```yaml
 candidate_id: string
+journey_shape: destination | loop | wander
 geometry_ref: string
+endpoint_ref: string | null
 
 travel:
   walking_seconds: number
-  stop_dwell_seconds: number
-  total_outing_seconds: number
   distance_meters: number
-  extra_minutes_vs_fastest: number | null
+  extra_minutes_vs_baseline: number | null
 
 constraints:
   valid: boolean
   violations: []
 
-metrics: object
+metrics:
+  direct_sun_minutes: number | null
+  shaded_share: number | null
+  longest_exposed_minutes: number | null
+  greenery_score: number | null
+  mapped_step_edges: number | null
+  total_ascent: number | null
+  maximum_rest_gap_minutes: number | null
+  restroom_detour_minutes: number | null
+  construction_affected_meters: number | null
 
-evidence:
-  coverage: 0.0-1.0
-  source_ids: []
-  confidence: high | medium | low
+coverage:
+  by_feature: object
+  overall: number
+
+confidence:
+  by_feature: object
+  recommendation: high | medium | low
+
+source_ids: []
 ```
 
-The model may explain a supplied metric. It may not recalculate or fabricate one.
+The model may explain supplied metrics. It may not recalculate them.
 
-## 4. Public-data architecture
+### 5.3 `Claim`
 
-```text
-public or open source
-          ↓
-source-specific download or API ingest
-          ↓
-schema, geometry, freshness, and license checks
-          ↓
-crop to pilot + normalize coordinates and time
-          ↓
-join to pedestrian edges or nearby assets
-          ↓
-candidate-route metrics
-          ↓
-evidence-linked product claims
+```yaml
+claim_id: string
+candidate_id: string
+claim_type: improvement | compromise | warning | uncertainty | segment_reason
+metric_id: string | null
+selected_value: number | string | null
+baseline_value: number | string | null
+delta: number | string | null
+source_ids: []
+evidence_class: official | derived | inferred | observed | unknown
+confidence: high | medium | low
+resident_copy_key: string
 ```
 
-Interactive route requests should read preprocessed pilot data. Only genuinely time-sensitive context, such as weather or transit outages, should be fetched or refreshed frequently.
+### 5.4 `MapPresentation`
 
-### Source registry record
+```yaml
+primary_claim_id: string
+ambient_layer_ids: []
+route_segment_layer_ids: []
+asset_ids: []
+warning_ids: []
+focus_edge_ids: []
+callout_claim_ids: []
+explanation_only_ids: []
+```
+
+This payload communicates semantic priority. The renderer controls style, density, collision, and required warnings.
+
+## 6. Source registry record
 
 ```yaml
 source_id: string
 publisher: string
 dataset_name: string
 dataset_url: string
-canonical_url: string
 dataset_id: string | null
-asset_type: dataset | view | api | calculation
+asset_type: dataset | api | calculation | community_graph
 
 authority: official | community | derived
 access_method: bulk_download | socrata_api | realtime_api | calculation
@@ -160,103 +270,122 @@ terms_url: string
 attribution: string | null
 
 refresh_target: string
+freshness_window: string | null
 source_updated_at: timestamp | null
 retrieved_at: timestamp
-last_successful_ingest: timestamp | null
 snapshot_hash: string | null
 
 geometry_type: string | null
 source_crs: string | null
-pilot_bbox: object | null
-pilot_coverage: number | null
+supported_area: object | null
+coverage: number | null
 
 derived_from: []
 method_version: string | null
 known_limitations: []
 allowed_claims: []
 prohibited_claims: []
+capability_status: []
 validation_status: pending | passed | failed
 ```
 
-## 5. Source registry
+## 7. Target source registry
 
-### 5.1 MVP core
+The source list should remain broad even when only part of it is routing-ready.
 
-These sources establish routable paths, the first measurable experience, Greener evidence, and the demo's transit endpoint. Direct catalog links use each source's stable dataset ID.
+### 7.1 Graph, buildings, shade, and validation
 
-| Source | ID | Role | Access and refresh | Claim boundary |
-| --- | --- | --- | --- | --- |
-| [OpenStreetMap export](https://www.openstreetmap.org/export) | — | Pedestrian network, paths, crossings, mapped stairs, access tags, and coarse place categories | Cropped prototype snapshot; refresh deliberately | Completeness varies. Audit every pilot route and attribute OpenStreetMap contributors. Do not call the result legally complete or step-free. |
-| [NYC BUILDING](https://data.cityofnewyork.us/d/5zhs-2jue) | `5zhs-2jue` | Building geometry and usable `HEIGHT_ROOF` inputs for projected shade | Download, crop, and preprocess; validate zero, null, and anomalous heights | Supports estimated building shade, not measured sidewalk temperature. |
-| [NREL Solar Position Algorithm](https://midcdmz.nrel.gov/spa/) | — | Sun elevation and azimuth for the requested place and time | Versioned deterministic calculation per request or cached interval | Never use a language model to estimate solar geometry; review the implementation notice before choosing a library. |
-| [Forestry Tree Points](https://data.cityofnewyork.us/d/hn5i-inap) | `hn5i-inap` | Tree adjacency and Greener ranking | Cropped pilot snapshot | A mapped tree does not establish canopy size, present condition, or shade. |
-| [Parks Properties](https://data.cityofnewyork.us/d/enfh-gkve) | `enfh-gkve` | Park adjacency and End near park | Cropped pilot snapshot | A property boundary does not prove current access, hours, or an entrance location. |
-| [MTA Subway Entrances and Exits: 2024](https://data.ny.gov/d/i9wp-a4ja) | `i9wp-a4ja` | End near transit and endpoint candidates | Point-in-time pilot snapshot | The August 2024 inventory may miss later changes and does not represent service or elevator status. |
-| [NYC Centerline](https://data.cityofnewyork.us/d/3mf9-qshr) | `3mf9-qshr` | City street references and graph validation | Static pilot snapshot | A road-bed centerline is not a pedestrian graph. |
-| [NYC Planimetric Database: Sidewalk](https://data.cityofnewyork.us/d/vfx9-tbb6) | `vfx9-tbb6` | Sidewalk geometry validation and possible side-of-street experiments | Static pilot snapshot | Polygons do not automatically provide connected routing topology. |
-
-Time-aware shade is the first proposed hero because it creates a visible, quantitative comparison. It still advances only if building-height coverage and shadow validation pass in the selected pilot.
-
-### 5.2 MVP when exposed
-
-These sources enter the MVP only if the corresponding control or requirement is included and the pilot audit passes.
-
-| Source | ID | Potential use | Material limitation |
+| Source | ID | Product use | Claim boundary |
 | --- | --- | --- | --- |
-| [One-foot Digital Elevation Model](https://data.cityofnewyork.us/d/dpc8-z3jc) | `dpc8-z3jc` | Edge grade, ascent, and Gentler routing | Terrain data does not represent current temporary conditions; validate source age and vertical accuracy. |
-| [Seating Locations](https://data.cityofnewyork.us/d/esmy-s8q5) | `esmy-s8q5` | Rest opportunities and maximum rest-gap metrics | Covers listed DOT seating, not every place someone can sit. |
-| [Public Restrooms](https://data.cityofnewyork.us/d/i7jb-7jku) | `i7jb-7jku` | Restroom stops, endpoint conditions, hours, and amenities | Published hours do not prove a facility is open now. |
+| OpenStreetMap | — | Pedestrian paths, crossings, access tags, mapped steps, and coarse POIs | Community graph with variable completeness; never call legally complete or accessible |
+| NYC BUILDING | `5zhs-2jue` | Building footprints and roof heights for projected shade | Estimated building shade, not measured sidewalk temperature |
+| Deterministic solar calculation / NREL SPA reference | — | Solar elevation and azimuth | Never use an LLM to estimate solar geometry |
+| NYC Centerline | `3mf9-qshr` | City street identifiers and graph validation | A road-bed centerline is not a pedestrian graph |
+| NYC Planimetric Sidewalk | `vfx9-tbb6` | Sidewalk geometry validation and research | Polygons do not automatically form connected routing topology |
 
-Recommended selection order after time-aware shade:
+### 7.2 Greenery and public space
 
-1. **Greener**, if tree and park coverage produces a distinct route comparison.
-2. **Amenities**, if restroom and seating records are sufficiently complete for the demo area.
-3. **Gentler**, only after elevation, mapped-stair, and crossing evidence pass route-level review.
-
-### 5.3 Post-MVP and contextual sources
-
-These sources can support canopy calibration, construction context, expected activity, personal-interest anchors, Detour demand, or contribution features. They are outside the MVP critical path.
-
-| Source | ID | Potential use | Boundary |
+| Source | ID | Product use | Claim boundary |
 | --- | --- | --- | --- |
-| [Land Cover Raster Data (2017), six-inch resolution](https://data.cityofnewyork.us/d/he6d-2qns) | `he6d-2qns` | Canopy and green-cover calibration | The 2017 source is materially dated for present-condition claims. |
-| [Sidewalk Sheds](https://data.cityofnewyork.us/d/2jy7-cddj) | `2jy7-cddj` | Construction-friction and likely-cover proxy | A permit record does not prove physical presence, passable width, or dryness. |
-| [Pedestrian Ramp Locations](https://data.cityofnewyork.us/d/ufzp-rrqu) | `ufzp-rrqu` | Crossing-continuity research | NYC DOT states the measurements do not establish ADA compliance; some locations require further review. |
-| [NYC Parks Drinking Fountains](https://data.cityofnewyork.us/d/qnv7-p7a2) | `qnv7-p7a2` | Water-access stops | Inventory presence does not prove current operation. This is the base dataset, not its map view. |
-| [National Weather Service API](https://www.weather.gov/documentation/services-web-api) | — | Optional forecast and observation context | Weather may affect defaults and wording; it does not replace street-level evidence or calculate solar position. |
-| [Bicycle and Pedestrian Count Sensors](https://data.cityofnewyork.us/d/6up2-gnw8) | `6up2-gnw8` | Identify instrumented locations | Coverage is limited to selected locations. |
-| [Bicycle and Pedestrian Counts](https://data.cityofnewyork.us/d/ct66-47at) | `ct66-47at` | Historical activity and time-of-week baselines | Do not generalize a sensor reading to every nearby street. |
-| [NYC Permitted Event Information](https://data.cityofnewyork.us/d/tvpp-9vvx) | `tvpp-9vvx` | Time-specific public-event context | Not a complete nightlife or private-event calendar. |
-| [311 Service Requests from 2020 to Present](https://data.cityofnewyork.us/d/erm2-nwe9) | `erm2-nwe9` | Historical condition research | Complaints reflect reporting behavior, not objective or live street conditions. |
-| [Restaurant Inspection Results](https://data.cityofnewyork.us/d/43nn-pn8j) | `43nn-pn8j` | Restaurant universe and cuisine/location context | Inspections do not measure taste, atmosphere, popularity, or live wait. |
-| [Privately Owned Public Spaces](https://data.cityofnewyork.us/d/qeta-4kqg) | `qeta-4kqg` | Publicly usable indoor and outdoor spaces | Official existence does not prove a currently open entrance or available seating. |
-| [Facilities Database](https://data.cityofnewyork.us/d/ji82-xba5) | `ji82-xba5` | Public destinations and Detour demand anchors | Requires category, public-access, and schedule filtering. |
-| [Landmark and Historic District Buildings](https://data.cityofnewyork.us/d/7mgd-s57w) | `7mgd-s57w` | Historical and Interesting anchors | Historical significance is not a proxy for personal taste. |
-| [Parks Monuments](https://data.cityofnewyork.us/d/6rrm-vxj9) | `6rrm-vxj9` | Historical and cultural anchors | Presence does not imply relevance to the current user. |
-| [MTA developer resources](https://new.mta.info/developers) | — | Transit endpoints, accessibility feeds, and current equipment status | Use only for transit-linked journeys; outages remain time-sensitive. |
+| Forestry Tree Points | `hn5i-inap` | Greener routing and route context | A point does not prove canopy size, condition, or current shade |
+| Parks Properties | `enfh-gkve` | Park adjacency, loops, and public-space context | Boundary does not prove entrance, access, or current hours |
+| Land Cover Raster, 2017 | `he6d-2qns` | Canopy and green-cover calibration | Materially dated for present-condition claims |
+| Privately Owned Public Spaces | `qeta-4kqg` | Public indoor or outdoor pause locations | Official existence does not prove an open entrance or available seating now |
 
-“Independent places” is not a reliable public-data flag. The MVP must use a small curated and verified pilot POI list or show that part of the request as unsupported. OpenStreetMap may support a venue's category and location where mapped, but not its ownership, atmosphere, current hours, or quality.
+### 7.3 Access, effort, and friction
 
-Public data can identify an asset. It usually cannot establish that a specific resident action is needed or authorized. Any future Public Assets & Actions task must come from a trusted publisher; inference may match a task to a route but may not invent one.
+| Source | ID | Product use | Claim boundary |
+| --- | --- | --- | --- |
+| Mapped OpenStreetMap steps | — | Hard exclusion where tagged | Avoids steps shown in the graph; not an accessibility guarantee |
+| One-foot Digital Elevation Model | `dpc8-z3jc` | Grade, ascent, and gentler-route research | Terrain model does not represent temporary conditions |
+| Pedestrian Ramp Locations | `ufzp-rrqu` | Crossing context and Detour research | Measurements do not establish ADA compliance |
+| Sidewalk Sheds | `2jy7-cddj` | Construction friction and likely-cover context | Record does not prove presence, clear width, or dryness |
+| Additional construction and closure sources | TBD | Temporary route friction | Do not infer obstruction without suitable current geometry or observation |
 
-### 5.4 Coverage status
+### 7.4 Amenities and endpoints
 
-The catalog-level sources and IDs are identified, but no source has passed the pilot gate yet because the pilot boundary is still open. All source records begin with `validation_status: pending`.
+| Source | ID | Product use | Claim boundary |
+| --- | --- | --- | --- |
+| Seating Locations | `esmy-s8q5` | Rest opportunities and continuity | Covers listed DOT seating, not every possible place to sit |
+| Public Restrooms | `i7jb-7jku` | Waypoint, endpoint, hours, and amenities | Published hours do not prove open status now |
+| Parks Drinking Fountains | `qnv7-p7a2` | Water-access waypoint | Inventory does not prove operation |
+| MTA Subway Entrances and Exits: 2024 | `i9wp-a4ja` | Wander endpoints and fallback anchors | Point-in-time inventory; not live service or elevator status |
+| Facilities Database | `ji82-xba5` | Public destinations and Detour demand anchors | Requires public-access and schedule filtering |
+| MTA developer resources | — | Future service and equipment context | Time-sensitive and transit-specific |
 
-The pilot audit must report at least:
+### 7.5 Activity, events, history, and other context
 
-- the share of routable OpenStreetMap edges with relevant access and stair attributes;
-- the share of nearby buildings with usable roof heights;
-- the share of candidate-route edges covered by the shadow model;
-- tree and park adjacency coverage for Greener comparisons;
-- the number and network reach of transit endpoints, restrooms, and seating assets;
-- elevation coverage and extreme-value checks if Gentler is exposed.
+| Source | ID | Product use | Claim boundary |
+| --- | --- | --- | --- |
+| Bicycle and Pedestrian Count Sensors | `6up2-gnw8` | Identify measured locations | Sparse coverage |
+| Bicycle and Pedestrian Counts | `ct66-47at` | Activity baselines near sensors | Do not generalize one sensor to every nearby street |
+| NYC Permitted Event Information | `tvpp-9vvx` | Time-specific public-event context | Not a complete private-event or nightlife calendar |
+| 311 Service Requests | `erm2-nwe9` | Historical condition research | Reporting behavior is not objective or live condition data |
+| Restaurant Inspection Results | `43nn-pn8j` | Establishment universe and location context | Does not measure taste, atmosphere, popularity, or wait time |
+| Landmark and Historic District Buildings | `7mgd-s57w` | Historical route anchors | Significance is not personal relevance |
+| Parks Monuments | `6rrm-vxj9` | Cultural anchors | Presence does not imply relevance to the current user |
 
-The team must set the minimum acceptable coverage for each user-facing claim before that feature affects ranking.
+### 7.6 Future live context
 
-## 6. Feature derivation and product claims
+| Source family | Product use | Boundary |
+| --- | --- | --- |
+| National Weather Service or another approved weather source | Current conditions, suggested defaults, and weather-aware explanations | Weather does not replace street-level evidence or solar calculation |
+| Transit service and equipment alerts | Endpoint fallback and current access context | Must respect source freshness and geographic relevance |
+| Current public-event feeds | Time-sensitive route context | Coverage will remain partial |
+| Verified resident or partner observations | Restroom, obstruction, entrance, or asset updates | Must expire or be reconfirmed; never treated as permanent truth |
 
-### Time-aware shade: first proof
+Live sources use the same layer and evidence contracts. A response must not imply current knowledge when the freshness window has expired.
+
+## 8. Data preparation is part of the product
+
+Raw public data should not flow directly into the mobile interface.
+
+For every layer, the pipeline should:
+
+- crop or partition to Manhattan south of Central Park;
+- normalize coordinates, timestamps, units, and identifiers;
+- remove duplicates and invalid geometry;
+- derive concise resident-facing labels;
+- separate inventory, schedule, and observed operational state;
+- attach source, date, method, coverage, and confidence;
+- simplify or tile geometry for the intended zoom levels;
+- build network-distance indexes for amenities;
+- output small fixtures and production-ready partitions;
+- preserve the raw source separately for reproducibility.
+
+### Data profiles
+
+Maintain three profiles:
+
+1. **Fixture** — small, readable examples for UI and AI development.
+2. **Demo** — cleaned data for rehearsed journeys and nearby alternatives.
+3. **Supported-area** — partitioned Manhattan coverage used by the deployed app.
+
+These profiles should share schemas. The demo profile may be curated, but its route facts must remain real.
+
+## 9. Feature derivation
+
+### 9.1 Time-aware estimated shade
 
 For each usable building height:
 
@@ -264,124 +393,300 @@ For each usable building height:
 shadow_length = building_height / tan(solar_elevation)
 ```
 
-Project building geometry opposite the solar azimuth. For each route edge and route:
+Project the geometry opposite solar azimuth. For each edge:
 
 ```text
 shade_share = shaded_edge_length / edge_length
-direct_sun_seconds = edge_walk_seconds × (1 - shade_share)
+direct_sun_seconds = edge_walk_seconds × (1 − shade_share)
+```
+
+For each journey:
+
+```text
 direct_sun_minutes = Σ direct_sun_seconds / 60
+longest_exposed_stretch = longest continuous substantially unshaded sequence
 ```
 
-Also calculate the longest continuous exposed stretch. Prefer a comparative claim:
+Preferred product claim:
 
-> About 11 fewer minutes in estimated direct sun than the fastest route.
+> About 11 fewer minutes in estimated direct sun than the direct route.
 
-Do not claim:
+Prohibited claim:
 
-> This street will be cooler.
+> This street will be 11 minutes cooler.
 
-### Greener
-
-Keep greenery separate from shade:
+### 9.2 Greenery
 
 ```text
-greenery_score = tree adjacency + canopy intersection + park or green-space frontage
+greenery_score = tree adjacency + park frontage + validated green-cover context
 ```
 
-A building-shaded street may have little greenery; a tree-lined street may provide limited shade at the requested time.
+Keep greenery separate from shade.
 
-### Gentler
+### 9.3 Mapped-step avoidance and gentler routing
+
+Mapped steps become a hard exclusion only when explicitly requested.
 
 ```text
-effort_score = total ascent + sustained-grade penalty + mapped-stair penalty + uncertain-crossing penalty
+effort_score = total ascent + sustained-grade penalty
+             + mapped-step penalty + uncertain-crossing penalty
 ```
 
-If avoiding mapped stairs is required, mapped stair segments become a hard exclusion. The product still does not claim ADA compliance or guaranteed accessibility.
+Allowed: “avoids steps shown in our map data” or “lower estimated ascent.”
 
-### Amenities and rest continuity
+Not allowed: “accessible route” without a much stronger audited network.
 
-Use walking-network distance, not straight-line distance, to calculate time to the first amenity, maximum gap between rest opportunities, and facility detour. Published hours and live operational state remain different evidence.
+### 9.4 Rest continuity
 
-### Personal fit
+Use walking-network distance to calculate:
 
-Personal fit may use browser-local saved places, route qualities, and explicit More/Less feedback. It must name the supplied connection and cannot claim objective coolness, quality, or neighborhood desirability.
+- time to the first mapped place to sit;
+- maximum time between mapped rest opportunities;
+- seating detour;
+- route segments responsible for long gaps.
 
-## 7. Evidence and confidence
+### 9.5 Restrooms and water
 
-Use five evidence classes:
+Use route-compatible network detour and published hours. Keep inventory, scheduled availability, and current observed operation separate.
 
-- **Official:** directly represented by an authoritative publisher.
-- **Derived:** calculated from one or more sources.
-- **Inferred:** estimated from supplied evidence.
-- **Observed:** recently reported or verified by a person.
-- **Unknown:** insufficient evidence.
+### 9.6 Construction friction and likely cover
 
-Confidence is derived rather than improvised:
+Possible metrics:
+
+- route length adjacent to current-enough shed or construction records;
+- number of affected blocks;
+- alternative route avoiding those records;
+- likely overhead-cover adjacency.
+
+Do not claim exact clear width or dryness unless a source supports it.
+
+### 9.7 Expected activity or quietness
+
+These remain experimental composites from measured counters, events, establishments, traffic, construction, and historical reports.
+
+The product must distinguish:
+
+- measured activity near a sensor;
+- expected activity from context;
+- unknown conditions.
+
+Never present 311 or venue density as live measured noise or crowding.
+
+## 10. Journey generation
+
+### Destination
+
+Calculate a direct baseline, then generate practical alternatives within the selected minute allowance.
+
+### Loop
+
+Generate routes that:
+
+- return near the starting point;
+- fit the walking-time budget;
+- avoid trivial backtracking and tiny repeated circuits;
+- provide meaningful exposure to the requested features;
+- remain easy to understand on the map.
+
+### Wander
+
+Generate endpoint-and-route candidates from:
+
+- a direction or destination area;
+- an endpoint category such as transit or public space;
+- the walking-time budget;
+- supported route preferences and requirements.
+
+The endpoint generator must remain deterministic and evidence-backed. The model may interpret “finish near a subway”; it may not invent a place or silently exceed the time budget.
+
+## 11. Intent compilation
+
+The language layer maps human requests into a controlled vocabulary.
+
+| Request language | Supported interpretation | Boundary |
+| --- | --- | --- |
+| “less sun” | minimize estimated direct-sun exposure | quantitative hero |
+| “green” | favor mapped trees and parks | after validation |
+| “avoid steps” | exclude mapped step edges | not an accessibility guarantee |
+| “places to sit” | prefer or require mapped seating | inventory may be incomplete |
+| “bathroom” | prefer or require a mapped restroom with relevant published hours | not guaranteed open now |
+| “water” | prefer a mapped fountain or water asset | operation uncertain |
+| “less construction” | avoid validated shed or construction evidence | exact obstruction may be unknown |
+| “easy for my parents” | favor supported effort, seating, and restroom features | does not infer disability |
+| “20-minute loop” | generate a loop inside the time budget | route must return near the start |
+| “walk north and end near a train” | wander with direction and transit endpoint | endpoint and route remain computed |
+| “safe” | unsupported | never infer personal safety |
+| “fun” or “cool” | unsupported without explicit personal anchors and suitable data | the model does not supply taste |
+
+Ask at most one clarification, only when the answer materially changes journey shape, endpoint, time budget, hard requirement, or whether an amenity is required.
+
+## 12. Ranking, explanation, and product copy
+
+The deterministic route engine supplies the baseline ranking.
+
+Inference may break a close non-dominated tie only if:
+
+- all candidates are valid;
+- every considered metric is supplied;
+- the model selects an immutable candidate ID;
+- a deterministic validator rechecks the result;
+- the choice can be explained through approved claims.
+
+The simpler option—deterministic selection plus model-generated explanation—should be preferred when reranking adds little visible value.
+
+### Best-extra-minute frontier
+
+The engine may calculate:
+
+```text
++2 minutes → 7 fewer estimated sun minutes
++4 minutes → 11 fewer estimated sun minutes
++8 minutes → 12 fewer estimated sun minutes
+```
+
+Resident explanation:
+
+> Four extra minutes gets you almost all of the available shade benefit.
+
+### Copy boundary
+
+Internal values may be technical. Resident output must follow [UX.md](UX.md): human benefit first, plain language, concise caveats, and deeper source details on demand.
+
+## 13. Presentation selection
+
+The intelligence layer may select which registered evidence is relevant, but only through typed IDs.
+
+Rules:
+
+- required assets and warnings cannot be suppressed;
+- one journey remains primary;
+- use at most one continuous evidence layer by default;
+- show assets only when requested, selected, route-relevant, or decision-relevant;
+- move secondary evidence into the receipt or data drawer;
+- deterministic rendering controls collision, density, zoom, styling, and accessibility.
+
+## 14. Evidence and confidence
+
+Evidence classes:
+
+- **Official** — directly represented by an authoritative publisher;
+- **Derived** — calculated from one or more sources;
+- **Inferred** — estimated from supplied evidence;
+- **Observed** — recently reported or verified;
+- **Unknown** — insufficient evidence.
+
+Confidence is calculated from evidence:
 
 ```text
 confidence = authority × coverage × freshness × spatial precision
              × derivation validation × recommendation robustness
 ```
 
-Every displayed claim must reference a route metric or supported preference, a baseline when relevant, one or more source IDs, an evidence class, and confidence.
+### Claim rules
 
-| Claim | Minimum evidence or rule |
+| Claim | Minimum evidence |
 | --- | --- |
-| “11 fewer minutes in estimated direct sun” | Validated shadow method and sufficient edge coverage for both routes |
-| “Avoids mapped stairs” | Audited graph coverage for the displayed route; never relabel as accessible |
-| “Operational restroom” | Current operational evidence plus hours; otherwise show published hours and uncertainty |
-| “Likely covered” | Current-enough shed evidence; never promise dryness |
-| “Quieter” | Validated historical proxy; never imply live measured sound without a sensor |
-| “Livelier” | Relevant sensor evidence or an explicit expected-activity label |
-| “Similar to places you saved” | User-provided anchors and explainable shared attributes |
-| “Safe” | Not permitted |
+| “11 fewer minutes in estimated direct sun” | validated shadow method and sufficient edge coverage on both routes |
+| “avoids mapped steps” | audited graph evidence on the displayed route |
+| “passes 3 mapped places to sit” | validated network join to the official inventory |
+| “restroom with published hours” | source hours and route-compatible location |
+| “open restroom” | current operational evidence in addition to hours |
+| “likely covered” | current-enough cover evidence; never promise dryness |
+| “expected quieter” | validated proxy and explicit expected label |
+| “safe” | never permitted |
 
-## 8. Validation gate
+## 15. Validation gate
 
-A source cannot affect routing until it passes:
+A layer cannot affect routing until it passes:
 
 1. access, terms, and attribution review;
-2. schema and null handling;
-3. coordinate-reference and geometry sanity checks;
-4. pilot coverage measurement;
+2. schema, null, and duplicate handling;
+3. coordinate and geometry checks;
+4. supported-area coverage measurement;
 5. freshness and temporal-validity review;
 6. feature-derivation tests;
 7. product-language and prohibited-claim review;
-8. at least ten pilot samples checked against current visual or field evidence;
-9. graceful fallback when the source or a metric is unavailable.
+8. representative visual or field checks;
+9. graceful fallback when unavailable.
 
-For every inference-ranked result:
+For every inference-assisted result:
 
-- the candidate ID exists;
-- walking and outing budgets hold;
+- the candidate exists;
+- the time budget holds;
 - hard requirements hold;
-- missing evidence is not treated as favorable;
-- each numerical explanation matches deterministic output;
-- an unsupported adjective or claim fails validation.
+- missing evidence is not favorable;
+- numerical language matches deterministic output;
+- unsupported claims fail validation.
 
-## 9. Access, terms, and privacy
+## 16. Performance and delivery
 
-- NYC datasets are governed by the [NYC Open Data Terms of Use](https://opendata.cityofnewyork.us/overview/#termsofuse) and any additional publisher terms. The City does not warrant completeness, accuracy, or fitness; data can be corrected or refreshed. Each ingest records the publisher, dataset ID, retrieval time, snapshot hash, and transformations.
-- OpenStreetMap data is licensed under the ODbL and requires visible [OpenStreetMap attribution](https://www.openstreetmap.org/copyright), including `© OpenStreetMap contributors` and a license link.
-- The NWS API provides open government data, has rate limits, and requires a User-Agent. Cache responses according to their useful lifetime.
-- Download and crop public data for the pilot rather than sending origins, destinations, or full route geometry to multiple source APIs.
-- The MVP preference profile remains browser-local. Public-source records do not contain or create user preference evidence.
-- Do not retain raw prompts or paths server-side merely to improve feature weights.
+Before the integrated demo:
 
-## 10. Build order and unresolved choices
+- set an explicit initial-load and interaction budget;
+- partition Manhattan graph and asset data;
+- lazy-load only relevant time slices and layers;
+- keep raw source snapshots out of the client bundle;
+- precompute expensive deterministic features;
+- cache by geography, time interval, and source version;
+- preserve a deterministic no-model route path;
+- preload the small data needed for rehearsed demos;
+- test from a clean mobile browser.
 
-1. Build and audit the pedestrian graph.
-2. Ingest building geometry and validate usable heights.
-3. Calculate solar position and projected shade.
-4. Compare valid time-aware-shade candidates against the fastest route.
-5. Attach source IDs, coverage, and confidence to the receipt.
-6. Select one or two additional dimensions only after their pilot audit.
-7. Keep learned ranking, contribution, and Detour simulation outside the MVP critical path.
+The product may feel instant because expensive work was prepared—not because results were fabricated.
 
-Open choices:
+## 17. Access, terms, privacy, and observations
 
-1. Which pilot has strong alternate walking routes and sufficient building-height coverage?
-2. What minimum edge coverage permits a quantified direct-sun claim?
-3. Which one or two candidate dimensions best complement time-aware shade?
-4. Should current weather affect ranking or only suggested defaults and explanation language?
-5. Can sidewalk polygons support credible side-of-street guidance inside the hackathon timebox?
+- Record publisher, dataset ID, retrieval time, snapshot hash, transformations, and attribution.
+- Follow NYC Open Data and source-specific terms.
+- Display required OpenStreetMap attribution.
+- Do not send a person’s full route to many source APIs.
+- Do not retain raw prompts, exact paths, or inferred context by default.
+- Future observations and photos must have a clear purpose, limited retention, and an expiration or reconfirmation rule.
+- Public-source records do not become personal-preference evidence.
+
+## 18. Detour reuse
+
+Every routing-ready layer should define whether it can support:
+
+- route burden;
+- continuity gap;
+- asset absence or spacing;
+- operating-hours gap;
+- barrier impact;
+- intervention simulation;
+- high-impact data verification.
+
+Examples:
+
+- shade → unavoidable exposure and shade-continuity scenarios;
+- seating → maximum rest gap and candidate bench placement;
+- restrooms → route deviation and hours scenarios;
+- mapped steps or ramps → connection-detour scenarios;
+- sheds → construction-friction burden and removal scenarios.
+
+Detour must reuse the same data and feature pipeline rather than create a second planning-only model.
+
+## 19. Implementation sequence
+
+1. Approve the docs and merge them to `main`.
+2. Finalize shared schemas and realistic fixtures.
+3. Build the Manhattan graph and data partitions.
+4. Validate buildings, solar position, and shade.
+5. Integrate greenery, steps, seating, restrooms, water, public spaces, transit, and sheds.
+6. Build destination, loop, and wander candidate generation.
+7. Promote layers to routing-ready only after route-level validation.
+8. Connect Trip Brief features to the registered capabilities.
+9. Connect claims and map presentation to source and confidence records.
+10. Reuse one validated feature in the first Detour scenario.
+11. Add live sources through freshness-aware adapters rather than special-case UI logic.
+
+## 20. Open decisions
+
+1. What partition scheme gives the best performance across Manhattan below Central Park?
+2. What minimum shade and graph coverage permits quantified claims?
+3. Which amenity or friction layer should become the third validated route capability?
+4. Are sidewalk-shed records good enough for routing or only visualization and Detour?
+5. Should the resident route winner remain fully deterministic for the demo?
+6. What payload and warmed-route latency budgets should be enforced?
+7. Which validated feature should power the first Detour scenario?
+8. Which live-data adapter, if any, is worth adding after the core P1 experience is stable?
