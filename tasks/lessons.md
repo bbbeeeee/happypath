@@ -23,3 +23,10 @@
 - Keep user-unit parsing and conversion deterministic. The language model can identify intent, but route geometry—not model arithmetic—must determine whether the result is near the requested distance.
 - A running request does not establish a trustworthy running pace. Target the mapped distance, label the activity naturally, and preserve the pedestrian-graph duration as an internal estimate.
 - Distance parsing needs context and bounds: do not confuse amenity search radii with route length, accept only positive values, and prevent fallback mode from creating impractically large searches.
+
+## 2026-08-16 — Delightful copy with honest boundaries
+
+- Lead with the resident outcome, not the implementation. “More shade along the way” belongs in the route summary; model inputs and source provenance belong one level deeper.
+- Honest limitations do not need warning-card visual weight. Keep a legible, always-visible summary and let people expand the detail when it matters.
+- Use natural evidence language such as “based on the sun and nearby buildings.” Reserve terms such as “synthetic,” “inventory,” and “simulation” for linked source detail where they add precision.
+- Deep data panels should still feel like product copy: say what shaped the path, when a source was refreshed, and what may have changed.

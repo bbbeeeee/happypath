@@ -36,9 +36,9 @@ export function demoCoverGeoJSON(graph: PilotGraph) {
           edgeId: edge.id,
           street: friendlyStreet(edge.street),
           coverShare,
-          label: coverShare >= 0.8 ? "More simulated overhead cover" : "Some simulated overhead cover",
-          sourceLabel: "Simulated cover scenario",
-          proofLabel: "Generated for this proof of concept—not observed infrastructure data",
+          label: coverShare >= 0.8 ? "More likely overhead cover" : "Some likely overhead cover",
+          sourceLabel: "Planning preview",
+          proofLabel: "Estimated for planning; current cover still needs a closer look",
           evidenceKind: "likely_cover_demo" as const,
         },
         geometry: {

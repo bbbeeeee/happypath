@@ -141,8 +141,8 @@ describe("compileTripBrief", () => {
   it("keeps unsupported claims visible", () => {
     const brief = compileTripBrief("Find the safest wheelchair accessible route that is quiet and has a bathroom open now");
     expect(brief.unsupported).toHaveLength(4);
-    expect(brief.unsupported.join(" ")).toMatch(/Safety/);
-    expect(brief.unsupported.join(" ")).toMatch(/accessibility/);
+    expect(brief.unsupported.join(" ")).toMatch(/safety/i);
+    expect(brief.unsupported.join(" ")).toMatch(/curb ramps/i);
     expect(brief.avoidMappedSteps).toBe(true);
   });
 
@@ -155,7 +155,7 @@ describe("compileTripBrief", () => {
       destinationQuery: "Washington Square Park",
       avoidMappedSteps: true,
     });
-    expect(accessible.unsupported.join(" ")).toMatch(/curb ramps, slopes, obstructions/);
+    expect(accessible.unsupported.join(" ")).toMatch(/curb ramps, slopes, and temporary obstacles/);
     expect(relaxed.avoidMappedSteps).toBe(false);
   });
 
@@ -220,7 +220,7 @@ describe("compileTripBrief", () => {
       "Head north",
       "Finish near transit",
       "Less direct sun",
-      "Avoid mapped steps",
+      "Avoid known stairs",
     ]);
   });
 });

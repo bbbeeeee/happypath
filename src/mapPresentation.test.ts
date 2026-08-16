@@ -99,8 +99,8 @@ describe("asset presentation", () => {
   it("keeps published inventory facts friendly and qualified", () => {
     for (const kind of ["seating", "restroom", "drinking_fountain", "transit"] as CivicAssetKind[]) {
       const copy = assetAvailabilityCopy(listCivicAssets([kind])[0]);
-      expect(copy).toMatch(/listed|inventory|publishes/i);
-      expect(copy).toMatch(/can change|can’t confirm|haven’t checked/i);
+      expect(copy).toMatch(/included|publishes/i);
+      expect(copy).toMatch(/can change|may have changed|may not be open|may not be running|check before relying/i);
       expect(copy).not.toMatch(/currently (?:open|available|operational)/i);
     }
 
@@ -109,7 +109,7 @@ describe("asset presentation", () => {
       operation: { ...restroom.operation, routingAvailability: "published_unavailable" as const },
     } as CivicAsset;
     expect(assetAvailabilityCopy(unavailable)).toMatch(/may be unavailable/i);
-    expect(assetAvailabilityCopy(unavailable)).toMatch(/haven’t verified current conditions/i);
+    expect(assetAvailabilityCopy(unavailable)).toMatch(/check before relying/i);
   });
 });
 

@@ -44,7 +44,7 @@ describe("source registry presentation", () => {
       officialUrl: "https://finder.nyc.gov/coolingcenters/",
       downloadUrl: null,
       capabilityStatus: "live_reference",
-      availabilityLabel: "Live official reference · not bundled",
+      availabilityLabel: "Live city link · opens separately",
     });
   });
 
@@ -53,10 +53,10 @@ describe("source registry presentation", () => {
     expect(source?.related_urls).toContain("https://data.cityofnewyork.us/d/2jy7-cddj");
     expect(source?.known_limitations.join(" ")).toMatch(/saved view currently fails/i);
     expect(source?.prohibited_claims.join(" ")).toMatch(/present now|covered or dry path/i);
-    expect(sourceRegistryPresentation("nyc-sidewalk-shed-permits")?.availabilityLabel).toMatch(/not mapped/i);
+    expect(sourceRegistryPresentation("nyc-sidewalk-shed-permits")?.availabilityLabel).toMatch(/not used in this path/i);
   });
 
-  it("continues to label already bundled civic assets and greenery as mapped", () => {
+  it("continues to label already included civic assets and greenery clearly", () => {
     for (const sourceId of [
       "nyc-dot-seating",
       "nyc-public-restrooms",
@@ -65,14 +65,14 @@ describe("source registry presentation", () => {
       "nyc-parks-properties",
     ]) {
       expect(sourceRegistryPresentation(sourceId)?.capabilityStatus).toBe("ingested");
-      expect(sourceRegistryPresentation(sourceId)?.availabilityLabel).toBe("Mapped in this demo");
+      expect(sourceRegistryPresentation(sourceId)?.availabilityLabel).toBe("Included in this preview");
     }
   });
 
   it("labels the rain-routing signal as a synthetic method rather than City evidence", () => {
     expect(sourceRegistryPresentation("demo-cover-simulation")).toMatchObject({
       capabilityStatus: "derived",
-      availabilityLabel: "Modeled in this demo",
+      availabilityLabel: "Estimated for this preview",
     });
     expect(getSourceRegistryEntry("demo-cover-simulation")?.prohibited_claims.join(" ")).toMatch(/Dry path|Current rain protection/);
   });
@@ -80,7 +80,7 @@ describe("source registry presentation", () => {
   it("labels civic checks as simulated partner prompts rather than official requests", () => {
     expect(sourceRegistryPresentation("happy-path-civic-checks-demo")).toMatchObject({
       capabilityStatus: "derived",
-      availabilityLabel: "Modeled in this demo",
+      availabilityLabel: "Estimated for this preview",
     });
     const source = getSourceRegistryEntry("happy-path-civic-checks-demo");
     expect(source?.known_limitations.join(" ")).toMatch(/simulated/i);

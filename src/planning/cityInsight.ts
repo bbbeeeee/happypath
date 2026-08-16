@@ -38,48 +38,48 @@ function source(sourceId: string): InsightSource {
   const presentation = sourceRegistryPresentation(sourceId);
   return {
     sourceId,
-    label: presentation?.title ?? "Deterministic proof-of-concept signal",
+    label: presentation?.title ?? "Happy Path planning preview",
     kind: sourceKind(sourceId),
   };
 }
 
 function routeLabel(brief: TripBrief, route: JourneyRoute) {
   const minutes = Math.round(route.durationMinutes);
-  if (brief.shape === "loop") return `${minutes}-minute comfort loop`;
-  if (brief.shape === "wander") return `${minutes}-minute exploratory walk`;
-  return `${minutes}-minute route to ${brief.destinationQuery || "the destination"}`;
+  if (brief.shape === "loop") return `${minutes}-minute loop`;
+  if (brief.shape === "wander") return `${minutes}-minute walk`;
+  return `${minutes}-minute walk to ${brief.destinationQuery || "the destination"}`;
 }
 
 function routeFacts(context: CityInsightContext) {
   const { route, brief, nearbyAssets } = context;
   const facts: DeterministicInsightFact[] = [
-    fact("route-time", `The walking graph estimates this route at ${route.durationMinutes.toFixed(1)} minutes.`, ["openstreetmap"]),
+    fact("route-time", `This walk takes about ${route.durationMinutes.toFixed(1)} minutes.`, ["openstreetmap"]),
   ];
   if (brief.priorities.includes("shade")) {
     facts.push(fact(
       "route-sun",
-      `The shade model estimates ${route.directSunMinutes.toFixed(1)} minutes in direct sun at the selected time.`,
+      `About ${route.directSunMinutes.toFixed(1)} minutes are expected in direct sun at this time.`,
       ["nyc-building-footprints", "building-shadow-model"],
     ));
   }
   if (brief.priorities.includes("greenery")) {
     facts.push(fact(
       "route-greenery",
-      `${route.greeneryPercent.toFixed(0)}% of the route has mapped tree or park adjacency in the demo model.`,
+      `Trees or parks sit close to about ${route.greeneryPercent.toFixed(0)}% of this path.`,
       ["nyc-forestry-tree-points", "nyc-parks-properties", "greenery-edge-model"],
     ));
   }
   if (nearbyAssets.length > 0) {
     facts.push(fact(
       "route-amenities",
-      `${nearbyAssets.length} mapped public amenities are within 120 meters of the route geometry.`,
+      `${nearbyAssets.length} useful places are listed within a short walk of this path.`,
       [...new Set(nearbyAssets.map((asset) => asset.sourceId))],
     ));
   }
   if (brief.avoidMappedSteps) {
     facts.push(fact(
       "route-mapped-steps",
-      `The selected route uses ${route.mappedStepEdges} edges tagged as steps in the bundled walking graph.`,
+      `This path uses ${route.mappedStepEdges} sections marked as stairs.`,
       ["openstreetmap"],
     ));
   }
@@ -96,14 +96,14 @@ function interventionCandidates(context: CityInsightContext) {
       candidateId: "test-shade-gap",
       interventionType: "shade",
       locationLabel: location,
-      proposedAction: `Test a shade intervention on ${location}`,
+      proposedAction: `Try more shade on ${location}`,
       evidence: [fact(
         "shade-gap-benefit",
-        `This modeled change reduces average direct-sun burden by ${(scenario.burden.avoided / scenario.journeyCounts.totalWeight).toFixed(1)} minutes.`,
+        `This change could trim about ${(scenario.burden.avoided / scenario.journeyCounts.totalWeight).toFixed(1)} minutes in direct sun from an average walk.`,
         ["nyc-building-footprints", "building-shadow-model"],
       )],
       referenceSourceIds: [],
-      caveat: "This is a shade-model comparison, not a surveyed, designed, funded, or approved City project.",
+      caveat: "This compares estimated shade. The site, design, cost, and approvals have not been studied.",
     });
   }
 
@@ -111,29 +111,29 @@ function interventionCandidates(context: CityInsightContext) {
   candidates.push({
     candidateId: "test-rest-gap",
     interventionType: "seating",
-    locationLabel: `Near the midpoint of ${routeLocation}`,
-    proposedAction: "Test one additional rest opportunity near the route midpoint",
+    locationLabel: `Near the middle of ${routeLocation}`,
+    proposedAction: "Try one more place to rest near the middle of the walk",
     evidence: [fact(
       "rest-gap-count",
-      `${seatingCount} NYC DOT seating records are within 120 meters of this route geometry.`,
+      `${seatingCount} city-listed places to sit are within a short walk of this path.`,
       ["nyc-dot-seating"],
     )],
     referenceSourceIds: [],
-    caveat: "Inventory proximity does not confirm walking access, current seating, sidewalk capacity, or site feasibility.",
+    caveat: "A nearby listing does not mean a seat is easy to reach, available today, or feasible to add here.",
   });
 
   candidates.push({
     candidateId: "audit-weather-cover",
     interventionType: "weather_cover",
     locationLabel: routeLocation,
-    proposedAction: "Validate current overhead cover and sidewalk conditions along the exposed segments",
+    proposedAction: "Check the most exposed stretches for real rain cover",
     evidence: [fact(
       "cover-proof-share",
-      `The demo cover signal highlights ${Math.round(simulatedCoverPercent)}% of this route for scenario testing.`,
+      `${Math.round(simulatedCoverPercent)}% of this path looks likely to have cover in the planning preview.`,
       ["demo-cover-simulation"],
     )],
     referenceSourceIds: ["nyc-sidewalk-shed-permits"],
-    caveat: "The cover signal is simulated; permit records do not prove a shed is installed, present, passable, or dry.",
+    caveat: "This cover layer is a preview. A field check and current permit data would be needed to confirm a dry, passable route.",
   });
 
   if (brief.avoidMappedSteps) {
@@ -141,14 +141,14 @@ function interventionCandidates(context: CityInsightContext) {
       candidateId: "audit-step-free-evidence",
       interventionType: "mapped_steps",
       locationLabel: routeLocation,
-      proposedAction: "Audit curb ramps, crossings, slopes, and obstructions along the mapped-step-free route",
+      proposedAction: "Check curb ramps, crossings, slopes, and obstacles along this path",
       evidence: [fact(
         "step-free-boundary",
-        `The route excludes mapped steps, while ${route.mappedStepEdges} step-tagged edges remain on the selected path.`,
+        `Known stairs are avoided; ${route.mappedStepEdges} stair-marked sections remain on this path.`,
         ["openstreetmap"],
       )],
       referenceSourceIds: ["nyc-pedestrian-ramps"],
-      caveat: "Mapped-step exclusion is not an accessibility or ADA guarantee; curb, slope, width, elevator, and obstruction evidence is incomplete.",
+      caveat: "This does not make the path verified accessible. Curbs, slopes, width, elevators, and temporary obstacles still need a closer look.",
     });
   }
 
@@ -168,7 +168,7 @@ export function buildRouteCityInsightRequest(context: CityInsightContext): Route
       routeId: context.route.candidateId,
       journeyLabel: routeLabel(context.brief, context.route),
       evidence,
-      caveat: "Route time, shade, greenery, and amenity proximity are modeled or mapped evidence, not live street conditions.",
+      caveat: "These route details are a planning guide, not a live check of the street.",
     },
     sources: sourceIds.map(source),
     candidates,

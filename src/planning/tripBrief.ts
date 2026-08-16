@@ -164,12 +164,12 @@ function collectPriorities(text: string): RoutePriority[] {
 
 function collectUnsupported(text: string) {
   const unsupported: string[] = [];
-  if (/\bsafe(?:st|ty)?\b/i.test(text)) unsupported.push("Safety ranking is not supported");
+  if (/\bsafe(?:st|ty)?\b/i.test(text)) unsupported.push("We don’t rate streets by safety yet");
   if (/\b(?:accessible|accessibility|wheelchair|mobility|ada(?:-compliant)?|stroller)\b/i.test(text)) {
-    unsupported.push("We can avoid mapped steps, but cannot verify curb ramps, slopes, obstructions, or ADA accessibility");
+    unsupported.push("Known stairs can be avoided, but curb ramps, slopes, and temporary obstacles can change");
   }
-  if (/quiet|noise|crowd/i.test(text)) unsupported.push("Live quietness and crowding are not supported");
-  if (/open now/i.test(text)) unsupported.push("Current amenity operation is not verified");
+  if (/quiet|noise|crowd/i.test(text)) unsupported.push("Crowd and noise levels aren’t live yet");
+  if (/open now/i.test(text)) unsupported.push("Opening hours and current availability may have changed");
   return unsupported;
 }
 
@@ -332,6 +332,6 @@ export function briefSummary(brief: TripBrief) {
     endCondition,
     brief.civicTaskIntent ? brief.civicTaskIntent === "photo" ? "Pass a photo check" : "Pass a city data check" : null,
     ...brief.priorities.map((priority) => ({ shade: "Less direct sun", greenery: "Greener streets", rest: "Places to rest", water: "Water nearby", restroom: "Restroom nearby", construction: "Less construction friction" })[priority]),
-    brief.avoidMappedSteps ? "Avoid mapped steps" : null,
+    brief.avoidMappedSteps ? "Avoid known stairs" : null,
   ].filter((item): item is string => Boolean(item));
 }

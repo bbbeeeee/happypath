@@ -130,6 +130,39 @@ function friendlyRouteLocation(route: JourneyRoute) {
   return street?.trim() || "This part of the walk";
 }
 
+function friendlyLimitation(value: string) {
+  const item = value.replace(/[.\s]+$/g, "");
+  if (/curb ramps|ADA|accessib|wheelchair|mobility|stroller/i.test(item)) {
+    return "Known stairs are avoided. Curb ramps, slopes, and temporary obstacles can change.";
+  }
+  if (/safe(?:st|ty)|safety ranking/i.test(item)) {
+    return "We don’t rate streets by safety yet.";
+  }
+  if (/quiet|noise|crowd/i.test(item)) {
+    return "Crowd and noise levels aren’t live yet.";
+  }
+  if (/amenity operation|open now|current operation/i.test(item)) {
+    return "Opening hours and current availability may have changed.";
+  }
+  if (/construction/i.test(item)) {
+    return "Construction details aren’t live yet.";
+  }
+  if (/0\.25 to 5 miles/i.test(item)) {
+    return "For now, routes can be planned from 0.25 to 5 miles.";
+  }
+  if (/fixed destination and exact distance/i.test(item)) {
+    return "When a destination and exact distance conflict, the destination comes first.";
+  }
+  return `${item}.`;
+}
+
+function limitationHeading(values: readonly string[]) {
+  const joined = values.join(" ");
+  if (/curb ramps|ADA|accessib|wheelchair|mobility|stroller/i.test(joined)) return "A quick note about step-free access";
+  if (/safe(?:st|ty)|quiet|noise|crowd|operation|open now|construction/i.test(joined)) return "A quick note about live conditions";
+  return "One thing to know";
+}
+
 function boundsForRoute(route: JourneyRoute) {
   const bounds = new maplibregl.LngLatBounds(route.coordinates[0], route.coordinates[0]);
   route.coordinates.forEach((coordinate) => bounds.extend(coordinate));
@@ -286,7 +319,7 @@ function makeRoutingBrief(brief: UiTripBrief, originNodeId: string, destinationN
     walkingBudgetMinutes: brief.distanceMiles === null ? brief.walkingMinutes : distanceMilesToRoutingMinutes(brief.distanceMiles),
     direction: brief.direction ?? undefined,
     endCondition: brief.endCondition === "transit"
-      ? { nodeIds: [...new Set(transitEndpoints.map((candidate) => candidate.graphNodeId))], label: "near a mapped subway entrance" }
+      ? { nodeIds: [...new Set(transitEndpoints.map((candidate) => candidate.graphNodeId))], label: "near a subway entrance" }
       : undefined,
   };
 }
@@ -343,7 +376,7 @@ function WalkControls({ brief, onChange, destinationText, onDestinationTextChang
         const PriorityIcon = meta.icon;
         return <button type="button" key={priority} className={brief.priorities.includes(priority) ? "active" : ""} aria-pressed={brief.priorities.includes(priority)} onClick={() => togglePriority(priority)}><PriorityIcon />{meta.label}</button>;
       })}
-      <button type="button" className={brief.avoidMappedSteps ? "active" : ""} aria-pressed={brief.avoidMappedSteps} onClick={() => patchBrief({ avoidMappedSteps: !brief.avoidMappedSteps })}><StairsIcon />Avoid mapped steps</button>
+      <button type="button" className={brief.avoidMappedSteps ? "active" : ""} aria-pressed={brief.avoidMappedSteps} onClick={() => patchBrief({ avoidMappedSteps: !brief.avoidMappedSteps })}><StairsIcon />Avoid known stairs</button>
     </div>
     <div className="trip-controls">
       <div className="time-control"><span>{brief.shape === "destination" ? "Extra time" : brief.distanceMiles !== null ? "Distance" : brief.walkingTimeIntent === "maximum" ? "Up to" : "About"}</span>{brief.shape === "destination"
@@ -466,13 +499,13 @@ function ResultSheet({ brief, route, result, assets, tasks, destinationText, set
   const routeMiles = metersToMiles(route.distanceMeters);
   const distanceDifferenceMiles = brief.distanceMiles === null ? null : routeMiles - brief.distanceMiles;
   const headline = rainContext
-    ? "A rain-friendly route sketch"
+    ? "A little more cover for a rainy day"
     : brief.civicTaskIntent && tasks.length
       ? "A route with one small way to help"
     : brief.activity === "run"
       ? brief.distanceMiles !== null
-        ? brief.priorities.includes("shade") ? "A shaded run, mapped to your distance" : "A run mapped to your distance"
-        : brief.priorities.includes("shade") ? "A shaded run that fits your time" : "A run mapped to your time"
+        ? brief.priorities.includes("shade") ? "A shaded run, right around your goal" : "A run that fits your distance"
+        : brief.priorities.includes("shade") ? "A shaded run that fits your time" : "A run planned around your time"
     : primary === "shade"
     ? route.directSunMinutes < 0.05
       ? "No direct sun expected at this time"
@@ -491,8 +524,8 @@ function ResultSheet({ brief, route, result, assets, tasks, destinationText, set
     ? `${formatMiles(routeMiles)}-mile ${brief.activity} · ${result.timing.status === "closest-feasible" ? `closest to your ${brief.distanceMiles}-mile goal` : `about your ${brief.distanceMiles}-mile goal`}`
     : brief.shape === "loop"
       ? `${Math.round(route.durationMinutes)}-minute loop · about ${brief.walkingMinutes} minutes`
-      : brief.shape === "wander"
-        ? `${Math.round(route.durationMinutes)}-minute wander · ${brief.walkingTimeIntent === "maximum" ? `under ${brief.walkingMinutes} minutes` : `about ${brief.walkingMinutes} minutes`}`
+    : brief.shape === "wander"
+        ? `${Math.round(route.durationMinutes)}-minute walk · ${brief.walkingTimeIntent === "maximum" ? `under ${brief.walkingMinutes} minutes` : `planned for about ${brief.walkingMinutes} minutes`}`
         : destinationTiming;
   const hasDistinctBaseline = Boolean(result.baseline && result.baseline.candidateId !== route.candidateId);
   const timingDifference = Math.abs(Math.round(result.timing.differenceMinutes ?? 0));
@@ -507,20 +540,20 @@ function ResultSheet({ brief, route, result, assets, tasks, destinationText, set
     <div className="intent-summary"><div><span className="eyebrow">Your plan</span><strong className="brief-sentence">{summary[0]}</strong><small>{summary.slice(1).join(" · ")}</small></div><button type="button" onClick={() => setShowAdjustments((value) => !value)} aria-expanded={showAdjustments}>{showAdjustments ? "Close" : "Edit"}</button></div>
     {showAdjustments && <div className="adjust-panel"><WalkControls brief={draftBrief} onChange={setDraftBrief} destinationText={destinationText} onDestinationTextChange={(value) => { setDestinationText(value); setDraftBrief((current) => mergeTripBrief(current, { destinationQuery: value.trim() || null }, "controls")); }} /><button type="button" className="apply-adjustments" disabled={busy} onClick={applyAdjustments}>{busy ? "Updating your walk…" : "Update this walk"}</button></div>}
     <div className="benefit-list">
-      {rainContext && <button type="button" onClick={onShowData}><CloudRainIcon /><span><strong>Simulated cover scenario</strong><small>A proof-of-concept cover pattern is visible on the map</small></span><ChevronIcon /></button>}
-      {brief.priorities.includes("shade") && <button type="button" onClick={onShowWhy}><SunIcon /><span>{route.directSunMinutes < 0.05 ? <><strong>Nighttime departure</strong><small>No modeled direct sun at {formatClock(brief.departureHour)}</small></> : sunSaved !== null && sunSaved >= 0.05 ? <><strong>{sunSaved.toFixed(1)} fewer min</strong><small>in estimated direct sun</small></> : <><strong>{route.shadePercent.toFixed(0)}% estimated shade</strong><small>along this route at {formatClock(brief.departureHour)}</small></>}</span><ChevronIcon /></button>}
-      {brief.priorities.includes("greenery") && <button type="button" onClick={onShowWhy}><LeafIcon /><span>{greenGain !== null && greenGain >= 0.5 ? <><strong>{greenGain.toFixed(0)} points greener</strong><small>than the fastest route</small></> : <><strong>{route.greeneryPercent.toFixed(0)}% mapped greenery</strong><small>from nearby tree and park records</small></>}</span><ChevronIcon /></button>}
-      {assets.slice(0, 2).map((asset) => <button type="button" key={asset.id} onClick={() => onShowAsset(asset)}><AssetIcon kind={asset.kind} /><span><strong>{asset.name}</strong><small>Mapped near your route · availability may have changed</small></span><ChevronIcon /></button>)}
-      {brief.avoidMappedSteps && <button type="button" onClick={onShowWhy}><StairsIcon /><span><strong>Avoids mapped steps</strong><small>Not an accessibility guarantee</small></span><ChevronIcon /></button>}
+      {rainContext && <button type="button" onClick={onShowData}><CloudRainIcon /><span><strong>More cover along the way</strong><small>Likely-covered stretches are highlighted on the map</small></span><ChevronIcon /></button>}
+      {brief.priorities.includes("shade") && <button type="button" onClick={onShowWhy}><SunIcon /><span>{route.directSunMinutes < 0.05 ? <><strong>A naturally cool departure</strong><small>No direct sun expected at {formatClock(brief.departureHour)}</small></> : sunSaved !== null && sunSaved >= 0.05 ? <><strong>{sunSaved.toFixed(1)} fewer min in the sun</strong><small>compared with the quickest route</small></> : <><strong>{route.shadePercent.toFixed(0)}% in shade</strong><small>around {formatClock(brief.departureHour)}, based on sun and buildings</small></>}</span><ChevronIcon /></button>}
+      {brief.priorities.includes("greenery") && <button type="button" onClick={onShowWhy}><LeafIcon /><span>{greenGain !== null && greenGain >= 0.5 ? <><strong>{greenGain.toFixed(0)} points greener</strong><small>than the quickest route</small></> : <><strong>Trees and parks along {route.greeneryPercent.toFixed(0)}% of the way</strong><small>drawn from nearby city listings</small></>}</span><ChevronIcon /></button>}
+      {assets.slice(0, 2).map((asset) => <button type="button" key={asset.id} onClick={() => onShowAsset(asset)}><AssetIcon kind={asset.kind} /><span><strong>{asset.name}</strong><small>Right along your route · details may have changed</small></span><ChevronIcon /></button>)}
+      {brief.avoidMappedSteps && <button type="button" onClick={onShowWhy}><StairsIcon /><span><strong>Skips known stairs</strong><small>Check curb ramps and street conditions as you go</small></span><ChevronIcon /></button>}
     </div>
     {tasks[0] && <button type="button" className="civic-task-card" onClick={() => onShowTask(tasks[0])}><span className="task-icon"><CivicTaskIcon task={tasks[0]} /></span><span><small>Optional stop · {tasks[0].estimatedMinutes} min</small><strong>{tasks[0].title}</strong><span>{tasks[0].locationLabel}</span></span><ChevronIcon /></button>}
-    {brief.civicTaskIntent && tasks.length === 0 && <div className="coverage-note task-miss"><strong>Your route still works</strong><span>We couldn’t fit a published data check into this route and time. No task was invented to fill the gap.</span></div>}
-    {missingAmenities.length > 0 && <div className="coverage-note"><strong>Not found near this route</strong><span>{missingAmenities.map((kind) => ({ seating: "mapped seating", restroom: "a mapped restroom", drinking_fountain: "a mapped drinking fountain", transit: "a mapped subway entrance" })[kind]).join(" or ")} within 90 meters. Inventory coverage and current operation may vary.</span></div>}
-    <div className="confidence-row"><span className="confidence-dot" /><p><strong>Built from mapped pedestrian paths</strong><small>{brief.priorities.includes("shade") ? "Shade is estimated from building shapes and the sun’s position." : "Some street and place details may be incomplete."}</small></p></div>
+    {brief.civicTaskIntent && tasks.length === 0 && <div className="coverage-note task-miss"><strong>No quick data check fit this walk</strong><span>Your path stays the same. Add a little time if you’d like one along the way.</span></div>}
+    {missingAmenities.length > 0 && <div className="coverage-note"><strong>No {missingAmenities.map((kind) => ({ seating: "place to sit", restroom: "restroom", drinking_fountain: "water stop", transit: "subway entrance" })[kind]).join(" or ")} spotted along this path</strong><span>Nearby listings can miss recent changes.</span></div>}
+    <div className="confidence-row"><span className="confidence-dot" /><p><strong>Made around what matters to you</strong><small>{brief.priorities.includes("shade") ? "Shade, timing, and useful stops are folded into this path." : "Timing and useful stops are folded into this path."}</small></p></div>
     {result.baseline && hasDistinctBaseline && <button type="button" className="text-action" onClick={() => setShowBaseline(!showBaseline)}><span className="baseline-swatch" />{showBaseline ? "Hide" : "Compare with"} fastest · {formatMinutes(result.baseline.durationMinutes)}</button>}
-    {brief.unsupported.length > 0 && <div className="request-limit" role="status"><strong>What we can’t verify yet</strong><span>{brief.unsupported.map((item) => item.replace(/[.\s]+$/g, "")).join(" · ")}. The route still honors the supported choices in your plan.</span></div>}
-    <button type="button" className="data-action" onClick={onShowData}><LayersIcon /><span><strong>Built with city and street data</strong><small>{usedSourceCount} linked {usedSourceCount === 1 ? "source" : "sources"} behind this walk</small></span><ChevronIcon /></button>
-    {detourScenario && detourScenario.avoidedDirectSunMinutes >= 0.05 && <button type="button" className="detour-action" onClick={onOpenPlanner}><MapIcon /><span><strong>See what this walk is missing</strong><small>Explore shade, likely cover, amenities, and data checks in City what-if</small></span><ChevronIcon /></button>}
+    {brief.unsupported.length > 0 && <details className="request-limit"><summary>{limitationHeading(brief.unsupported)}</summary><p>{brief.unsupported.map(friendlyLimitation).join(" ")}</p></details>}
+    <button type="button" className="data-action" onClick={onShowData}><LayersIcon /><span><strong>What shaped this path</strong><small>Shade, places, and street details from {usedSourceCount} linked {usedSourceCount === 1 ? "source" : "sources"}</small></span><ChevronIcon /></button>
+    {detourScenario && detourScenario.avoidedDirectSunMinutes >= 0.05 && <button type="button" className="detour-action" onClick={onOpenPlanner}><MapIcon /><span><strong>Imagine an even better block</strong><small>See where more shade, cover, or useful places could change the walk</small></span><ChevronIcon /></button>}
     <form className="refine-box" onSubmit={submit}><SparkIcon /><input value={refinement} disabled={busy} onChange={(event) => setRefinement(event.target.value)} placeholder="Shorter, but keep the bathroom…" aria-label="Refine this route" /><button disabled={busy || !refinement.trim()} aria-label="Update route"><ArrowIcon /></button></form>
     {error && <p className="status-message error" role="alert">{error}</p>}
     {modelFallback && <p className="status-message subtle">We used built-in trip understanding this time. You can adjust the details above.</p>}
@@ -549,12 +582,14 @@ function AssetDetails({ asset }: { asset: CivicAsset }) {
 }
 
 function SourceRow({ source }: { source: SourceRegistryPresentation }) {
-  return <a href={source.officialUrl} target="_blank" rel="noreferrer">
-    <span>{source.publisher}</span>
-    <strong>{source.title}<ExternalLinkIcon /></strong>
-    <small>{source.availabilityLabel} · {source.freshnessLabel}</small>
-    <small className="source-boundary">{source.coverageLabel} {source.claimBoundary}</small>
-  </a>;
+  return <article className="source-row">
+    <a href={source.officialUrl} target="_blank" rel="noreferrer">
+      <span>{source.publisher}</span>
+      <strong>{source.title}<ExternalLinkIcon /></strong>
+      <small>{source.availabilityLabel} · {source.freshnessLabel}</small>
+    </a>
+    <details><summary>Coverage &amp; limits</summary><p>{source.coverageLabel} {source.claimBoundary}</p></details>
+  </article>;
 }
 
 function CivicTaskDetails({ task, observation, onComplete, onRemove }: {
@@ -580,37 +615,37 @@ function CivicTaskDetails({ task, observation, onComplete, onRemove }: {
 }
 
 function DetailPanel({ mode, brief, route, assets, tasks, activeAsset, activeTask, taskObservation, detourScenario, rainContext, onCompleteTask, onRemoveTaskObservation, onClose }: { mode: DetailMode; brief: UiTripBrief; route: JourneyRoute; assets: CivicAsset[]; tasks: CivicTask[]; activeAsset: CivicAsset | null; activeTask: CivicTask | null; taskObservation: SessionCivicObservation | null; detourScenario: ShadeDetourScenario | null; rainContext: boolean; onCompleteTask: (response: string) => void; onRemoveTaskObservation: () => void; onClose: () => void }) {
-  const label = mode === "why" ? "Why this way" : mode === "data" ? "City data behind this walk" : mode === "asset" ? activeAsset?.name ?? "Place details" : mode === "task" ? activeTask?.title ?? "City data check" : "City planning what-if";
+  const label = mode === "why" ? "Why this way" : mode === "data" ? "What shaped this path" : mode === "asset" ? activeAsset?.name ?? "Place details" : mode === "task" ? activeTask?.title ?? "City data check" : "City planning what-if";
   const usedSources = usedSourcePresentations(brief, assets, rainContext, tasks);
   const referenceSources = referenceSourcePresentations(brief, rainContext);
   return <aside className="detail-panel" role="dialog" aria-modal="true" aria-label={label}>
-    <div className="detail-header"><span className="eyebrow">{mode === "why" ? "Why this way?" : mode === "data" ? "Behind your walk" : mode === "asset" ? "Along your walk" : mode === "task" ? "Help along the way" : "A planning what-if"}</span><IconButton label="Close" onClick={onClose}><CloseIcon /></IconButton></div>
+    <div className="detail-header"><span className="eyebrow">{mode === "why" ? "Why this way?" : mode === "data" ? "What shaped this path" : mode === "asset" ? "Along your walk" : mode === "task" ? "Help along the way" : "A planning what-if"}</span><IconButton label="Close" onClick={onClose}><CloseIcon /></IconButton></div>
     {mode === "why" ? <>
       <h2>{friendlyRouteLocation(route)} fits what you asked for.</h2>
-      <p>{brief.priorities.includes("shade") ? `About ${Math.round(route.shadePercent)}% of this walk is in estimated building shade at ${formatClock(brief.departureHour)}.` : "The route favors the mapped qualities in your Trip Brief while staying inside your time budget."}</p>
+      <p>{brief.priorities.includes("shade") ? `About ${Math.round(route.shadePercent)}% of this walk should be shaded around ${formatClock(brief.departureHour)}.` : "This path balances your timing with the places and qualities you asked for."}</p>
       <div className="evidence-cards">
-        {brief.priorities.includes("shade") && <article><SunIcon /><span><strong>Estimated building shade</strong><small>Derived from building footprints, roof heights, and deterministic sun position. It is not measured temperature.</small></span></article>}
-        {brief.priorities.includes("greenery") && <article><LeafIcon /><span><strong>Mapped greenery</strong><small>{route.nearbyTreeCount} nearby tree records{route.adjacentParkNames.length ? ` and ${route.adjacentParkNames.slice(0, 2).join(", ")}` : ""}. Tree points do not prove canopy or shade.</small></span></article>}
-        {assets.map((asset) => <article key={asset.id}><AssetIcon kind={asset.kind} /><span><strong>{asset.name}</strong><small>{asset.locationLabel}. Listed by NYC; availability may have changed.</small></span></article>)}
+        {brief.priorities.includes("shade") && <article><SunIcon /><span><strong>Shade around {formatClock(brief.departureHour)}</strong><small>Estimated from the sun and nearby buildings. Open the sources below to see how it was made.</small></span></article>}
+        {brief.priorities.includes("greenery") && <article><LeafIcon /><span><strong>Trees and parks nearby</strong><small>{route.nearbyTreeCount} tree listings{route.adjacentParkNames.length ? ` plus ${route.adjacentParkNames.slice(0, 2).join(", ")}` : ""}. Street conditions can change.</small></span></article>}
+        {assets.map((asset) => <article key={asset.id}><AssetIcon kind={asset.kind} /><span><strong>{asset.name}</strong><small>{asset.locationLabel}. From a city listing; details may have changed.</small></span></article>)}
       </div>
     </> : mode === "data" ? <>
-      <h2>Public data, translated into one useful walk.</h2>
-      <p>Only relevant layers shape the walk. Links open the source record or the method behind a derived signal.</p>
-      <h3 className="source-group-title">Used for this walk</h3>
+      <h2>A few city clues became one useful path.</h2>
+      <p>See what influenced your route, when it was refreshed, and where the picture is still incomplete.</p>
+      <h3 className="source-group-title">Used for this path</h3>
       <div className="source-list">{usedSources.map((source) => <SourceRow key={source.id} source={source} />)}</div>
-      <h3 className="source-group-title">Useful next evidence</h3>
-      <p className="source-group-note">These official sources are linked for planning context, but they do not affect this route yet.</p>
+      <h3 className="source-group-title">Worth exploring next</h3>
+      <p className="source-group-note">Useful city context for future versions. These sources do not change today’s route.</p>
       <div className="source-list reference-sources">{referenceSources.map((source) => <SourceRow key={source.id} source={source} />)}</div>
     </> : mode === "asset" && activeAsset ? <AssetDetails asset={activeAsset} /> : mode === "task" && activeTask ? <CivicTaskDetails task={activeTask} observation={taskObservation} onComplete={onCompleteTask} onRemove={onRemoveTaskObservation} /> : detourScenario ? <>
       <span className="hypothetical-badge">Planning sketch · not a City proposal</span>
       <h2>{detourScenario.title}</h2>
-      <p>Try one shade idea and compare the same walk before and after. The estimate is here to make a possibility visible, not to claim a finished design.</p>
+      <p>Try one shade idea and compare the same walk before and after.</p>
       <div className="scenario-metrics">
-        <article><span>Current route estimate</span><strong>{detourScenario.baselineDirectSunMinutes.toFixed(1)} min</strong><small>in direct sun</small></article>
+        <article><span>Current walk</span><strong>{detourScenario.baselineDirectSunMinutes.toFixed(1)} min</strong><small>in direct sun</small></article>
         <ArrowIcon />
-        <article><span>With modeled shade</span><strong>{detourScenario.scenarioDirectSunMinutes.toFixed(1)} min</strong><small>{detourScenario.avoidedDirectSunMinutes.toFixed(1)} min avoided</small></article>
+        <article><span>With more shade</span><strong>{detourScenario.scenarioDirectSunMinutes.toFixed(1)} min</strong><small>{detourScenario.avoidedDirectSunMinutes.toFixed(1)} min less</small></article>
       </div>
-      <div className="scenario-assumptions"><strong>{detourScenario.intervention}</strong>{detourScenario.assumptions.map((assumption) => <p key={assumption}>{assumption}</p>)}</div>
+      <div className="scenario-assumptions"><strong>Try about {detourScenario.modeledIntervention.targetShadePercent}% shade near {detourScenario.selection.locationNames[0]}</strong><details><summary>What this assumes</summary><p>The path stays the same while shade changes in this one area. The site, design, cost, care, and approvals still need study.</p></details></div>
     </> : null}
     <button type="button" className="secondary-action" onClick={onClose}>Back to the route</button>
   </aside>;
@@ -653,7 +688,7 @@ function PlannerSheet({ route, scenario, insight, insightBusy, insightError, len
   return <section className="sheet planner-sheet" aria-label="City what-if">
     <div className="sheet-handle" />
     <div className="result-nav"><IconButton label="Back to walk" onClick={onBack}><BackIcon /></IconButton><span>City what-if</span><span className="prototype-pill">Prototype</span></div>
-    <div className="planner-lead"><span className="eyebrow">See what’s missing</span><h1>{route ? "What could make this walk feel better?" : "Where could the city feel more comfortable?"}</h1><p>{route ? "Inspect a comfort gap, then sketch one small improvement." : "Amenities and climate signals stay visible across the neighborhood."}</p></div>
+    <div className="planner-lead"><span className="eyebrow">See what’s missing</span><h1>{route ? "What could make this walk feel better?" : "Where could the city feel more comfortable?"}</h1><p>{route ? "Pick a comfort gap, then try one small change." : "Useful places and climate clues stay visible across the neighborhood."}</p></div>
     <div className="planner-lenses" aria-label="Planner map view">
       <button type="button" className={lens === "shade" ? "active" : ""} onClick={() => onLensChange("shade")}><SunIcon />Shade gaps</button>
       <button type="button" className={lens === "cover" ? "active" : ""} onClick={() => onLensChange("cover")}><UmbrellaIcon />Likely cover</button>
@@ -666,21 +701,21 @@ function PlannerSheet({ route, scenario, insight, insightBusy, insightError, len
       <button type="button" className="primary-action" onClick={onUseSample}><span>Use a sample walk</span><ArrowIcon /></button>
     </> : <>
       {lens === "shade" && scenario && <>
-        <div className="planner-callout"><span className="scenario-dot" /><div><strong>{scenario.selection.locationNames[0]}</strong><small>{scenario.summary}</small></div></div>
+        <div className="planner-callout"><span className="scenario-dot" /><div><strong>{scenario.selection.locationNames[0]}</strong><small>{scenario.journeyCounts.withChangedBurden} sample {scenario.journeyCounts.withChangedBurden === 1 ? "walk spends" : "walks spend"} less time in the sun with this change.</small></div></div>
         <label className="intervention-control"><span><strong>Try more shade here</strong><output>{targetShade}%</output></span><input type="range" min="40" max="95" step="5" value={targetShade} onChange={(event) => onTargetShadeChange(Number(event.target.value))} /></label>
         <div className="scenario-metrics compact"><article><span>Average walk now</span><strong>{averageBurden!.baseline.toFixed(1)} min</strong><small>in direct sun</small></article><ArrowIcon /><article><span>With this idea</span><strong>{averageBurden!.scenario.toFixed(1)} min</strong><small>{averageBurden!.avoided.toFixed(1)} min less</small></article></div>
-        <p className="planner-proof">{scenario.journeyCounts.withChangedBurden} of {scenario.journeyCounts.evaluated} route options improve. Each path is held still so the shade change stays easy to compare.</p>
+        <p className="planner-proof">{scenario.journeyCounts.withChangedBurden} of {scenario.journeyCounts.evaluated} sample walks get more shade here. Each path stays the same, so the difference comes from shade alone.</p>
       </>}
-      {lens === "cover" && <div className="planner-gap-list"><div><UmbrellaIcon /><span><strong>{coverPercent}% of this route is highlighted in the simulation</strong><small>Dashed indigo segments are generated for this proof of concept. Gaps stay warm coral.</small></span></div><div><CloudRainIcon /><span><strong>Useful for testing a rain scenario</strong><small>Production would need current shed, arcade, awning, and construction records.</small></span></div></div>}
-      {lens === "amenities" && <div className="planner-gap-list"><div><BenchIcon /><span><strong>{counts.seating} mapped places to sit</strong><small>Coverage halos make the empty blocks easier to see.</small></span></div><div><RestroomIcon /><span><strong>Only {counts.restroom} mapped restrooms</strong><small>Click any icon for source and freshness details.</small></span></div><div><DropletIcon /><span><strong>{counts.drinking_fountain} drinking-water records</strong><small>Current operation is not verified in this prototype.</small></span></div></div>}
-      {lens === "tasks" && <div className="planner-gap-list task-gap-list"><div><CheckCircleIcon /><span><strong>{allCivicTasks.length} published demo checks</strong><small>Partner-authored prompts can make missing ground truth visible without claiming a problem exists.</small></span></div><div><CameraIcon /><span><strong>Verify, observe, or add a focused photo</strong><small>Responses stay separate from official inventory and expire after a short evidence window.</small></span></div><div><LayersIcon /><span><strong>No neighborhood score</strong><small>Checks show discrete evidence needs, not a ranking of blocks or communities.</small></span></div></div>}
+      {lens === "cover" && <div className="planner-gap-list"><div><UmbrellaIcon /><span><strong>{coverPercent}% of this route follows likely-covered stretches</strong><small>Indigo shows the planning preview; coral shows open gaps.</small></span></div><div><CloudRainIcon /><span><strong>A starting point for rainy-day planning</strong><small>A live version would add current sheds, arcades, awnings, and construction.</small></span></div></div>}
+      {lens === "amenities" && <div className="planner-gap-list"><div><BenchIcon /><span><strong>{counts.seating} places to sit nearby</strong><small>The circles show where each listing could help a walk.</small></span></div><div><RestroomIcon /><span><strong>{counts.restroom} public restrooms nearby</strong><small>Tap a place to see when the listing was refreshed.</small></span></div><div><DropletIcon /><span><strong>{counts.drinking_fountain} water stops nearby</strong><small>Open status can change.</small></span></div></div>}
+      {lens === "tasks" && <div className="planner-gap-list task-gap-list"><div><CheckCircleIcon /><span><strong>{allCivicTasks.length} small ways to help nearby</strong><small>Quick partner prompts help fill in what has changed.</small></span></div><div><CameraIcon /><span><strong>Verify, observe, or add one focused photo</strong><small>Responses stay separate from city records and expire after a short window.</small></span></div><div><LayersIcon /><span><strong>Checks, never neighborhood scores</strong><small>Each check asks for one fact without ranking a block or community.</small></span></div></div>}
       {lens !== "tasks" && <div className="planner-insights">
-        <div className="planner-insights-heading"><span><strong>Best next tests</strong><small>{insight?.generatedBy === "model" ? "AI-ranked from measured route facts" : "Ranked from measured route facts"}</small></span><SparkIcon /></div>
+        <div className="planner-insights-heading"><span><strong>Best next ideas</strong><small>{insight?.generatedBy === "model" ? "Ideas ranked for this route" : "Ideas shaped by this route"}</small></span><SparkIcon /></div>
         {insightBusy && <ThinkingStatus mode="planner" compact />}
         {!insightBusy && insightError && <p className="planner-insight-error">{insightError}</p>}
         {!insightBusy && insight?.interventions.map((idea) => <article key={idea.candidateId} className="planner-insight-card">
           <span className="insight-rank">{idea.rank}</span>
-          <div><small>{idea.locationLabel}</small><strong>{idea.proposedAction}</strong><p>{idea.rationale}</p><InsightSourceLinks sourceIds={idea.sourceIds} /><InsightSourceLinks sourceIds={idea.referenceSourceIds} label="Useful next source" /><details><summary>Evidence boundary</summary><p>{idea.caveat}</p></details></div>
+          <div><small>{idea.locationLabel}</small><strong>{idea.proposedAction}</strong><p>{idea.rationale}</p><InsightSourceLinks sourceIds={idea.sourceIds} /><InsightSourceLinks sourceIds={idea.referenceSourceIds} label="Explore next" /><details><summary>What this assumes</summary><p>{idea.caveat}</p></details></div>
         </article>)}
       </div>}
       <span className="hypothetical-badge">Planning sketch · not a City proposal</span>
@@ -1421,9 +1456,9 @@ export function App() {
         ? <ComposeSheet brief={brief} setBrief={setBrief} prompt={prompt} setPrompt={setPrompt} originText={originText} setOriginText={setOriginText} destinationText={destinationText} setDestinationText={setDestinationText} busy={busy} busyMode={busyMode} error={error} onPlan={() => void plan()} />
         : result && <ResultSheet brief={brief} route={route} result={result} assets={activeAssets} tasks={routeTasks} destinationText={destinationText} setDestinationText={setDestinationText} delta={delta} error={error} onBack={startNewWalk} onRefine={(value) => plan(value, true)} onAdjust={adjust} onShowWhy={() => { setActiveAsset(null); setActiveAssetPoint(null); setActiveTask(null); setActiveTaskPoint(null); setDetail("why"); }} onShowAsset={(asset) => { setActiveTask(null); setActiveTaskPoint(null); setActiveAsset(asset); setActiveAssetPoint(null); setDetail("asset"); }} onShowTask={(task) => { setActiveAsset(null); setActiveAssetPoint(null); setActiveTask(task); setActiveTaskPoint(null); setDetail("task"); }} onShowData={() => { setActiveAsset(null); setActiveAssetPoint(null); setActiveTask(null); setActiveTaskPoint(null); setDetail("data"); }} onOpenPlanner={() => switchMode("planner")} detourScenario={detourScenario} showBaseline={showBaseline} setShowBaseline={setShowBaseline} busy={busy} busyMode={busyMode} modelFallback={modelFallback} rainContext={rainContext} />}
     {appMode === "walk" && detail && route && <DetailPanel mode={detail} brief={brief} route={route} assets={activeAssets} tasks={routeTasks} activeAsset={activeAsset} activeTask={activeTask} taskObservation={activeTask ? taskObservations[activeTask.id] ?? null : null} detourScenario={detourScenario} rainContext={rainContext} onCompleteTask={(response) => { if (!activeTask) return; setTaskObservations((current) => ({ ...current, [activeTask.id]: createSessionCivicObservation(activeTask, response) })); }} onRemoveTaskObservation={() => { if (!activeTask) return; setTaskObservations((current) => { const next = { ...current }; delete next[activeTask.id]; return next; }); }} onClose={() => { setDetail(null); if (detail === "asset") { setActiveAsset(null); setActiveAssetPoint(null); } if (detail === "task") { setActiveTask(null); setActiveTaskPoint(null); } }} />}
-    {activeAsset && detail !== "asset" && <aside className={`asset-popover ${assetPopoverOpensLeft ? "opens-left" : ""}`} style={assetPopoverStyle} role="dialog" aria-label={assetTypeLabel(activeAsset)}><div><AssetIcon kind={activeAsset.kind} /><IconButton label="Close" onClick={() => { setActiveAsset(null); setActiveAssetPoint(null); }}><CloseIcon /></IconButton></div><span className="eyebrow">{appMode === "planner" ? "Mapped place" : "Near your walk"}</span><h3>{assetTypeLabel(activeAsset)}</h3><p>{activeAsset.locationLabel}</p><small>{assetAvailabilityCopy(activeAsset)}</small><small className="source-freshness">{civicAssetEvidence(activeAsset).freshnessLabel}</small>{appMode === "walk" && <button type="button" className="asset-more" onClick={() => setDetail("asset")}>See details</button>}</aside>}
+    {activeAsset && detail !== "asset" && <aside className={`asset-popover ${assetPopoverOpensLeft ? "opens-left" : ""}`} style={assetPopoverStyle} role="dialog" aria-label={assetTypeLabel(activeAsset)}><div><AssetIcon kind={activeAsset.kind} /><IconButton label="Close" onClick={() => { setActiveAsset(null); setActiveAssetPoint(null); }}><CloseIcon /></IconButton></div><span className="eyebrow">{appMode === "planner" ? "Place on the map" : "Near your walk"}</span><h3>{assetTypeLabel(activeAsset)}</h3><p>{activeAsset.locationLabel}</p><small>{assetAvailabilityCopy(activeAsset)}</small><small className="source-freshness">{civicAssetEvidence(activeAsset).freshnessLabel}</small>{appMode === "walk" && <button type="button" className="asset-more" onClick={() => setDetail("asset")}>See details</button>}</aside>}
     {activeTask && detail !== "task" && <aside className={`asset-popover civic-task-popover ${taskPopoverOpensLeft ? "opens-left" : ""}`} style={taskPopoverStyle} role="dialog" aria-label={activeTask.title}><div><CivicTaskIcon task={activeTask} /><IconButton label="Close" onClick={() => { setActiveTask(null); setActiveTaskPoint(null); }}><CloseIcon /></IconButton></div><span className="eyebrow">Optional · {activeTask.estimatedMinutes} min</span><h3>{activeTask.title}</h3><p>{activeTask.locationLabel}</p><small>A quick check that can help keep the map useful.</small>{taskObservations[activeTask.id] && <small className="task-complete-label"><CheckCircleIcon />Checked in this session</small>}{appMode === "walk" && <button type="button" className="asset-more" onClick={() => setDetail("task")}>{taskObservations[activeTask.id] ? "See observation" : "View check"}</button>}</aside>}
-    {activeCover && <aside className="asset-popover cover-popover" style={coverPopoverStyle} role="dialog" aria-label="Simulated cover"><div><UmbrellaIcon /><IconButton label="Close" onClick={() => { setActiveCover(null); setActiveCoverPoint(null); }}><CloseIcon /></IconButton></div><span className="eyebrow">Simulated cover scenario</span><h3>{activeCover.label}</h3><p>{activeCover.street}</p><small>{activeCover.proofLabel}. A production route would need current shed, awning, arcade, and construction data.</small></aside>}
+    {activeCover && <aside className="asset-popover cover-popover" style={coverPopoverStyle} role="dialog" aria-label="Likely cover"><div><UmbrellaIcon /><IconButton label="Close" onClick={() => { setActiveCover(null); setActiveCoverPoint(null); }}><CloseIcon /></IconButton></div><span className="eyebrow">Cover along this stretch</span><h3>{activeCover.label}</h3><p>{activeCover.street}</p><small>Shown as a planning preview. A live version would add current sheds, awnings, arcades, and construction.</small></aside>}
     <MapLensControl overlays={mapOverlays} onToggle={toggleMapOverlay} hour={shadeHour} onHourChange={setShadeHour} planner={appMode === "planner"} hasRoute={Boolean(route)} canEdit={!mapError} editing={editRoute} onEditingChange={(editing) => { setEditRoute(editing); if (editing) setMapLens("route"); }} />
     <div className="map-key" aria-hidden="true">{route && <span><i className="route-key" />Happy Path</span>}{mapOverlays.shade && <span><i className="shade-deep-key" />Shade at {formatClock(shadeHour)}</span>}{mapOverlays.cover && <span><i className="cover-key" />Likely cover</span>}{mapOverlays.amenities && <span><i className="amenity-key" />Nearby places</span>}{mapOverlays.tasks && <span><i className="task-key" />Optional check</span>}</div>
   </main>;

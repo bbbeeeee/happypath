@@ -49,7 +49,7 @@ describe("demo climate context", () => {
       routePreference: { id: "likely_cover" },
     });
     expect(context?.evidence.currentConditionsVerified).toBe(false);
-    expect(context?.evidence.detail).toMatch(/production accuracy/i);
+    expect(context?.evidence.detail).toMatch(/live version/i);
     expect(context?.evidence.detail).not.toMatch(/stay dry|keeps? you dry/i);
   });
 

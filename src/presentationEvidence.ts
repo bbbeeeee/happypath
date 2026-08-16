@@ -30,14 +30,14 @@ export function civicAssetEvidence(asset: CivicAsset): PresentationEvidence {
   const source = getCivicAssetSource(asset.sourceId);
   const updated = formatSourceDate(source?.sourceUpdatedAt ?? null);
   return {
-    title: source?.datasetName ?? "Mapped public amenity",
-    statusLabel: "Official inventory · not a live check",
+    title: source?.datasetName ?? "City amenity listing",
+    statusLabel: "From a city listing · may have changed",
     freshnessLabel: updated
-      ? `Source updated ${updated}`
-      : "Source update date unavailable",
+      ? `Last refreshed ${updated}`
+      : "Refresh date unavailable",
     summary: asset.operation.note,
     detail: source?.knownLimitations[0]
-      ?? "A mapped record does not confirm current access or condition.",
+      ?? "This listing may not reflect today’s access or condition.",
     sourceIds: [asset.sourceId],
     currentConditionsVerified: false,
     proofOfConcept: true,
@@ -46,11 +46,11 @@ export function civicAssetEvidence(asset: CivicAsset): PresentationEvidence {
 
 export function shadeEvidence(resolvedHour: number): PresentationEvidence {
   return {
-    title: "Estimated building shade",
-    statusLabel: "Modeled · proof of concept",
-    freshnessLabel: `Modeled for ${shadeMetadata.date} at ${formatHour(resolvedHour)}`,
-    summary: "Estimated from nearby building shapes, heights, and sun position.",
-    detail: "This is a planning estimate, not a street-level shade or temperature measurement.",
+    title: "Shade around this time",
+    statusLabel: "Estimated for this time of day",
+    freshnessLabel: `Set for ${formatHour(resolvedHour)} on ${shadeMetadata.date}`,
+    summary: "Estimated from the sun and nearby buildings.",
+    detail: "Treat this as a helpful guide, not a street-level temperature reading.",
     sourceIds: shadeMetadata.sourceIds,
     currentConditionsVerified: false,
     proofOfConcept: true,
@@ -59,10 +59,10 @@ export function shadeEvidence(resolvedHour: number): PresentationEvidence {
 
 export const demoLikelyCoverEvidence: PresentationEvidence = {
   title: "Likely cover",
-  statusLabel: "Demo signal · not live",
-  freshnessLabel: "Prompt-based for this proof of concept",
-  summary: "Your request can ask the demo to favor places with more likely overhead cover.",
-  detail: "Production accuracy would need current sidewalk-shed, arcade, awning, and construction data. Likely cover does not promise a dry route.",
+  statusLabel: "Planning preview · not live",
+  freshnessLabel: "Created for this route preview",
+  summary: "Your request can favor stretches that may offer more overhead cover.",
+  detail: "A live version would need current sidewalk-shed, arcade, awning, and construction details. This preview cannot promise a dry route.",
   sourceIds: [],
   currentConditionsVerified: false,
   proofOfConcept: true,

@@ -10,8 +10,8 @@ import {
 describe("presentation evidence copy", () => {
   it("turns actual source dates into concise, qualified amenity detail", () => {
     const evidence = civicAssetEvidence(listCivicAssets(["seating"])[0]);
-    expect(evidence.statusLabel).toMatch(/official inventory/i);
-    expect(evidence.freshnessLabel).toMatch(/source updated/i);
+    expect(evidence.statusLabel).toMatch(/city listing/i);
+    expect(evidence.freshnessLabel).toMatch(/last refreshed/i);
     expect(evidence.currentConditionsVerified).toBe(false);
     expect(evidence.sourceIds).toEqual(["nyc-dot-seating"]);
   });
@@ -19,12 +19,12 @@ describe("presentation evidence copy", () => {
   it("keeps modeled shade and demo cover honest without burying the product copy", () => {
     const shade = shadeEvidence(14);
     expect(shade.freshnessLabel).toMatch(/2 PM/);
-    expect(shade.summary).toMatch(/building shapes/i);
+    expect(shade.summary).toMatch(/sun and nearby buildings/i);
     expect(shade.currentConditionsVerified).toBe(false);
 
     expect(demoLikelyCoverEvidence.statusLabel).toMatch(/not live/i);
     expect(demoLikelyCoverEvidence.detail).toMatch(/sidewalk-shed/i);
-    expect(demoLikelyCoverEvidence.detail).toMatch(/does not promise a dry route/i);
+    expect(demoLikelyCoverEvidence.detail).toMatch(/cannot promise a dry route/i);
   });
 
   it("formats compact hour labels", () => {

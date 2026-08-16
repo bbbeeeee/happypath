@@ -131,18 +131,18 @@ export function assetTypeLabel(asset: CivicAsset): string {
 
 export function assetAvailabilityCopy(asset: CivicAsset): string {
   if (asset.operation.routingAvailability === "published_unavailable") {
-    return "NYC’s listing says this may be unavailable. We haven’t verified current conditions.";
+    return "The city listing says this may be unavailable. Check before relying on it.";
   }
   if (asset.kind === "transit") {
-    return `Listed in the ${asset.details.inventoryYear} MTA entrance inventory. Service and accessibility can change.`;
+    return `Included in MTA’s ${asset.details.inventoryYear} entrance list. Service and access can change.`;
   }
   if (asset.kind === "seating") {
-    return "Listed by NYC. We haven’t checked the seat’s current condition.";
+    return "Included in a city seating list. Its condition may have changed.";
   }
   if (asset.kind === "restroom") {
     return asset.details.publishedHours
-      ? "NYC publishes hours for this restroom. We can’t confirm it’s open right now."
-      : "Listed by NYC. We can’t confirm it’s open right now.";
+      ? "The city publishes hours for this restroom. Check before relying on them."
+      : "Included in a city restroom list. It may not be open right now.";
   }
-  return "Listed by NYC Parks. We can’t confirm it’s running right now.";
+  return "Included in a Parks drinking-water list. It may not be running right now.";
 }

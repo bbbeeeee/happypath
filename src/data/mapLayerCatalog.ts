@@ -47,7 +47,7 @@ const definitions = [
   },
   {
     id: "civic_assets",
-    label: "Mapped places",
+    label: "Places nearby",
     description: "Public amenities from official inventories",
     sourceIds: ["nyc-dot-seating", "nyc-public-restrooms", "nyc-parks-drinking-fountains", "mta-subway-entrances-2024"],
     iconToken: "place",

@@ -66,32 +66,31 @@ function capabilityStatus(source: SourceRegistryEntry): SourceCapabilityStatus {
 }
 
 function availabilityLabel(status: SourceCapabilityStatus): string {
-  if (status === "ingested") return "Mapped in this demo";
-  if (status === "derived") return "Modeled in this demo";
-  if (status === "live_reference") return "Live official reference · not bundled";
-  return "Official source · not mapped in this demo";
+  if (status === "ingested") return "Included in this preview";
+  if (status === "derived") return "Estimated for this preview";
+  if (status === "live_reference") return "Live city link · opens separately";
+  return "City source · not used in this path";
 }
 
 function freshnessLabel(source: SourceRegistryEntry): string {
-  if (source.freshness_statement) return source.freshness_statement;
   const updated = dateLabel(source.source_updated_at);
-  if (updated) return `Official source updated ${updated}.`;
+  if (updated) return `Updated ${updated}.`;
   const retrieved = dateLabel(source.retrieved_at);
   return retrieved
-    ? `No source update date is published; this demo snapshot was retrieved ${retrieved}.`
-    : "No source update date is published.";
+    ? `Preview refreshed ${retrieved}.`
+    : "No update date listed.";
 }
 
 function coverageLabel(source: SourceRegistryEntry): string {
   if (source.coverage_statement) return source.coverage_statement;
   if (typeof source.pilot_record_count === "number") {
-    return `${source.pilot_record_count.toLocaleString("en-US")} records are bundled in the Lower Manhattan demo snapshot.`;
+    return `${source.pilot_record_count.toLocaleString("en-US")} nearby listings are included in this preview.`;
   }
-  if (source.pilot_coverage === 1) return "The bundled layer covers the current Lower Manhattan demo graph or pilot bounds.";
+  if (source.pilot_coverage === 1) return "Included across the Lower Manhattan preview area.";
   if (typeof source.pilot_coverage === "number") {
-    return `${Math.round(source.pilot_coverage * 100)}% measured pilot coverage in the bundled snapshot.`;
+    return `Included across ${Math.round(source.pilot_coverage * 100)}% of the preview area.`;
   }
-  return "Coverage has not been measured for this demo.";
+  return "Coverage has not been measured yet.";
 }
 
 export function listSourceRegistryEntries(): readonly SourceRegistryEntry[] {
@@ -117,6 +116,6 @@ export function sourceRegistryPresentation(sourceId: string): SourceRegistryPres
     freshnessLabel: freshnessLabel(source),
     coverageLabel: coverageLabel(source),
     geometryLabel: source.geometry_type,
-    claimBoundary: source.known_limitations[0] ?? "Review the source detail before making a current-condition claim.",
+    claimBoundary: source.known_limitations[0] ?? "Open the source before relying on current conditions.",
   };
 }
