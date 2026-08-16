@@ -1,0 +1,10 @@
+.git
+.worktrees
+node_modules
+dist
+dist-server
+release
+artifacts
+.env
+.env.*
+*.tsbuildinfo
