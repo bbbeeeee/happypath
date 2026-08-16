@@ -1,52 +1,52 @@
 ---
 title: Route qualities and explanations
-status: inbox
+status: promoted
 owner: unassigned
 last_updated: 2026-08-15
 ---
 
 # Route qualities and explanations
 
-## User value
+## Status
+
+The core idea has been promoted into:
+
+- [Happy Path PRD](../PRD.md)
+- [Core UX specification](../UX.md)
+- [Data and inference specification](../data-and-inference.md)
+
+This note remains as historical context rather than active scope.
+
+## Original user value
 
 People may prefer a path that fits their situation or desired experience, even when it is not the default or shortest route.
 
-## Experience
+The original route qualities included:
 
-A person enters a destination and selects qualities that matter to them. The original project notes suggested:
+- quieter;
+- scenic;
+- shadier;
+- likely rain cover;
+- accessible or lower effort;
+- green;
+- less pedestrian traffic.
 
-- quieter
-- scenic
-- shadier
-- rain cover
-- accessible
-- green
-- less pedestrian traffic
+The route should explain why it matches the request and distinguish strong physical evidence from incomplete or qualitative proxies.
 
-The resulting path could explain why it matches the selected qualities—for example, what evidence supports calling a street shadier or quieter.
+## Product decisions now made
 
-A small assistant might help people choose or understand these path qualities, but its role is still undefined.
+- The route is the primary output.
+- Time-aware estimated shade is the first quantitative proof.
+- Greenery remains distinct from shade.
+- Mapped-step avoidance is not an accessibility guarantee.
+- Noise, traffic, and activity remain expected or experimental unless measured directly.
+- The interface should not expose every quality as a filter.
+- AI selects supported criteria and explains evidence; deterministic systems calculate routes and physical metrics.
+- Additional city layers enter through a shared registry and validation gate.
+- The same route features can support Detour planning analysis.
 
-## Why it might belong in Happy Path
+## Remaining research questions
 
-Choosing and explaining path qualities could distinguish Happy Path from route tools that optimize mainly for time or distance.
-
-## Data and feasibility
-
-Open questions include:
-
-- Which qualities can be supported by credible, current NYC data?
-- How should qualitative or incomplete evidence be presented?
-- Which qualities can influence routing, and which can only annotate a path?
-- Can an initial prototype demonstrate one or two qualities convincingly?
-
-## Risks and open questions
-
-- A quality may mean different things to different people.
-- Data coverage or freshness may vary by neighborhood.
-- Safety- or accessibility-related claims require a high bar for trust and clarity.
-- Too many controls could weaken the initial experience.
-
-## Path to the PRD
-
-Identify the first user and problem, validate which quality they care about, and confirm that the supporting data is credible enough for a prototype.
+- Which amenity or friction feature should become the third validated route capability?
+- Which incomplete layers are still valuable for visualization or Detour before routing?
+- Which personal or experiential qualities can be supported without pretending the model has universal taste?
