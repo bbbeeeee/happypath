@@ -23,10 +23,11 @@ The project has one coherent product contract, one documentation structure, and 
 - The product should integrate a broad set of NYC public-data layers while keeping the resident experience simple.
 - Real City and open data should support resident route facts wherever practical.
 - The demo should feel polished, friendly, and magical rather than like a technical prototype.
-- No existing branch is designated as the implementation base.
+- The base map remains visually complete even where individual evidence layers have partial coverage.
+- No existing branch, technical stack, or architecture is designated as the implementation base.
 - No visual or architectural concepts from `bryan` are retained in the current plan.
-- This PR updates docs and task planning only.
-- Implementation proceeds later through focused PRs to `main`.
+- This work updates docs and task planning only.
+- Future builders may choose the implementation and collaboration workflow that best satisfies these docs.
 
 ## Deliverables
 
@@ -35,9 +36,9 @@ The project has one coherent product contract, one documentation structure, and 
 - approved [data and inference specification](../docs/data-and-inference.md);
 - approved [Detour PRD](../docs/DETOUR.md);
 - approved [build plan](../docs/BUILD.md);
-- approved [prototype disposition](../docs/PROTOTYPES.md);
+- approved [prototype notes](../docs/PROTOTYPES.md);
 - approved task board and work packages;
-- documentation PR merged to `main`.
+- documentation merged to `main`.
 
 ## Work breakdown
 
@@ -46,37 +47,40 @@ The project has one coherent product contract, one documentation structure, and 
 - [x] `001-C` — Consolidate resident product, civic-data platform, and Detour direction.
 - [x] `001-D` — Replace stale task scaffolding with end-to-end work packages.
 - [x] `001-E` — Set the Manhattan geography target through Midtown.
-- [x] `001-F` — Decide that no prototype branch is the implementation base.
+- [x] `001-F` — Decide that no prototype branch or architecture is the implementation base.
 - [x] `001-G` — Decide not to retain `bryan` visual concepts.
 - [x] `001-H` — Set P1 as the delivery target and later scope explicitly.
-- [x] `001-I` — Define docs-first, implementation-later PR sequencing.
-- [ ] `001-J` — Complete final product review and requested edits.
-- [ ] `001-K` — Merge the documentation PR to `main`.
-- [ ] `001-L` — Create implementation issues or PR-sized slices from tasks 002–009.
+- [x] `001-I` — Keep future implementation workflow intentionally unprescribed.
+- [x] `001-J` — Require a full base map even where optional evidence coverage is partial.
+- [ ] `001-K` — Complete final product review and requested edits.
+- [ ] `001-L` — Merge the documentation to `main`.
 
 ## Acceptance criteria
 
 - [ ] The product can be summarized in one clear paragraph.
 - [ ] The role of NYC public data is explicit and measurable.
 - [ ] The P1 user experience and demo quality bar are clear.
-- [ ] Detour is connected to the same architecture and included as one planning proof.
-- [ ] Prototype branches are references only.
+- [ ] The map remains full and legible independent of optional layer coverage.
+- [ ] Detour is connected to the same city model and included as one planning proof.
+- [ ] Prototype branches are historical references only.
 - [ ] No live task depends on superseded requirements.
-- [ ] Downstream packages have stable contracts and clear dependencies.
+- [ ] Downstream packages have stable information contracts and clear dependencies.
+- [ ] The docs do not unnecessarily prescribe implementation technology or collaboration workflow.
 - [ ] The documentation can be merged without application-code changes.
 
 ## Out of scope
 
 - application implementation;
 - selecting a final technical stack;
+- prescribing a branching or issue-management strategy;
 - merging prototype branches;
 - validating City datasets;
 - deploying the demo.
 
 ## Verification
 
-Review the full documentation set and PR diff. Confirm that geography, P1 scope, product voice, real-data standard, prototype disposition, Detour role, and task sequence are consistent before merging.
+Review the full documentation set and PR diff. Confirm that geography, P1 scope, product voice, real-data standard, map completeness, prototype disposition, Detour role, task sequence, and implementation freedom are consistent before merging.
 
 ## Handoff
 
-After the docs merge, tasks 002–006 can begin in parallel through implementation issues and focused PRs.
+After the docs merge, tasks 002–006 can begin in parallel in whatever execution workflow the future team chooses.
