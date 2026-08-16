@@ -2214,6 +2214,36 @@ export function App() {
 
   useEffect(() => {
     const map = mapRef.current;
+    if (!mapReady || !map || route || appMode !== "walk") return;
+    const coordinates = [composeEndpointCoordinates.origin, composeEndpointCoordinates.destination]
+      .filter((coordinate): coordinate is Coordinate => Boolean(coordinate));
+    if (!coordinates.length) return;
+    const frame = window.requestAnimationFrame(() => {
+      if (window.innerWidth <= 800) {
+        const padding = {
+          top: 40,
+          right: Math.round(window.innerWidth * .58),
+          bottom: Math.round(window.innerHeight * .62),
+          left: 20,
+        };
+        if (coordinates.length === 1) {
+          map.easeTo({ center: coordinates[0], zoom: Math.max(14, map.getZoom()), padding, duration: 450 });
+        } else {
+          map.fitBounds(boundsForCoordinates(coordinates)!, { padding, maxZoom: 14.8, duration: 500 });
+        }
+      } else if (coordinates.length > 1) {
+        map.fitBounds(boundsForCoordinates(coordinates)!, {
+          padding: { top: 100, right: 80, bottom: 100, left: 470 },
+          maxZoom: 15.5,
+          duration: 500,
+        });
+      }
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [appMode, composeEndpointCoordinates, mapReady, route]);
+
+  useEffect(() => {
+    const map = mapRef.current;
     if (!mapReady || !map || !route || route.coordinates.length === 0) {
       originMarkerRef.current?.remove();
       destinationMarkerRef.current?.remove();
