@@ -1,13 +1,19 @@
 # Happy Path
 
-Happy Path is an intelligent walking-route interface over New York City public data.
+Happy Path helps people care about the journey, not only the destination.
 
-A person describes how they want to move through the city, Happy Path turns that request into an inspectable Trip Brief, computes a valid route from street-level evidence, and explains what the detour buys. The same city model later powers **Detour**, a planning workspace for identifying amenity and infrastructure gaps.
+A person says where and/or how they want to walk. Happy Path brings together NYC public data, computes a practical route or walk, and explains—in clear, friendly language—why that way fits the moment.
+
+The product should feel simple and almost magical even though the work underneath is complex:
+
+> **Say what you want → see what Happy Path understood → get a considered walk → adjust it naturally.**
+
+The same city model also powers **Detour**, a planning extension for identifying where missing shade, access, amenities, or infrastructure make everyday journeys harder.
 
 ## Start here
 
 - [Product requirements](docs/PRD.md)
-- [Core experience and map UX](docs/UX.md)
+- [Core experience, map UX, and product language](docs/UX.md)
 - [Data and inference specification](docs/data-and-inference.md)
 - [Detour planning extension](docs/DETOUR.md)
 - [Build plan and dependencies](docs/BUILD.md)
@@ -16,10 +22,11 @@ A person describes how they want to move through the city, Happy Path turns that
 
 ## Current direction
 
-- **Pilot:** bounded Lower Manhattan area
-- **First journey:** fixed origin to destination
+- **Geography:** Manhattan from the Battery through Midtown, approximately south of Central Park
+- **Journey types:** destination routes, time-boxed loops, and directional wandering
 - **Hero proof:** time-aware shade using NYC building geometry and solar position
-- **Broader platform:** greenery, sheds and construction, mapped steps, elevation, seating, restrooms, water, public spaces, transit, and other validated city layers
-- **Interaction:** one sentence → visible Trip Brief → computed route → evidence-backed receipt → natural refinement
+- **City layers:** greenery, sidewalk sheds and construction, mapped steps, elevation, seating, restrooms, water, public spaces, transit, and other validated data
+- **Experience:** one friendly request → an easy-to-check interpretation → one clear route → useful reasons → natural refinement
+- **Planning connection:** one Detour proof using the same data and route features
 
-`main` is documentation-first while implementation prototypes remain on separate branches. See [PROTOTYPES.md](docs/PROTOTYPES.md) before merging or replacing any prototype work.
+This branch updates product documentation and task planning only. Implementation will proceed later through focused pull requests to `main`; no existing prototype branch is designated as the application base.
