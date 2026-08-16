@@ -26,6 +26,12 @@ const shadeTileNames = (await readdir(assetsDirectory))
   .filter((name) => name.startsWith("hour-") && name.endsWith(".json"));
 if (shadeTileNames.length === 0) throw new Error("The production build contains no lazy shade JSON tiles");
 
+const maplibreWorkerNames = (await readdir(assetsDirectory))
+  .filter((name) => name.startsWith("maplibre-gl-worker-") && name.endsWith(".js"));
+if (maplibreWorkerNames.length !== 1) {
+  throw new Error(`The production build must contain exactly one bundled MapLibre worker; found ${maplibreWorkerNames.length}`);
+}
+
 const floodContextName = (await readdir(assetsDirectory))
   .find((name) => name.startsWith("pilot-flood-evidence-") && name.endsWith(".js"));
 if (!floodContextName) throw new Error("The production build contains no lazy flood-context chunk");
@@ -61,4 +67,4 @@ if (plannerScenarioGzipBytes > plannerScenarioBudget) {
 
 if (failures.length > 0) throw new Error(`Bundle budget failed: ${failures.join("; ")}`);
 
-console.log(`Bundle budgets passed: initial JavaScript ${formatKilobytes(initialScriptGzipBytes)}; largest shade tile ${largestShadeTile.name} ${formatKilobytes(largestShadeTile.gzipBytes)}; flood context ${formatKilobytes(floodContextGzipBytes)}; planner scenario ${formatKilobytes(plannerScenarioGzipBytes)}`);
+console.log(`Bundle budgets passed: initial JavaScript ${formatKilobytes(initialScriptGzipBytes)}; MapLibre worker ${maplibreWorkerNames[0]}; largest shade tile ${largestShadeTile.name} ${formatKilobytes(largestShadeTile.gzipBytes)}; flood context ${formatKilobytes(floodContextGzipBytes)}; planner scenario ${formatKilobytes(plannerScenarioGzipBytes)}`);

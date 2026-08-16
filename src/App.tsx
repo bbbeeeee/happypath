@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import * as maplibregl from "maplibre-gl";
+import maplibreWorkerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
 import type { DataDrivenPropertyValueSpecification, GeoJSONSource, Map as MapLibreMap, MapLayerMouseEvent, MapOptions } from "maplibre-gl";
 import { defaultDestination, defaultOrigin, defaultOriginLabel, ensureGraphCoverage, graphNodeById, isInsidePilot, nearestGraphNode, nearestGraphNodeWithin, pilotGraph } from "./data/cityGraph";
 import buildingFootprintsUrl from "./data/pilot-buildings.json?url";
@@ -86,6 +87,8 @@ import {
   type RouteFeedbackCategory,
   type RouteFeedbackSentiment,
 } from "./routeActivity";
+
+maplibregl.setWorkerUrl(maplibreWorkerUrl);
 
 const MAP_STYLE = "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json";
 const shadowModules = import.meta.glob("./data/shadows/*-col-*/hour-*.json", { query: "?url", import: "default" });
