@@ -8,8 +8,8 @@
 | Core product | Happy Path |
 | Planning extension | Detour |
 | Initial mode | Walking |
-| Pilot | Bounded Lower Manhattan area |
-| First journey | Fixed origin to destination |
+| Pilot | Manhattan south of Central Park, approximately Battery to 59th Street |
+| Delivery target | P1 resident experience plus one Detour planning proof |
 | Hero proof | Time-aware Cooler route |
 | Interface | Mobile, map-first, conversational |
 | Data strategy | Broad city-data platform; selective, evidence-backed presentation |
@@ -17,46 +17,56 @@
 
 ## 1. Product definition
 
-**Happy Path is an intelligent interface over New York City’s public-realm data.**
+**Happy Path helps people care about the journey, not only the destination.**
 
-It turns fragmented information about streets, buildings, shade, greenery, construction, mapped steps, elevation, seating, restrooms, water, public spaces, transit, and activity into an explainable walking route for a particular person and moment.
+It converts a short request describing **where and/or how someone wants to walk** into an evidence-backed route through Manhattan. It combines fragmented NYC public data about streets, buildings, shade, greenery, construction, mapped steps, elevation, seating, restrooms, water, public spaces, transit, and other relevant conditions into one considered journey.
 
 The resident experience remains simple:
 
 > **Say one sentence → inspect what Happy Path understood → receive a computed route → refine it naturally.**
 
-Example:
+Examples:
 
-> “Walk me to Washington Square Park with less direct sun. I can add five minutes, and avoid mapped steps.”
+> “Walk me to Washington Square Park with less direct sun. I can add five minutes.”
+
+> “Give me a green 25-minute loop with places to sit.”
+
+> “I have 40 minutes. Help me wander north through calmer streets and finish near a subway.”
 
 Happy Path:
 
 1. translates the request into a visible Trip Brief;
-2. computes valid alternatives from an enriched pedestrian graph;
-3. recommends one practical route;
-4. explains what the detour improves and what it compromises;
-5. shows which city data and derivations support the result;
-6. lets the user refine the route without starting over.
+2. selects the city layers relevant to the situation;
+3. computes valid alternatives from an enriched pedestrian graph;
+4. recommends one practical route or walk;
+5. explains what the detour improves and what it compromises;
+6. shows which public data and derivations support the result;
+7. lets the user refine the route without starting over.
 
 ### Product promise
 
-> **Tell Happy Path where you are going and what matters. It finds a practical way that fits and shows what the extra time buys.**
+> **Tell Happy Path where and/or how you want to walk. It finds a practical way that fits the person and moment, and shows what every detour buys.**
 
-## 2. Two connected goals
+## 2. Three connected goals
 
 ### Resident goal
 
-Use NYC public data to help someone choose a route that better fits their needs, preferences, company, available time, and current conditions.
+Help someone move through the city in a way that is more pleasant, personal, comfortable, informed, and appropriate to the current situation—not merely efficient.
 
-### Civic goal
+### Civic-data goal
 
-Make difficult-to-use public data understandable and actionable, while building a shared city model that can reveal gaps in shade, accessibility, amenities, public space, and pedestrian infrastructure.
+Make difficult-to-use NYC public data understandable and useful through a concrete resident decision. Happy Path should expose the value of City data without forcing anyone to operate a data portal.
 
-The route is the bridge between the two goals:
+### City-planning goal
 
-- not “here are all NYC benches,” but “this route never leaves you more than seven minutes from mapped seating”;
+Build a shared street and public-asset model that can reveal recurring gaps in shade, access, amenities, public space, and pedestrian infrastructure. The same model powers Detour.
+
+The route is the bridge:
+
+- not “here are all NYC benches,” but “this route keeps mapped seating within an eight-minute walk”;
 - not “here are sidewalk sheds,” but “this alternative avoids three shed-affected blocks”;
-- not “here are building footprints,” but “four extra minutes saves eleven estimated minutes in direct sun.”
+- not “here are building footprints,” but “four extra minutes saves eleven estimated minutes in direct sun”;
+- not “here are restrooms,” but “this walk includes one with published hours near the midpoint.”
 
 ## 3. Problem
 
@@ -65,19 +75,21 @@ Mainstream walking directions primarily optimize time and distance. They do not 
 - Which practical route has less direct sun at this time?
 - What does adding five minutes materially improve?
 - Can I avoid mapped steps, known construction friction, or long rest gaps?
-- Which route better fits the person or situation?
+- Can I take a useful loop without choosing a destination?
+- Can I wander toward an area and finish near transit or another resource?
+- Which route better fits my company, energy, preferences, or current conditions?
 - Why did the system choose one street rather than the parallel one?
 - How reliable is the supporting evidence?
 
 General-purpose AI can suggest places or produce an itinerary, but it does not establish pedestrian connectivity, calculate physical conditions, enforce route constraints, or measure route tradeoffs.
 
-NYC publishes unusually rich public data, but it is fragmented across agencies, schemas, update schedules, and levels of reliability. Happy Path turns those layers into a concrete journey while preserving their provenance and limitations.
+NYC publishes unusually rich public data, but it is fragmented across agencies, schemas, update schedules, and levels of reliability. Happy Path turns those layers into a concrete journey while preserving provenance and limitations.
 
 ## 4. Primary user
 
 The first user is:
 
-> **A person walking through Manhattan who is willing to add a few minutes for a route that better fits the current conditions or company.**
+> **A person walking through Manhattan who is willing to trade some efficiency for a journey that better fits the current person, purpose, and moment.**
 
 Representative situations include:
 
@@ -88,15 +100,16 @@ Representative situations include:
 - carrying luggage or walking with a child;
 - finding places to pause, use a restroom, or get water;
 - avoiding likely construction friction;
-- wanting a route that is more comfortable without becoming impractically long.
+- taking a purposeful walk without a fixed destination;
+- ending near transit, a park, or another useful resource.
 
 The initial product does not claim guaranteed accessibility, personal safety, live quietness, live crowding, or complete operational status for public amenities.
 
 ## 5. Product principles
 
-### 5.1 The route is the answer
+### 5.1 The journey is the product
 
-Happy Path is not primarily an itinerary generator, open-data browser, or place-recommendation chatbot. Places and amenities may influence or anchor a route, but the output must remain a feasible journey through the pedestrian network.
+Happy Path is not primarily an itinerary generator, open-data browser, or place-recommendation chatbot. Places and amenities may influence or anchor a route, but the product should improve the experience of moving through the city itself.
 
 ### 5.2 One sentence is enough
 
@@ -104,15 +117,17 @@ The user should not begin with a large filter panel. Natural language produces a
 
 ### 5.3 Extra time is the clearest tradeoff
 
-The primary control is:
+For destination trips, the primary control is:
 
 > **How much extra time will you spend for a better walk?**
 
 Initial options are fastest, up to five extra minutes, and up to ten extra minutes. Happy Path may recommend a sweet spot when additional walking stops producing meaningful improvement.
 
+For loops and open-ended walks, the primary control is the total walking-time budget.
+
 ### 5.4 City data is a platform, not a collection of features
 
-A new data layer should plug into shared source, feature, evidence, routing, visualization, and Detour contracts. Adding benches or sidewalk sheds should not require redesigning the product.
+A new data layer should plug into shared source, feature, evidence, routing, visualization, and Detour contracts. Adding benches, weather, or sidewalk sheds should not require redesigning the product.
 
 A layer may be useful at several capability levels:
 
@@ -125,7 +140,7 @@ A layer may be useful at several capability levels:
 
 ### 5.5 Broad underneath, selective on top
 
-Happy Path should ingest and reason over many relevant city layers. The resident should see only the layers that materially affect the current request, recommendation, warning, or uncertainty.
+Happy Path should ingest and reason over many relevant city layers. The resident should see only the evidence that materially affects the current request, recommendation, warning, or uncertainty.
 
 The map must not become a generic GIS layer browser.
 
@@ -139,7 +154,7 @@ It may not invent route geometry, travel time, solar exposure, physical conditio
 
 The result must show:
 
-- what improved relative to the fastest route;
+- what improved relative to a relevant baseline;
 - what became worse or remains unresolved;
 - which sources and derivations support the result;
 - confidence and material uncertainty;
@@ -148,6 +163,10 @@ The result must show:
 ### 5.8 No universal block score
 
 A street is not inherently good or bad. Its usefulness depends on the journey, user, time, and preference being evaluated.
+
+### 5.9 Connect people to the city
+
+Happy Path should make City resources easier to discover and use. Over time, it may also invite safe, optional observations—such as confirming an obstruction or snapping a photo of an asset—to improve public ground truth. Participation must never be required for route utility or used to outsource City responsibilities.
 
 ## 6. Core experience
 
@@ -158,55 +177,55 @@ Detailed interaction behavior lives in [UX.md](UX.md).
 The opening experience contains:
 
 - origin;
-- destination;
+- optional destination or end condition;
+- walking-time or detour budget;
 - departure time, defaulting to now;
-- one natural-language request;
-- extra-time allowance.
+- one natural-language request.
 
 Primary prompt:
 
-> **How do you want this walk to feel?**
+> **Where and how would you like to walk?**
 
-Example:
+Examples:
 
-> “Less direct sun, no more than five minutes longer, with places to sit if possible.”
+- “Less direct sun to Bryant Park, no more than five minutes longer.”
+- “A green 20-minute loop with somewhere to sit.”
+- “Walk north for about 35 minutes and end near a subway.”
 
 ### 6.2 Interpret
 
 Happy Path displays an editable Trip Brief:
 
 ```text
-Destination
-Washington Square Park
+Journey
+25-minute loop
 
 Priorities
-Less direct sun · mapped seating nearby
+Greenery · mapped seating nearby
 
 Avoid
 Mapped steps
 
-Flexible by
-Up to 5 minutes
-
-Departure
+Leaving
 3:15 PM
 ```
 
-Every material interpretation remains visible. The system asks at most one clarification before routing, and only when ambiguity changes the destination, time budget, journey shape, or hard requirement.
+Every material interpretation remains visible. The system asks at most one clarification before routing, and only when ambiguity changes the journey shape, time budget, endpoint, or hard requirement.
 
 ### 6.3 Compute
 
 The route engine produces:
 
-- the fastest valid route;
+- the fastest valid route when there is a fixed destination;
 - geographically distinct alternatives;
+- candidate loops or endpoint-and-route combinations where supported;
 - measured route features and evidence coverage;
 - only candidates inside the selected time budget;
 - explicit hard-constraint validation.
 
 ### 6.4 Recommend
 
-Happy Path returns one primary route and a concise Route Receipt:
+Happy Path returns one primary route or walk and a concise Route Receipt:
 
 ```text
 YOUR HAPPY PATH
@@ -228,7 +247,7 @@ Confidence
 Medium-high
 ```
 
-The fastest route remains available as a comparison but should not visually compete with the recommendation by default.
+The fastest or most-direct route remains available as a comparison but should not visually compete with the recommendation by default.
 
 ### 6.5 Inspect
 
@@ -239,7 +258,7 @@ Example:
 - estimated building shade at the selected time;
 - less direct sun than the parallel avenue;
 - two mapped benches within five minutes;
-- one active sidewalk-shed record avoided;
+- one sidewalk-shed record avoided;
 - derived evidence, with validation status and source date.
 
 ### 6.6 Refine
@@ -248,27 +267,31 @@ The user can say:
 
 > “Shorten it, but keep most of the shade and the bathroom.”
 
+> “Make the loop a little greener.”
+
 Happy Path patches the existing Trip Brief, recomputes the route, and explains the delta. If no route satisfies the refinement, the product exposes the conflict rather than silently relaxing it.
 
 ## 7. Journey shapes
 
-### P0: Go somewhere
+### P0 foundation: Go somewhere
 
-A fixed origin and destination. This is the required implementation and demo journey.
+A fixed origin and destination with an evidence-backed route alternative. This is the first implementation foundation because it gives the clearest baseline and tradeoff.
 
-### P0 stretch: Loop
+### P1 target: Loop
 
-A 15-, 20-, or 30-minute walk returning near the starting point. Loop proceeds only after fixed-destination routing, evidence, and refinement are stable.
+A time-boxed walk returning near the starting point. The user supplies a duration and preferences; Happy Path chooses the path.
 
-### P1: Wander
+### P1 target: Wander
 
-A direction, neighborhood, endpoint type, or total outing budget where Happy Path chooses both endpoint and path. Wander requires endpoint generation, dwell-time logic, and stronger preference evidence, so it is not part of the critical path.
+The user supplies a direction, area, endpoint type, or walking-time budget. Happy Path chooses an endpoint and path while remaining within the stated constraints.
+
+P1 does not require a general multi-stop itinerary planner. Optional public resources or points of interest may act as waypoints or endpoints only when they fit the route and time budget.
 
 ## 8. City-data capability target
 
 The companion [data and inference specification](data-and-inference.md) contains exact sources, dataset IDs, claim boundaries, and validation gates.
 
-| Layer family | Resident use | Detour use | Initial target |
+| Layer family | Resident use | Detour use | P1 target |
 | --- | --- | --- | --- |
 | Pedestrian graph | Valid paths, time, mapped steps | Missing or broken connections | Core |
 | Buildings + solar position | Time-aware shade | Shade-continuity gaps | Routing-ready |
@@ -285,18 +308,20 @@ The companion [data and inference specification](data-and-inference.md) contains
 | Events and activity | Time-specific anchors or context | Temporary demand and spillover | Contextual |
 | Traffic, noise, and 311 | Expected friction or research context | Verification targeting | Experimental; never objective ground truth |
 | Cultural assets | Personally relevant anchors | Cultural-access analysis | Later experiential layer |
+| Weather and alerts | Time-sensitive defaults and context | Scenario context | Future live-data adapter |
 | Recent observations | Operational corrections | Ground-truth and data-gap reduction | Later, expiring evidence |
 
-### P0 data breadth target
+### P1 data breadth target
 
-The first integrated demo should:
+The integrated product should:
 
 1. catalog the full target layer set in the source registry;
 2. ingest at least five official NYC datasets in addition to the pedestrian graph;
 3. make at least five city-data layers inspectable on the map or in evidence details;
 4. have at least three independent layer families materially affect a route, requirement, waypoint, or Route Receipt;
 5. use at least one quantitative hero feature with validated route-level comparison;
-6. preserve uncertainty where coverage is incomplete.
+6. preserve uncertainty where coverage is incomplete;
+7. allow future time-sensitive inputs, such as weather, without changing the core layer contract.
 
 Not every ingested layer must control routing. Some may support explanation, waypoint selection, warning, coverage display, or Detour analysis first.
 
@@ -307,6 +332,7 @@ The detailed contracts live in [data-and-inference.md](data-and-inference.md).
 ### AI may
 
 - compile colloquial language into supported Trip Brief fields;
+- infer destination, loop, or wander shape;
 - identify when one clarification is necessary;
 - preserve explicit hard requirements;
 - select which supported layers are relevant to the request;
@@ -320,12 +346,12 @@ The detailed contracts live in [data-and-inference.md](data-and-inference.md).
 - generate or modify route geometry;
 - calculate distance, travel time, solar position, slope, or exposure;
 - treat missing evidence as a favorable condition;
-- infer live noise, crowding, amenity operation, or construction state without current evidence;
+- infer live noise, crowding, amenity operation, weather effects, or construction state without current evidence;
 - claim ADA accessibility or personal safety;
 - invent civic tasks or planning impacts;
 - output arbitrary map code, symbols, or colors.
 
-Inference must fail safely. Deterministic route modes remain available when the model is unavailable or the request contains unsupported criteria.
+Inference must fail safely. Deterministic route controls remain available when the model is unavailable or the request contains unsupported criteria.
 
 ## 10. Map and evidence presentation
 
@@ -353,19 +379,15 @@ CITY DATA USED
 3 official layers · 2 derived route metrics · 1 experimental condition
 ```
 
-The product should teach users what public data made the route possible without forcing them to operate a data portal.
+The product should teach users what public data made the journey possible without forcing them to operate a data portal.
 
 ## 11. Personalization
 
-Persistent personalization is P1.
+P1 personalization comes primarily from the current request and visible refinements.
 
-P0 may use:
+P1 may also support explicit taste anchors supplied for the current trip, such as a park, street, or place the user likes. The system must explain the connection rather than claim universal taste.
 
-- the current request;
-- visible refinements;
-- explicit taste anchors supplied for the current trip.
-
-Later, with explicit opt-in, Happy Path may remember structured tendencies such as choosing greener streets or accepting a typical detour. The current request always outranks history. The system learns route preferences, not sensitive identity, health, home, work, or personality traits.
+Persistent cross-session memory is later. With explicit opt-in, Happy Path may remember structured tendencies such as choosing greener streets or accepting a typical detour. The current request always outranks history. The system learns route preferences, not sensitive identity, health, home, work, or personality traits.
 
 ## 12. Detour
 
@@ -375,7 +397,7 @@ It asks:
 
 > **Where does the city make a desired journey unnecessarily difficult, and what intervention could reduce that burden?**
 
-The initial planning proof should reuse one validated resident feature—for example shade continuity, seating access, or mapped-step detour—and show:
+The P1 planning proof should reuse one validated resident feature—for example shade continuity, seating access, restroom access, or mapped-step detour—and show:
 
 1. representative journeys;
 2. a repeated route burden;
@@ -384,79 +406,46 @@ The initial planning proof should reuse one validated resident feature—for exa
 5. before-and-after rerouting and burden reduction;
 6. evidence, assumptions, and uncertainty.
 
-Full requirements live in [DETOUR.md](DETOUR.md).
+Full requirements live in [DETOUR.md](DETOUR.md). A general planner workspace and workflow integration are later.
 
-## 13. P0 scope
+## 13. Delivery scope
 
-### Required product capabilities
+### P0 foundation
 
-- bounded Lower Manhattan pilot;
-- fixed origin-to-destination walking;
-- address search and map selection;
-- current or selected departure time;
-- fastest route;
-- five- and ten-minute extra-time budgets;
-- one natural-language request;
-- visible, editable Trip Brief;
-- deterministic candidate generation and validation;
-- one recommended route;
-- quantified Route Receipt;
-- segment-level explanation;
-- one natural-language refinement;
-- source, confidence, coverage, and validation labels;
-- responsive mobile map;
-- complete loading, empty, unsupported, and error states.
+- Manhattan pedestrian graph and geocoding;
+- fixed origin-to-destination routing;
+- fastest route and time-aware shade alternative;
+- explicit minute-based detour budgets;
+- source, coverage, confidence, and validation labels;
+- basic Trip Brief, Route Receipt, and map inspection;
+- reusable layer and evidence contracts.
 
-### Required data capabilities
+### P1 target
 
-- time-aware building shade;
-- trees and parks;
-- mapped steps;
-- seating;
-- public restrooms;
-- drinking water or public-space locations;
-- sidewalk sheds or construction context;
-- shared layer registry and visualization contract.
+- operating geography from Lower Manhattan through Midtown, approximately south of Central Park;
+- destination, loop, and wander journey shapes;
+- one natural-language request and visible editable Trip Brief;
+- one recommended route or walk;
+- natural-language refinement;
+- time-aware shade, trees and parks, mapped steps, seating, restrooms, water or public space, and sheds or construction context;
+- at least three validated layer families affecting the result;
+- at least five official NYC datasets integrated and inspectable;
+- one P1 Detour planning proof using the same feature registry;
+- responsive mobile experience with complete loading, unsupported, partial-coverage, and error states.
 
-A layer may ship as visualizable or explanatory before it becomes routing-ready, but its capability status and claim boundary must be visible in the documentation.
+### Later / stretch
 
-### Validated route features
-
-At least three of the following should materially affect a route, requirement, waypoint, or receipt:
-
-1. estimated direct-sun exposure;
-2. greenery adjacency;
-3. mapped-step avoidance;
-4. rest continuity or seating access;
-5. restroom or water waypoint access;
-6. construction-friction avoidance.
-
-### Conditional extensions
-
-Only after the core experience is stable:
-
-- time-boxed loop;
-- elevation and gentler routing;
-- one prepared Detour scenario;
-- richer public-space routing;
-- custom icon family.
-
-### Deferred
-
-- Wander and flexible endpoint generation;
 - persistent preference memory;
-- broad restaurant, nightlife, or event recommendations;
-- subjective “cool” or “fun” claims without personal evidence;
+- broad restaurant, nightlife, or event recommendation;
+- richer live data such as weather, service alerts, or activity feeds;
 - guaranteed ADA-compliant routing;
-- live citywide noise or crowding;
 - turn-by-turn navigation;
-- citywide coverage;
-- Civic Assets & Actions;
-- general interactive planning tooling.
+- citywide or multimodal coverage;
+- custom icon family;
+- full interactive Detour workspace and planning-tool integration;
+- Civic Assets & Actions, resident photo verification, and authorized contribution matching.
 
 ## 14. Demo suite
-
-The product should support a few focused demonstrations rather than one overloaded flow.
 
 ### Cooler Manhattan
 
@@ -464,17 +453,23 @@ The product should support a few focused demonstrations rather than one overload
 
 Demonstrates buildings, solar position, route comparison, greenery context, and a quantitative receipt.
 
+### Considered loop
+
+> “Give me a green 25-minute loop with places to sit and water nearby.”
+
+Demonstrates a destination-free journey, trees, parks, seating, fountains, and the time budget.
+
 ### Taking my parents
 
-> “My parents tire easily. Help us walk toward Union Square with places to rest and a bathroom.”
+> “Help us walk toward Union Square with places to rest, a bathroom, and no mapped steps.”
 
-Demonstrates mapped steps, seating, restrooms, public space, greenery, and honest handling of unsupported accessibility guarantees.
+Demonstrates a flexible endpoint, seating, restrooms, public space, greenery, mapped steps, and honest handling of unsupported accessibility guarantees.
 
 ### Rain and construction
 
 > “It’s raining. Get me there while avoiding construction friction and favoring likely cover.”
 
-Demonstrates sheds, construction context, transit or public-space anchors, and visible uncertainty.
+Demonstrates sheds, construction context, public-space or transit anchors, and visible uncertainty. Live weather may be supplied manually or through a later adapter.
 
 ### Detour reveal
 
@@ -482,25 +477,25 @@ Show that the same route features reveal a recurring shade, seating, restroom, o
 
 ## 15. Acceptance criteria
 
-The P0 prototype succeeds when:
+The P1 prototype succeeds when:
 
-1. A user can select two locations inside the pilot.
+1. A user can describe where and/or how they want to walk in one short request.
 2. A natural-language request produces a visible, editable Trip Brief.
-3. The fastest route renders correctly.
-4. Happy Path returns a valid alternative inside the selected minute budget.
-5. The recommendation is materially different from the fastest route when a meaningful alternative exists.
+3. Destination, loop, and wander each produce at least one credible pilot journey.
+4. A relevant baseline renders correctly.
+5. Happy Path returns a valid alternative inside the selected time budget.
 6. The Route Receipt quantifies the route tradeoff.
 7. Changing departure time changes shade evidence when expected.
 8. A refinement changes the route predictably.
 9. Confirmed hard requirements are never silently relaxed.
 10. Every important claim maps to deterministic metrics and source evidence.
 11. Unknown, stale, partial, or pending evidence remains visibly uncertain.
-12. Inference failure falls back to deterministic routing.
+12. Inference failure falls back to deterministic controls.
 13. At least five official NYC datasets are integrated and inspectable.
 14. At least three independent layer families materially influence a route, requirement, waypoint, or receipt.
 15. Every integrated layer has a documented capability status and claim boundary.
-16. At least three demo prompts activate meaningfully different combinations of city data.
-17. At least ten origin-destination pairs are manually reviewed.
+16. At least four demo prompts activate meaningfully different combinations of city data.
+17. At least ten destination routes and a representative set of loops and wanders are manually reviewed.
 18. At least twenty sampled blocks or assets are checked against current visual or field evidence where relevant.
 19. One example clearly shows that a small detour produces a large human benefit.
 20. The same feature registry powers one Detour burden or intervention analysis.
@@ -524,4 +519,4 @@ Happy Path is not:
 
 ## 17. Product definition
 
-> **Happy Path converts a short description of how someone wants to walk into an evidence-backed route through Manhattan. It integrates fragmented NYC public data through a shared city-layer platform, computes valid alternatives, selects a practical tradeoff within the person’s available time, and explains what every detour buys. AI interprets and communicates; deterministic systems establish route facts. The same street model powers Detour, which identifies where missing shade, access, amenities, or infrastructure impose repeated journey burdens and tests which interventions could make the largest difference.**
+> **Happy Path converts a short request describing where and/or how someone wants to walk into an evidence-backed route through Manhattan. It integrates fragmented NYC public data through a shared city-layer platform, computes valid alternatives, selects a practical tradeoff within the person’s available time, and explains what every detour buys. AI interprets and communicates; deterministic systems establish route facts. The product cares about the journey—not only arrival—and connects residents to City resources, public spaces, and information along the way. The same street model powers Detour, which identifies where missing shade, access, amenities, or infrastructure impose repeated journey burdens and tests which interventions could make the largest difference. Future live data and optional resident observations can make both sides more current and useful.**
