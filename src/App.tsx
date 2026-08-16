@@ -365,7 +365,7 @@ function DetailPanel({ mode, brief, route, assets, activeAsset, detourScenario, 
 export function App() {
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
-  const [brief, setBrief] = useState<UiTripBrief>({ ...DEFAULT_BRIEF, departureHour: new Date().getHours() });
+  const [brief, setBrief] = useState<UiTripBrief>({ ...DEFAULT_BRIEF, priorities: [], departureHour: new Date().getHours() });
   const [prompt, setPrompt] = useState("");
   const [originNodeId, setOriginNodeId] = useState(defaultOrigin);
   const [destinationNodeId, setDestinationNodeId] = useState(defaultDestination);
@@ -457,6 +457,21 @@ export function App() {
     } finally {
       setBusy(false);
     }
+  }
+
+  function startNewWalk() {
+    setPrompt("");
+    setBrief({ ...DEFAULT_BRIEF, priorities: [], departureHour: new Date().getHours() });
+    setDestinationNodeId(defaultDestination);
+    setDestinationText(nodeById.get(defaultDestination)?.name ?? "Destination");
+    setRoute(null);
+    setResult(null);
+    setDetail(null);
+    setActiveAsset(null);
+    setActiveAssetPoint(null);
+    setError("");
+    setDelta("");
+    setModelFallback(false);
   }
 
   useEffect(() => {
@@ -564,7 +579,7 @@ export function App() {
     <div className="map-shell"><div className="map" ref={mapContainer} /><div className="map-wash" />{mapError && <div className="map-fallback" role="status"><strong>The map could not load.</strong><span>You can still plan a route and review its receipt. Check your connection to restore the map.</span></div>}</div>
     <div className="top-bar"><Brand /><div className="map-actions"><IconButton label="Center map" onClick={() => mapRef.current?.easeTo({ center: nodeById.get(originNodeId)?.coordinate, zoom: 14.5 })}><LocateIcon /></IconButton>{route && <IconButton label="Map details" onClick={() => { setActiveAsset(null); setActiveAssetPoint(null); setDetail("data"); }}><LayersIcon /></IconButton>}</div></div>
     {!route ? <ComposeSheet brief={brief} setBrief={setBrief} prompt={prompt} setPrompt={setPrompt} originText={originText} setOriginText={setOriginText} destinationText={destinationText} setDestinationText={setDestinationText} busy={busy} error={error} onPlan={() => plan()} />
-      : result && <ResultSheet brief={brief} route={route} result={result} assets={activeAssets} destinationText={destinationText} setDestinationText={setDestinationText} delta={delta} error={error} onBack={() => { setRoute(null); setResult(null); setDetail(null); setActiveAsset(null); setActiveAssetPoint(null); setError(""); }} onRefine={(value) => plan(value, true)} onAdjust={adjust} onShowWhy={() => { setActiveAsset(null); setActiveAssetPoint(null); setDetail("why"); }} onShowAsset={(asset) => { setActiveAsset(asset); setActiveAssetPoint(null); setDetail("asset"); }} onShowData={() => { setActiveAsset(null); setActiveAssetPoint(null); setDetail("data"); }} onShowDetour={() => { setActiveAsset(null); setActiveAssetPoint(null); setDetail("detour"); }} detourScenario={detourScenario} showBaseline={showBaseline} setShowBaseline={setShowBaseline} busy={busy} modelFallback={modelFallback} />}
+      : result && <ResultSheet brief={brief} route={route} result={result} assets={activeAssets} destinationText={destinationText} setDestinationText={setDestinationText} delta={delta} error={error} onBack={startNewWalk} onRefine={(value) => plan(value, true)} onAdjust={adjust} onShowWhy={() => { setActiveAsset(null); setActiveAssetPoint(null); setDetail("why"); }} onShowAsset={(asset) => { setActiveAsset(asset); setActiveAssetPoint(null); setDetail("asset"); }} onShowData={() => { setActiveAsset(null); setActiveAssetPoint(null); setDetail("data"); }} onShowDetour={() => { setActiveAsset(null); setActiveAssetPoint(null); setDetail("detour"); }} detourScenario={detourScenario} showBaseline={showBaseline} setShowBaseline={setShowBaseline} busy={busy} modelFallback={modelFallback} />}
     {detail && route && <DetailPanel mode={detail} brief={brief} route={route} assets={activeAssets} activeAsset={activeAsset} detourScenario={detourScenario} onClose={() => { setDetail(null); if (detail === "asset") { setActiveAsset(null); setActiveAssetPoint(null); } }} />}
     {activeAsset && detail !== "asset" && <aside className={`asset-popover ${assetPopoverOpensLeft ? "opens-left" : ""}`} style={assetPopoverStyle} role="dialog" aria-label={assetTypeLabel(activeAsset)}><div><AssetIcon kind={activeAsset.kind} /><IconButton label="Close" onClick={() => { setActiveAsset(null); setActiveAssetPoint(null); }}><CloseIcon /></IconButton></div><span className="eyebrow">Along your walk</span><h3>{assetTypeLabel(activeAsset)}</h3><p>{activeAsset.locationLabel}</p><small>{assetAvailabilityCopy(activeAsset)}</small>{(activeAsset.kind === "restroom" || activeAsset.kind === "transit") && <button type="button" className="asset-more" onClick={() => setDetail("asset")}>See details</button>}</aside>}
     {!mapError && route && <div className="map-key" aria-hidden="true"><span><i className="route-key" />Happy Path</span>{brief.priorities.includes("shade") && <span><i className="shade-key" />Estimated shade</span>}</div>}
