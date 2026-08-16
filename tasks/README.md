@@ -1,76 +1,98 @@
 # Happy Path task board
 
-This folder is the execution source of truth for Happy Path. Work is organized by **product work package**, not by permanent team. Packages are designed so different people or agents can work in parallel and meet through documented contracts.
+This folder is the execution plan for Happy Path. Work is organized by **product work package**, not permanent team. Packages may be owned by people or agents and are designed to proceed in parallel through shared contracts.
+
+The current branch contains planning only. After these docs are approved and merged, implementation work should be converted into focused issues or pull requests targeting `main`.
 
 ## Status vocabulary
 
-- `proposed` — drafted but not approved for execution
+- `proposed` — drafted but not approved
 - `ready` — scoped and available to claim
 - `in-progress` — active work
-- `blocked` — cannot proceed until a named dependency or decision resolves
-- `review` — deliverable exists and needs approval or verification
+- `blocked` — waiting on a named dependency or decision
+- `review` — deliverable exists and needs approval
 - `done` — acceptance criteria and verification are complete
-- `later` — intentionally outside the current milestone
+- `later` — outside the current P1 delivery target
 
 ## Current board
 
-| ID | Work package | Phase | Status | Depends on | Can run in parallel with |
+| ID | Work package | Milestone | Status | Depends on | Parallel work |
 | --- | --- | --- | --- | --- | --- |
-| [001](001-product-and-prototype-alignment.md) | Product and prototype alignment | M0 | Review | — | — |
-| [002](002-data-platform-and-pilot-audit.md) | Data platform and pilot audit | M1 | Ready | 001 | 003, 004, 005 |
-| [003](003-routing-and-route-metrics.md) | Routing and route metrics | M2 | Ready | 001; data fixtures from 002 | 004, 005, 006 |
-| [004](004-core-ux-and-map-presentation.md) | Core UX and map presentation | M3 | Ready | 001 | 002, 003, 005 |
-| [005](005-ai-trip-brief-and-explanations.md) | AI Trip Brief and explanations | M3 | Ready | 001; fixture contracts | 002, 003, 004 |
-| [006](006-civic-data-layers-and-amenities.md) | Civic data layers and amenities | M1–M3 | Ready | 002 | 003, 004, 005 |
-| [007](007-integration-quality-and-performance.md) | Integration, quality, and performance | M4 | Blocked | 002–006 | QA can begin early |
-| [008](008-demo-deployment-and-submission.md) | Demo, deployment, and submission | M4 | Blocked | 007 | 009 only if core is stable |
-| [009](009-detour-planning-extension.md) | Detour planning extension | Later / stretch | Later | 003, 006, stable 007 contracts | May spike without blocking P0 |
+| [001](001-product-and-prototype-alignment.md) | Product and documentation alignment | M0 | Review | — | — |
+| [002](002-data-platform-and-pilot-audit.md) | Manhattan data platform and audit | M1 | Ready after 001 | 001 | 003, 004, 005 |
+| [003](003-routing-and-route-metrics.md) | Destination, loop, wander, and route metrics | M2 | Ready after contracts | 001; fixtures from 002 | 004, 005, 006 |
+| [004](004-core-ux-and-map-presentation.md) | Core UX, map presentation, and product copy | M3 | Ready after 001 | 001 | 002, 003, 005 |
+| [005](005-ai-trip-brief-and-explanations.md) | AI Trip Brief, refinement, and explanations | M3 | Ready after fixtures | 001; shared fixtures | 002, 003, 004 |
+| [006](006-civic-data-layers-and-amenities.md) | Civic data layers and amenities | M1–M3 | Ready after 002 contract | 002 | 003, 004, 005 |
+| [007](007-integration-quality-and-performance.md) | Integration, quality, performance, and polish | M4 | Blocked | 002–006 | QA begins early |
+| [008](008-demo-deployment-and-submission.md) | Magical demo, deployment, and submission | M4 | Blocked | 007 | 009 when contracts stabilize |
+| [009](009-detour-planning-extension.md) | Detour planning proof | M4 / P1 | Planned | stable 003, 006, 007 contracts | May begin as a data spike |
 | [010](010-civic-assets-and-contributions.md) | Civic Assets & Actions | Later | Later | 006, 009 | — |
 
 ## Dependency shape
 
 ```text
-001 Product alignment
+001 Approve docs and plan
         │
         ├─────────────┬─────────────┬─────────────┐
         ↓             ↓             ↓             ↓
-002 Data platform  003 Routing   004 Core UX   005 AI
+002 Data platform  003 Routing   004 Product UX  005 AI and copy
         │             │             │             │
         └──────┬──────┴──────┬──────┴─────────────┘
                ↓             ↓
        006 Civic layers   shared fixtures
                └──────┬──────┘
                       ↓
-             007 Integration and QA
+             007 Integration and polish
                       ↓
              008 Demo and deployment
+                      ↘
+                       009 Detour proof
 
-009 Detour reuses stable route and layer contracts.
-010 Civic Assets & Actions follows Detour and trusted task sources.
+010 Civic Assets & Actions follows the resident and planning foundations.
 ```
+
+## Work philosophy
+
+### Build the system broadly, show it selectively
+
+The data platform can support many layers. The UI should surface only what makes the current walk more useful or understandable.
+
+### Make it feel real
+
+Use actual City and open data for route facts whenever practical. Clean, cache, crop, and curate the data so the product feels fast and coherent.
+
+### Make it feel magical
+
+The interaction should be simple, friendly, responsive, and polished. Technical complexity belongs behind the product experience.
+
+### Do not confuse completeness with quality
+
+It is better to support a smaller Manhattan area and several excellent journeys than expose broad, unreliable coverage.
 
 ## How to claim and run work
 
-1. Read the [PRD](../docs/PRD.md), relevant companion docs, and the full work-package file.
-2. Set the package owner and status before substantial work begins.
-3. Split implementation into independently reviewable pull requests where possible.
-4. Record decisions, test evidence, source versions, and blockers in the package file or linked deliverable.
+1. Read the [PRD](../docs/PRD.md), [UX guide](../docs/UX.md), relevant companion docs, and the work-package file.
+2. Set the owner and status before substantial work begins.
+3. Break implementation into independently reviewable PRs where possible.
+4. Record decisions, test evidence, source versions, copy decisions, and blockers.
 5. Do not broaden scope without updating the PRD and affected acceptance criteria.
-6. Update the package front matter and this board in the same pull request when status changes.
+6. Keep resident-facing copy friendly and free of unexplained implementation language.
 7. Mark a package `done` only after its verification section is complete.
 
 ## Task boundaries
 
-- The PRD defines **what** the product must do.
-- Companion docs define **how the system should behave**.
-- Task files define **the work required to get there**.
-- Prototype branches provide reusable assets but do not supersede the docs.
-- A dataset being available does not make it routing-ready.
-- A visual layer being implemented does not make its claim validated.
+- The PRD defines **what and why**.
+- UX defines **how the product should feel, speak, and behave**.
+- Data and inference define **evidence and system boundaries**.
+- Detour defines **the planning extension**.
+- Build defines **sequence and integration gates**.
+- Task files define **the work required to deliver them**.
+- Prototype branches are references, not implementation authority.
 
-## Parallel work contract
+## Parallel-work contract
 
-Parallel work should integrate through these shared schemas:
+Parallel work meets through:
 
 - `LayerDefinition`
 - `TripBrief`
@@ -79,15 +101,15 @@ Parallel work should integrate through these shared schemas:
 - `MapPresentation`
 - `DetourScenario`
 
-Fixture examples should be committed early so UI, AI, routing, and data work do not block each other unnecessarily.
+Commit realistic fixture examples early so UI, AI, routing, and data work can proceed without waiting for full integration.
 
 ## Adding or splitting work
 
-Use [TEMPLATE.md](TEMPLATE.md). Create a new work package only when it has:
+Use [TEMPLATE.md](TEMPLATE.md). Create a new top-level package only when it has:
 
 - a distinct outcome;
-- a clear owner or handoff;
-- explicit dependencies;
-- acceptance criteria that can be verified independently.
+- clear dependencies;
+- an independent verification path;
+- a meaningful handoff.
 
-Small implementation subtasks should normally remain inside their parent package or become GitHub issues linked from that file, rather than creating dozens of overlapping Markdown files.
+Smaller implementation work should usually become linked issues or subtasks inside its parent package rather than additional overlapping Markdown plans.
