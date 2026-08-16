@@ -318,6 +318,7 @@ export async function interpretTripBriefWithOpenRouter(
     throw new TripBriefInterpretError("invalid-output");
   }
   const patch = parseModelPatch(parsed);
+  const deterministicBrief = compileTripBrief(prompt, currentBrief);
   // A destination route without a destination cannot be planned. Models can
   // over-retain the empty initial draft, so keep this domain invariant here.
   if (patch.shape === "destination" && patch.destinationQuery === null) {
@@ -346,6 +347,22 @@ export async function interpretTripBriefWithOpenRouter(
     patch.distanceMiles = currentBrief.distanceMiles;
   }
   patch.activity = explicitActivity ?? currentBrief.activity;
+  // The model may add language understanding, but deterministic parsing owns
+  // every supported route switch and every visible evidence limitation. This
+  // prevents a valid structured response from dropping or inventing semantics.
+  patch.priorities = deterministicBrief.priorities;
+  patch.shape = deterministicBrief.shape;
+  patch.destinationQuery = deterministicBrief.destinationQuery;
+  patch.walkingMinutes = deterministicBrief.walkingMinutes;
+  patch.direction = deterministicBrief.direction;
+  patch.endCondition = deterministicBrief.endCondition;
+  patch.detourMinutes = deterministicBrief.detourMinutes;
+  patch.walkingTimeIntent = deterministicBrief.walkingTimeIntent;
+  if (deterministicBrief.destinationQuery) {
+    patch.shape = deterministicBrief.shape;
+    patch.destinationQuery = deterministicBrief.destinationQuery;
+  }
+  patch.unsupported = [...new Set([...(patch.unsupported ?? []), ...deterministicBrief.unsupported])].slice(0, 4);
   const brief = mergeTripBrief(currentBrief, patch, "model");
   return { ...brief, prompt };
 }

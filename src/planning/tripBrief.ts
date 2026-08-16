@@ -153,13 +153,19 @@ export function parseCivicTaskIntent(text: string): CivicTaskIntent | undefined 
 
 function collectPriorities(text: string): RoutePriority[] {
   const priorities: RoutePriority[] = [];
-  if (/shade|shady|sun|cooler/i.test(text)) priorities.push("shade");
-  if (/green|tree|park[- ]?lined/i.test(text)) priorities.push("greenery");
+  if (/\b(?:shade|shady|sun|cooler)\b/i.test(text)) priorities.push("shade");
+  if (/\b(?:green|greener|greenery|leafy|trees?|park[- ]?lined)\b/i.test(text)) priorities.push("greenery");
   if (/\b(?:sit|seat|seating|bench|benches|rest)\b/i.test(text)) priorities.push("rest");
-  if (/water|fountain/i.test(text)) priorities.push("water");
-  if (/restroom|bathroom|toilet/i.test(text)) priorities.push("restroom");
-  if (/construction|shed|work zone/i.test(text)) priorities.push("construction");
+  if (/\b(?:water|fountains?)\b/i.test(text)) priorities.push("water");
+  if (/\b(?:restroom|bathroom|toilet)s?\b/i.test(text)) priorities.push("restroom");
+  if (/\b(?:construction|sheds?|work zones?)\b/i.test(text)) priorities.push("construction");
   return unique(priorities);
+}
+
+export function hasExplicitRoutePriorityIntent(text: string) {
+  const routeText = withoutCivicTaskClause(text);
+  return collectPriorities(routeText).length > 0
+    || /\b(?:less|remove|skip|drop|don'?t prioritize|no need for)\s+(?:direct\s+)?(?:shade|green(?:ery)?|trees?|parks?|seating|benches?|rest|water|fountains?|restrooms?|bathrooms?|construction)\b/i.test(routeText);
 }
 
 function collectUnsupported(text: string) {
@@ -168,7 +174,7 @@ function collectUnsupported(text: string) {
   if (/\b(?:accessible|accessibility|wheelchair|mobility|ada(?:-compliant)?|stroller)\b/i.test(text)) {
     unsupported.push("Known stairs can be avoided, but curb ramps, slopes, and temporary obstacles can change");
   }
-  if (/quiet|noise|crowd/i.test(text)) unsupported.push("Crowd and noise levels aren’t live yet");
+  if (/\b(?:calm(?:er|ly)?|quiet(?:er|ly)?|noise|crowd)\b/i.test(text)) unsupported.push("Calm, crowd, and noise conditions aren’t live yet");
   if (/open now/i.test(text)) unsupported.push("Opening hours and current availability may have changed");
   return unsupported;
 }
@@ -209,7 +215,9 @@ export function compileTripBrief(prompt: string, current: TripBrief = DEFAULT_BR
   const parsedWalkingTimeIntent = parseWalkingTimeIntent(text, parsedMinutes);
   const shorter = /shorter|less time/i.test(text);
   const longer = /longer|more time/i.test(text);
-  const walkingMinutes = parsedMinutes ?? (shorter ? Math.max(10, current.walkingMinutes - 5) : longer ? Math.min(60, current.walkingMinutes + 5) : current.walkingMinutes);
+  const walkingMinutes = parsedMinutes ?? (shape === "destination"
+    ? current.walkingMinutes
+    : shorter ? Math.max(10, current.walkingMinutes - 5) : longer ? Math.min(60, current.walkingMinutes + 5) : current.walkingMinutes);
   const retainedDistance = current.distanceMiles === null
     ? null
     : shorter ? current.distanceMiles - 0.25 : longer ? current.distanceMiles + 0.25 : current.distanceMiles;
@@ -227,15 +235,30 @@ export function compileTripBrief(prompt: string, current: TripBrief = DEFAULT_BR
   else if (/(?:add|up to|no more than)\s+(?:10|ten)\s*(?:minutes?|mins?)/i.test(text)) detourMinutes = 10;
 
   const mentioned = collectPriorities(withoutCivicTaskClause(text));
-  let priorities = isRefinement ? [...current.priorities] : mentioned;
-  if (!isRefinement && priorities.length === 0) priorities = ["shade"];
-  if (isRefinement) {
+  // “Less direct sun” asks for more shade; only “less shade” (or an explicit
+  // remove/skip phrase) should turn the shade preference off.
+  const removesShade = /\bless\s+shade\b/i.test(lower)
+    || /\b(?:remove|skip|drop|don'?t prioritize|no need for)\s+(?:direct\s+)?(?:shade|sun)\b/i.test(lower);
+  const removesGreenery = /\b(?:less\s+green(?:ery)?|(?:remove|skip|drop|don'?t prioritize|no need for)\s+(?:green(?:ery)?|trees?|parks?))\b/i.test(lower);
+  const removesRest = /\b(?:less\s+(?:seating|rest)|(?:remove|skip|drop|don'?t prioritize|no need for)\s+(?:seating|benches?|rest))\b/i.test(lower);
+  const removesWater = /\b(?:less\s+water|(?:remove|skip|drop|don'?t prioritize|no need for)\s+(?:water|fountains?))\b/i.test(lower);
+  const removesRestroom = /\b(?:less\s+(?:restroom|bathroom|toilet)s?|(?:remove|skip|drop|don'?t prioritize|no need for)\s+(?:restrooms?|bathrooms?|toilets?))\b/i.test(lower);
+  const removesConstruction = /\b(?:less\s+construction|(?:remove|skip|drop|don'?t prioritize|no need for)\s+(?:construction|sheds?|work zones?))\b/i.test(lower);
+  const hasPriorityRemoval = removesShade || removesGreenery || removesRest || removesWater || removesRestroom || removesConstruction;
+  let priorities = isRefinement || hasPriorityRemoval ? [...current.priorities] : mentioned;
+  if (!isRefinement && !hasPriorityRemoval && priorities.length === 0) priorities = current.priorities.length ? [...current.priorities] : ["shade"];
+  if (isRefinement || hasPriorityRemoval) {
     priorities = unique([...priorities, ...mentioned]);
-    if (/less shade|don'?t prioritize shade/i.test(lower)) priorities = priorities.filter((item) => item !== "shade");
-    if (/less green|don'?t prioritize green/i.test(lower)) priorities = priorities.filter((item) => item !== "greenery");
   }
+  if (removesShade) priorities = priorities.filter((item) => item !== "shade");
+  if (removesGreenery) priorities = priorities.filter((item) => item !== "greenery");
+  if (removesRest) priorities = priorities.filter((item) => item !== "rest");
+  if (removesWater) priorities = priorities.filter((item) => item !== "water");
+  if (removesRestroom) priorities = priorities.filter((item) => item !== "restroom");
+  if (removesConstruction) priorities = priorities.filter((item) => item !== "construction");
 
-  const direction = (["north", "south", "east", "west"] as const).find((item) => lower.includes(item)) ?? (shape === "wander" ? current.direction : null);
+  const direction = (["north", "south", "east", "west"] as const).find((item) => new RegExp(`\\b${item}\\b`, "i").test(text))
+    ?? (shape === "wander" ? current.direction : null);
   const endCondition: EndCondition = /(?:end|finish) near (?:a |the )?(?:subway|train|transit)/i.test(text)
     ? "transit"
     : /(?:end|finish) near (?:a |the )?park/i.test(text)
@@ -249,6 +272,14 @@ export function compileTripBrief(prompt: string, current: TripBrief = DEFAULT_BR
     : [];
   const destinationDistanceLimitation = parsedDestination && parsedDistance !== null
     ? ["A fixed destination and exact distance can conflict, so this route uses the destination"]
+    : [];
+  const destinationTimeLimitation = shape === "destination"
+    && parseMinutes(text) !== null
+    && !/(?:add|up to|no more than)\s+(?:5|five|10|ten)\s*(?:minutes?|mins?)/i.test(text)
+    ? ["A fixed-destination time is not enforced; choose how many extra minutes you can add"]
+    : [];
+  const minimumTimeLimitation = /\bat least\s+(?:\d{1,3}|ten|fifteen|twenty|twenty[- ]?five|thirty|thirty[- ]?five|forty|forty[- ]?five|fifty|fifty[- ]?five|sixty)\s*(?:minutes?|mins?)\b/i.test(text)
+    ? ["A minimum walking time is not enforced; this route aims for the requested duration"]
     : [];
   const next: TripBrief = {
     ...current,
@@ -264,7 +295,7 @@ export function compileTripBrief(prompt: string, current: TripBrief = DEFAULT_BR
     direction,
     endCondition,
     civicTaskIntent: parsedCivicTaskIntent === undefined ? current.civicTaskIntent : parsedCivicTaskIntent,
-    unsupported: unique([...collectUnsupported(text), ...distanceLimitation, ...destinationDistanceLimitation, ...(isRefinement ? current.unsupported : [])]),
+    unsupported: unique([...collectUnsupported(text), ...distanceLimitation, ...destinationDistanceLimitation, ...destinationTimeLimitation, ...minimumTimeLimitation, ...(isRefinement ? current.unsupported : [])]),
     prompt: text,
     interpretedBy: "fallback",
   };

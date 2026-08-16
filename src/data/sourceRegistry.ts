@@ -1,6 +1,17 @@
 import registryJson from "./source-registry.json";
+import { supportedArea } from "./supportedArea";
 
 export type SourceCapabilityStatus = "ingested" | "derived" | "reference_only" | "live_reference";
+export type SourceValidationStatus = "pending" | "cataloged" | "pilot_ingested" | "pilot_context_only";
+
+export interface SourceScenario {
+  id: string;
+  label: string;
+  rainfallRateInchesPerHour: number;
+  seaLevelCondition: string;
+  modeled: boolean;
+  live: boolean;
+}
 
 export interface SourceRegistryEntry {
   source_id: string;
@@ -23,7 +34,9 @@ export interface SourceRegistryEntry {
   pilot_coverage: number | null;
   pilot_record_count?: number;
   capability_status?: SourceCapabilityStatus;
+  validation_status: SourceValidationStatus;
   map_readiness?: string;
+  scenario?: SourceScenario;
   freshness_statement?: string;
   coverage_statement?: string;
   known_limitations: string[];
@@ -86,7 +99,7 @@ function coverageLabel(source: SourceRegistryEntry): string {
   if (typeof source.pilot_record_count === "number") {
     return `${source.pilot_record_count.toLocaleString("en-US")} nearby listings are included in this preview.`;
   }
-  if (source.pilot_coverage === 1) return "Included across the Lower Manhattan preview area.";
+  if (source.pilot_coverage === 1) return `Included across ${supportedArea.label}.`;
   if (typeof source.pilot_coverage === "number") {
     return `Included across ${Math.round(source.pilot_coverage * 100)}% of the preview area.`;
   }

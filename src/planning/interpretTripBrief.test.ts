@@ -33,6 +33,30 @@ describe("interpretTripBrief", () => {
     })).resolves.toMatchObject({ walkingMinutes: 37, walkingTimeIntent: "target" });
   });
 
+  it("keeps saved defaults unless the current request explicitly replaces them", async () => {
+    const current = { ...compileTripBrief("Walk me to Washington Square Park"), priorities: ["shade", "rest"] as const, detourMinutes: 10 as const };
+    const modelBrief = {
+      ...current,
+      priorities: [],
+      detourMinutes: 5 as const,
+      prompt: "Walk me to Union Square",
+      interpretedBy: "model" as const,
+    };
+    const fetchImpl = vi.fn(async () => new Response(JSON.stringify({ brief: modelBrief }), { status: 200 })) as unknown as typeof fetch;
+
+    await expect(interpretTripBrief("Walk me to Union Square", { ...current, priorities: [...current.priorities] }, { fetchImpl })).resolves.toMatchObject({
+      priorities: ["shade", "rest"],
+      detourMinutes: 10,
+    });
+
+    const explicitModelBrief = { ...modelBrief, priorities: ["greenery"], prompt: "Take greener streets to Union Square" };
+    const explicitFetch = vi.fn(async () => new Response(JSON.stringify({ brief: explicitModelBrief }), { status: 200 })) as unknown as typeof fetch;
+    await expect(interpretTripBrief("Take greener streets to Union Square", { ...current, priorities: [...current.priorities] }, { fetchImpl: explicitFetch })).resolves.toMatchObject({
+      priorities: ["greenery"],
+      detourMinutes: 10,
+    });
+  });
+
   it("uses the deterministic compiler when the endpoint is unavailable", async () => {
     const current = compileTripBrief("Give me a green 25-minute loop with water nearby");
     const fetchImpl = vi.fn(async () => new Response("unavailable", { status: 503 })) as unknown as typeof fetch;

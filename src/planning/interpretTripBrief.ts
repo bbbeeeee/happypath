@@ -1,6 +1,7 @@
 import {
   compileTripBrief,
   DEFAULT_BRIEF,
+  hasExplicitRoutePriorityIntent,
   type TripBrief,
 } from "./tripBrief";
 
@@ -56,7 +57,8 @@ export async function interpretTripBrief(
   currentBrief: TripBrief = DEFAULT_BRIEF,
   options: InterpretTripBriefOptions = {},
 ): Promise<TripBrief> {
-  const fallback = () => compileTripBrief(prompt, currentBrief);
+  const deterministicBrief = compileTripBrief(prompt, currentBrief);
+  const fallback = () => deterministicBrief;
   try {
     const response = await (options.fetchImpl ?? fetch)(options.endpoint ?? "/api/interpret", {
       method: "POST",
@@ -73,6 +75,10 @@ export async function interpretTripBrief(
           distanceMiles: payload.brief.distanceMiles === undefined ? currentBrief.distanceMiles : payload.brief.distanceMiles,
           walkingTimeIntent: payload.brief.walkingTimeIntent ?? currentBrief.walkingTimeIntent,
           civicTaskIntent: payload.brief.civicTaskIntent ?? currentBrief.civicTaskIntent,
+          priorities: currentBrief.priorities.length > 0 && !hasExplicitRoutePriorityIntent(prompt)
+            ? [...currentBrief.priorities]
+            : payload.brief.priorities,
+          detourMinutes: deterministicBrief.detourMinutes,
         }
       : fallback();
   } catch {

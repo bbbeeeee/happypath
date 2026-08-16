@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { compileTripBrief } from "../src/planning/tripBrief.ts";
+import { HERO_PROMPT_CONTRACTS } from "../src/exampleJourneys.ts";
 import {
   DEFAULT_OPENROUTER_MODEL,
   OPENROUTER_URL,
@@ -18,6 +19,43 @@ function completion(content: unknown) {
 }
 
 describe("interpretTripBriefWithOpenRouter", () => {
+  it("keeps model and deterministic route semantics equivalent for every hero prompt", async () => {
+    for (const contract of HERO_PROMPT_CONTRACTS) {
+      const fallback = compileTripBrief(contract.prompt);
+      const fetchImpl = vi.fn(async () => completion({
+        shape: "loop",
+        activity: "walk",
+        destinationQuery: null,
+        distanceMiles: null,
+        walkingMinutes: 10,
+        walkingTimeIntent: "maximum",
+        detourMinutes: 0,
+        departureHour: fallback.departureHour,
+        priorities: [],
+        avoidMappedSteps: false,
+        direction: "south",
+        endCondition: "park",
+        civicTaskIntent: null,
+        unsupported: [],
+      })) as unknown as typeof fetch;
+      const model = await interpretTripBriefWithOpenRouter(
+        { prompt: contract.prompt },
+        { apiKey: "test-key", fetchImpl },
+      );
+      const semanticProjection = (brief: typeof fallback) => ({
+        shape: brief.shape,
+        destinationQuery: brief.destinationQuery,
+        walkingMinutes: brief.walkingMinutes,
+        walkingTimeIntent: brief.walkingTimeIntent,
+        detourMinutes: brief.detourMinutes,
+        priorities: brief.priorities,
+        direction: brief.direction,
+        endCondition: brief.endCondition,
+        unsupported: brief.unsupported,
+      });
+      expect(semanticProjection(model), contract.id).toEqual(semanticProjection(fallback));
+    }
+  });
   it("uses strict structured output and includes the current brief for refinement", async () => {
     const current = compileTripBrief("Give me a green 25-minute loop with water nearby");
     const fetchMock = vi.fn(async () => completion({

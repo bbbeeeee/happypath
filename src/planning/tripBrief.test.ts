@@ -1,7 +1,22 @@
 import { describe, expect, it } from "vitest";
-import { briefSummary, compileTripBrief, DEFAULT_BRIEF, distanceMilesToRoutingMinutes, mergeTripBrief, withDestinationOverride } from "./tripBrief";
+import { briefSummary, compileTripBrief, DEFAULT_BRIEF, distanceMilesToRoutingMinutes, mergeTripBrief, withDestinationOverride, type TripBrief } from "./tripBrief";
 
 describe("compileTripBrief", () => {
+  it("keeps saved route qualities unless the current request names its own", () => {
+    const savedDefaults: TripBrief = { ...DEFAULT_BRIEF, priorities: ["shade", "rest"], detourMinutes: 10 };
+
+    expect(compileTripBrief("Walk me to Washington Square Park", savedDefaults)).toMatchObject({
+      priorities: ["shade", "rest"],
+      detourMinutes: 10,
+    });
+    expect(compileTripBrief("Walk me to Washington Square Park on greener streets", savedDefaults)).toMatchObject({
+      priorities: ["greenery"],
+      detourMinutes: 10,
+    });
+    expect(compileTripBrief("Take the fastest way to Washington Square Park", savedDefaults).detourMinutes).toBe(0);
+    expect(compileTripBrief("Walk me to Washington Square Park; no need for water", { ...savedDefaults, priorities: ["shade", "water"] }).priorities).toEqual(["shade"]);
+  });
+
   it.each([
     ["Walk me to Washington Square Park with less direct sun. I can add five minutes.", "destination", "shade"],
     ["Give me a green 25-minute loop with places to sit.", "loop", "greenery"],
@@ -189,6 +204,29 @@ describe("compileTripBrief", () => {
   it("does not mistake an unrelated nearby-distance phrase for a time limit", () => {
     const brief = compileTripBrief("Give me a 30-minute loop with seating within 100 meters");
     expect(brief.walkingTimeIntent).toBe("target");
+  });
+
+  it("matches direction as a complete word and keeps unsupported calm language visible", () => {
+    const unrelated = compileTripBrief("Wander southeastern calmly for at least 30 minutes");
+
+    expect(unrelated.direction).toBeNull();
+    expect(unrelated.priorities).not.toContain("greenery");
+    expect(unrelated.unsupported.join(" ")).toMatch(/calm, crowd, and noise/i);
+    expect(unrelated.unsupported.join(" ")).toMatch(/minimum walking time is not enforced/i);
+  });
+
+  it("does not infer route amenities from words that merely contain their names", () => {
+    const brief = compileTripBrief("Take me to Waterside Plaza through Forest Street");
+    expect(brief.priorities).not.toContain("water");
+    expect(brief.priorities).not.toContain("rest");
+    expect(brief.priorities).not.toContain("greenery");
+  });
+
+  it("does not silently treat a fixed-destination duration as a route budget", () => {
+    const brief = compileTripBrief("Walk me to Union Square in 25 minutes");
+
+    expect(brief).toMatchObject({ shape: "destination", destinationQuery: "Union Square" });
+    expect(brief.unsupported.join(" ")).toMatch(/fixed-destination time is not enforced/i);
   });
 
   it("treats a timed weather-aware walk without a destination as a wander", () => {
