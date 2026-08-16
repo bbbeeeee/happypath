@@ -1,49 +1,121 @@
 # Detour — City Planning Intelligence PRD
 
-> Detour is the planning extension of Happy Path. It uses the same city layers, pedestrian graph, evidence model, and route metrics.
+> Detour is the planning side of Happy Path. It uses the same Manhattan street graph, city layers, route metrics, and evidence model.
 
 ## 1. Product definition
 
-**Detour helps planners see where the built environment makes ordinary pedestrian journeys harder—and which interventions could improve the greatest number of trips.**
+**Detour helps people understand where the city makes everyday journeys harder—and which changes could improve them.**
 
 Happy Path asks:
 
-> What route best fits this person and moment?
+> What route or walk best fits this person and moment?
 
 Detour asks:
 
-> Why is that kind of route difficult here, where do similar journeys encounter the same problem, and what change could reduce the burden?
+> Why is that kind of journey difficult here, where does the same problem repeat, and what intervention might reduce the burden?
 
-A conventional asset map shows where benches, bathrooms, trees, ramps, or sheds are located. Detour shows **what journeys their absence, condition, or placement makes worse**.
+A conventional asset map shows where trees, benches, bathrooms, ramps, or sheds exist. Detour shows **what journeys their absence, condition, hours, or placement makes worse**.
 
-## 2. Product role
+## 2. Role in P1
 
-Detour is decision support, not automated planning.
+P1 includes one credible Detour planning proof using a feature already validated for Happy Path.
 
-It should:
+The first proof should:
 
-- translate city-data layers into route consequences;
-- show the journeys supporting each finding;
-- identify specific gaps, barriers, unreliable assets, or data uncertainties;
-- simulate a proposed intervention;
-- compare before-and-after route burdens;
-- expose assumptions, evidence, and robustness.
+1. define representative journeys inside Manhattan south of Central Park;
+2. calculate a repeated burden using real route and layer data;
+3. identify one gap, barrier, or high-impact uncertainty;
+4. apply a clearly hypothetical intervention;
+5. reroute the same journeys;
+6. show what improved, what did not, and how certain the result is.
 
-It should not rank neighborhoods, decide budgets, or claim an intervention is feasible without relevant engineering, legal, operational, and public review.
+P1 does **not** require a complete planner workspace, agency integration, approvals, or capital-planning workflow.
 
-## 3. Users
+## 3. Product promise
+
+> **See the journeys behind an amenity gap. Test a change. Understand who and what it could help.**
+
+## 4. Users
 
 - City planners and public-realm teams
 - Parks, transportation, accessibility, climate, and facilities staff
 - Community boards and BIDs
 - Public-space operators and civic organizations
-- Later, residents and advocates exploring transparent scenarios
+- Residents and advocates exploring transparent scenarios
 
-## 4. Core concepts
+The hackathon demo may use a simple public-facing planning view rather than a production agency workflow.
+
+## 5. Product principles
+
+### 5.1 Measure journey consequences
+
+Do not assign neighborhoods a universal quality score.
+
+Measure specific burdens such as:
+
+- extra walking time;
+- unavoidable direct-sun minutes;
+- longest exposed stretch;
+- mapped-step detour;
+- maximum time between mapped places to sit;
+- deviation to a restroom or fountain;
+- route distance affected by shed or construction records.
+
+### 5.2 Use the same facts as Happy Path
+
+Detour must reuse:
+
+- the pedestrian graph;
+- `LayerDefinition` records;
+- feature derivations;
+- source versions;
+- confidence and claim boundaries;
+- route and continuity metrics.
+
+It should not build a separate planning-only data stack.
+
+### 5.3 Show impact, not an opaque priority score
+
+Expose:
+
+- journeys affected;
+- burden per journey;
+- total or median burden reduction;
+- remaining burden;
+- evidence quality;
+- assumptions;
+- implementation horizon.
+
+Human planners decide priority.
+
+### 5.4 Start with the intervention ladder
+
+A gap does not always require construction.
+
+Possible responses:
+
+1. **Verify** — confirm a high-impact uncertain condition.
+2. **Operate** — change hours, access, service, or maintenance.
+3. **Repair or remove** — restore a connection or remove a barrier.
+4. **Build** — add a new asset or connection.
+
+### 5.5 Be honest about the scenario
+
+A simulated bench, shade structure, ramp, or restroom is a hypothetical planning input. It is not an engineering design, budget recommendation, or City commitment.
+
+## 6. Core concepts
 
 ### Representative journey
 
-A modeled origin-destination trip used to evaluate the network, such as transit to a library, school to park, or residential area to a restroom.
+A modeled origin-destination trip used to evaluate the network.
+
+Examples:
+
+- subway entrance to a library;
+- school to park;
+- residential area to public restroom;
+- transit to a public facility;
+- custom origins and destinations selected for a corridor study.
 
 ### Planning lens
 
@@ -51,7 +123,7 @@ The need being evaluated:
 
 - shade and heat exposure;
 - greenery continuity;
-- gentler or mapped-step-free travel;
+- lower-effort or mapped-step-free travel;
 - seating and rest continuity;
 - restroom or water access;
 - construction burden;
@@ -59,201 +131,136 @@ The need being evaluated:
 
 ### Burden
 
-A measurable journey consequence:
-
-- extra travel time;
-- unavoidable direct-sun minutes;
-- longest exposed stretch;
-- ascent or grade;
-- mapped-step detour;
-- maximum time between seating opportunities;
-- deviation to a restroom or fountain;
-- route distance affected by construction.
+A measurable journey consequence.
 
 ### Gap
 
-A specific condition producing repeated burden:
+A specific condition that repeatedly creates burden:
 
 - absent asset;
 - broken connection;
 - poor spacing;
-- unavailable or unreliable asset;
+- unreliable or closed asset;
 - operating-hours mismatch;
 - temporary obstruction;
-- significant data uncertainty.
+- important data uncertainty.
 
 ### Intervention
 
 A proposed change to an asset, operation, connection, or evidence state.
 
-Examples:
+## 7. P1 experience
 
-- add seating;
-- extend restroom hours;
-- repair or add a ramp;
-- remove an obstruction;
-- add temporary shade;
-- plan long-term canopy;
-- reopen a pedestrian connection;
-- verify a high-impact uncertain condition.
+### Step 1: Select a planning question
 
-## 5. Core workflow
+The demo should begin with one clear question, such as:
 
-### 5.1 Define the question
+> **Where would one new place to sit reduce the longest rest gaps?**
 
-A planner selects a structured scenario or asks:
+Or:
 
-> “Where would three benches reduce the longest rest gaps between subway stations and public facilities?”
+> **Where does one exposed corridor break otherwise shaded walks to transit?**
 
-Detour compiles an editable analysis brief:
+### Step 2: Show the journeys
 
-```text
-Planning lens
-Rest opportunities
+Display the representative routes included in the analysis. The audience should be able to understand what people are trying to reach.
 
-Geography
-Lower Manhattan pilot
-
-Representative trips
-Subway entrances → public facilities and parks
-
-Objective
-Reduce the longest time between mapped seating
-
-Intervention
-Up to 3 new seating locations
-```
-
-### 5.2 View burden
-
-The map shows:
-
-- representative route corridors;
-- relevant assets and barriers;
-- route burden by segment;
-- high-impact continuity breaks;
-- data-coverage gaps.
-
-The first view should emphasize one planning finding, not every layer simultaneously.
-
-### 5.3 Inspect a gap
+### Step 3: Reveal the burden
 
 Example:
 
 ```text
-REST GAP
+A LONG GAP WITHOUT A PLACE TO REST
 
-17 minutes between mapped seating opportunities
+17 minutes between mapped seating
+on several routes from transit to public facilities
 
-Affected journeys
-• station → library
-• station → park
-• public facility → commercial corridor
-
-Estimated reach
-620 weighted representative journeys per weekday
-
-Evidence
-Official seating inventory
-Derived pedestrian routes
-Modeled trip demand
+What we used
+• NYC DOT seating
+• public-facility locations
+• pedestrian routes
 
 Confidence
-Medium
-
-Uncertainty
-Private and informal seating may not be represented
+Medium — informal or private seating may be missing
 ```
 
-The planner can inspect the individual routes producing the result.
+### Step 4: Test one change
 
-### 5.4 Test an intervention
-
-Apply a hypothetical change and reroute the same journey set:
+Apply one hypothetical intervention and reroute the same journeys.
 
 ```text
-AFTER INTERVENTION
+IF A BENCH WERE ADDED HERE
 
-Longest rest gap
+Longest gap
 17 min → 9 min
 
 Journeys improved
-487 of 620
+487 of 620 weighted journeys
 
-Median burden reduction
-4.2 minutes
-
-Journeys unchanged
-133
+Some routes do not change
+They approach from a different corridor
 ```
 
-### 5.5 Compare scenarios
+### Step 5: Explain the planning insight
 
-Show separate dimensions instead of one opaque priority score:
+The result should answer:
 
-- journeys improved;
-- burden reduction per journey;
-- maximum remaining gap;
-- confidence;
-- implementation horizon;
-- evidence quality;
-- affected destinations and trip types.
+- why this location matters;
+- which journeys improve;
+- which do not;
+- what assumptions drive the result;
+- what would need verification next.
 
-### 5.6 Export an intervention brief
+## 8. Initial planning lenses
 
-The output should include:
+| Lens | Burden | Example intervention |
+| --- | --- | --- |
+| Shade | Direct-sun minutes and longest exposed stretch | Temporary shade, canopy scenario, alternate connection |
+| Seating | Maximum time between mapped rest opportunities | Bench or leaning bar |
+| Restrooms | Network deviation and hours mismatch | Reopen, extend hours, or add facility |
+| Mapped steps | Additional time to avoid mapped steps | Repair or add connection after proper review |
+| Construction | Route distance affected by current-enough records | Remove obstruction, coordinate work, or improve passage |
+| Public space | Network access to a usable public place | Entrance, hours, signage, or access improvement |
 
-- question and geography;
-- representative demand assumptions;
-- current burden;
-- gap or barrier;
-- proposed intervention;
-- estimated before-and-after impact;
-- data sources and versions;
-- uncertainty and sensitivity;
-- jurisdiction or responsible entity where known.
+Choose the first P1 lens based on validation quality, not ambition.
 
-## 6. Map views
+## 9. Representative demand
 
-### Burden map
+Detour should not depend only on Happy Path users.
 
-Shows where representative routes experience the selected condition.
+P1 may build a transparent sample from:
 
-### Route map
+- subway entrances;
+- libraries, parks, schools, and public facilities;
+- selected residential or commercial anchors;
+- equal geographic coverage;
+- available pedestrian-demand indicators.
 
-Shows the actual journeys behind a finding so a heatmap does not hide network behavior.
+Show how journeys are weighted. App usage may become an additional signal later, with privacy thresholds and explicit representativeness caveats.
 
-### Asset and gap map
-
-Shows relevant amenities, barriers, operating status, ownership, and data uncertainty.
-
-### Scenario map
-
-Shows baseline and intervention routes, improved segments, unchanged journeys, and remaining burdens.
-
-### Confidence map
-
-Shows where source coverage or current condition is insufficient. A high-impact data gap may produce a verification action rather than a construction recommendation.
-
-## 7. Metrics
+## 10. Metrics
 
 ### Preference detour
 
 ```text
-need-aware route time − fastest valid route time
+need-aware route time − direct route time
 ```
 
 ### Exposure burden
 
-Undesired condition remaining on the best available route, such as direct-sun minutes or construction-affected distance.
+An undesirable condition remaining on the best available route.
 
 ### Continuity gap
 
-The longest uninterrupted period in which a need is not met, such as time without shade, seating, or a mapped step-free connection.
+The longest uninterrupted period in which a need is not met.
 
 ### Barrier impact
 
-The burden attributable to one segment, intersection, asset, or obstruction, estimated through counterfactual removal or repair.
+The burden attributable to one edge, asset, or crossing, estimated through a controlled counterfactual.
+
+### Journeys affected
+
+The number or weighted volume of representative journeys encountering the gap.
 
 ### Intervention value
 
@@ -261,159 +268,110 @@ The burden attributable to one segment, intersection, asset, or obstruction, est
 Σ journey weight × (burden before − burden after)
 ```
 
-The interface should display the underlying components rather than only this aggregate.
+Display the underlying components rather than only the aggregate.
 
-### Robustness
+## 11. `DetourScenario`
 
-A result should be tested under reasonable changes to:
+```yaml
+scenario_id: string
+geography: polygon
+planning_lens: shade | seating | restroom | mapped_steps | construction | public_space
+time_context: object
+representative_journeys: string
+baseline_network_version: string
 
-- trip weights;
-- uncertain asset state;
-- candidate locations;
-- time of day;
-- source coverage;
-- demand model.
+intervention:
+  type: string
+  location: geometry
+  assumptions: []
 
-## 8. Demand model
+results:
+  journeys_evaluated: number
+  journeys_changed: number
+  journeys_improved: number
+  burden_before: object
+  burden_after: object
+  remaining_burden: object
 
-Detour must be useful before Happy Path has significant adoption.
-
-Initial representative trips may be constructed from:
-
-- subway and transit entrances;
-- schools, libraries, parks, and healthcare facilities;
-- public-service locations;
-- residential population;
-- commercial and employment areas;
-- pedestrian counts where available;
-- planner-defined origins and destinations.
-
-Later, privacy-preserving Happy Path aggregates may supplement this model:
-
-- requested route qualities;
-- routes that require unusually large detours;
-- places where no supported route exists;
-- amenities repeatedly influencing route choice;
-- time-limited condition corrections.
-
-Product demand must never be treated as representative of all New Yorkers. Compare demand-weighted results with equal-coverage or public-facility views.
-
-## 9. Gap classification and intervention ladder
-
-### Gap types
-
-- **Absence:** asset or connection does not exist.
-- **Break:** one condition disrupts an otherwise connected network.
-- **Reliability:** asset exists but cannot be depended upon.
-- **Operation:** hours or access do not match need.
-- **Spacing or capacity:** assets exist but are poorly distributed.
-- **Information:** current or precise condition is unknown.
-
-### Intervention ladder
-
-1. **Verify** an uncertain condition.
-2. **Operate** an existing asset differently.
-3. **Repair or remove** a barrier.
-4. **Build** a new asset or connection.
-
-Detour should not jump directly from a mapped gap to a capital recommendation.
-
-## 10. Intelligence boundary
-
-AI may:
-
-- compile natural-language planning questions into typed scenarios;
-- identify missing assumptions;
-- summarize structured findings;
-- compare measured scenario tradeoffs;
-- generate a planning brief from deterministic results.
-
-AI may not:
-
-- invent burden, asset state, demand, or route geometry;
-- calculate intervention impact;
-- hide assumptions;
-- decide policy or budgets;
-- recommend an unevaluated site;
-- turn complaint volume into a neighborhood-quality score.
-
-The scenario engine calculates before-and-after impact. Intelligence makes the analysis easier to express and understand.
-
-## 11. Relationship to Civic Assets & Actions
-
-A later asset registry may include:
-
-```text
-official state
-recent observed state
-responsible entity
-operating hours
-open issue
-planned work
-authorized action
-last verification
-confidence
+source_ids: []
+confidence: high | medium | low
+limitations: []
 ```
 
-This creates a verification loop:
+## 12. Interface
 
-1. Detour identifies a high-impact uncertain condition.
-2. An agency, partner, or optional Happy Path user verifies it.
-3. The evidence layer updates.
-4. Detour recalculates the finding.
+The P1 proof needs four coordinated views:
 
-Resident contribution remains optional, safe, and authorized. City responsibilities must not become assumed volunteer work.
+1. **Journey map** — routes included in the analysis.
+2. **Burden view** — the repeated gap or barrier.
+3. **Scenario view** — the hypothetical change and rerouted journeys.
+4. **Intervention card** — concise before-and-after impact, sources, and caveats.
 
-## 12. Phasing
+Keep the map focused on one finding. Do not expose every City layer at once.
 
-### DT-P0: prepared planning proof
+## 13. Future planning workflow
 
-- same Lower Manhattan pilot and feature registry as Happy Path;
-- one planning lens already validated in the resident product;
-- one representative journey set;
-- one burden map;
-- one gap inspection;
-- one hypothetical intervention;
-- before-and-after rerouting;
-- evidence and confidence;
-- exportable intervention card.
+Later Detour may support:
 
-Recommended first scenarios:
+- planner-defined origins and destinations;
+- comparison of several intervention locations;
+- saved scenarios and notes;
+- source refresh and verification queues;
+- exportable briefs for community-board or agency review;
+- links to asset ownership, open work, capital projects, or permits;
+- integration with City GIS, asset-management, or planning tools;
+- monitoring after an intervention is implemented.
 
-1. shade-continuity gap;
-2. seating and rest gap;
-3. mapped-step detour;
-4. restroom-access gap.
+Those workflows follow the P1 proof and require agency-specific discovery.
 
-### DT-P1
+## 14. Connection to resident observations
 
-- structured interactive scenario controls;
-- multiple candidate interventions;
-- custom trip sets;
-- sensitivity analysis;
-- asset ownership and operating data;
-- monitoring after an intervention.
+A future high-impact uncertainty may create a verification request:
 
-### Later
+- Is this restroom open?
+- Is this entrance usable?
+- Is the reported obstruction still present?
+- Does the mapped bench exist?
 
-- natural-language planning queries;
-- citywide analysis;
-- collaboration and comments;
-- integration with agency planning and capital workflows;
-- public scenario exploration;
-- authorized verification and stewardship loops.
+Happy Path could optionally invite a nearby person to confirm the condition or submit a photo. Such evidence must be purpose-limited, privacy-aware, time-limited, and clearly distinct from official state.
 
-## 13. Acceptance criteria for the first proof
+## 15. Fairness and privacy
 
-1. A planner can inspect the representative journey set.
-2. Every burden is calculated from actual route results.
-3. One gap can be traced to the routes and evidence producing it.
-4. One hypothetical intervention modifies the network or asset model.
-5. The same journey set is rerouted before and after.
-6. Changed and unchanged journeys are visible.
-7. Assumptions, demand weighting, and uncertainty are inspectable.
-8. The result is reproducible from stored source and scenario versions.
-9. No neighborhood receives a universal quality score.
-10. App usage is not the sole demand signal.
-11. Intervention benefit is separated from implementation feasibility.
-12. At least one counterintuitive or low-impact scenario is shown, proving that the tool compares rather than merely advocates.
+- Do not use app adoption as the sole measure of need.
+- Do not treat complaint volume as objective condition data.
+- Show where source coverage is weaker.
+- Keep demographic context separate from street-quality scoring.
+- Do not expose individual Happy Path routes.
+- Use coarse aggregation and minimum-count thresholds for any future demand data.
+- Do not label neighborhoods good, bad, safe, unsafe, healthy, or unhealthy.
+
+## 16. P1 acceptance criteria
+
+The planning proof succeeds when:
+
+1. one validated Happy Path feature becomes a planning lens;
+2. the representative journey set is visible and reproducible;
+3. every burden derives from route results;
+4. one specific gap or high-impact uncertainty is identified;
+5. the same journeys are compared before and after;
+6. changed and unchanged routes are visible;
+7. intervention value is separate from feasibility;
+8. assumptions, data sources, and uncertainty are clear;
+9. the scenario reuses the shared city-layer platform;
+10. the audience understands how the analysis could support a real planning decision.
+
+## 17. Non-goals
+
+Detour is not:
+
+- an automated capital-budget allocator;
+- an official City recommendation;
+- a neighborhood-ranking system;
+- a complaint heatmap;
+- an engineering-feasibility tool;
+- a replacement for planners, public engagement, or agency review;
+- a production multi-user planning workflow in P1.
+
+## 18. Product definition
+
+> **Detour turns the same public data and route features used by Happy Path into planning insight. It shows which journeys are burdened by missing shade, access, amenities, or infrastructure, then tests how one hypothetical change would alter those journeys. P1 proves the method; later versions can connect the analysis to real City planning, asset, and verification workflows.**
