@@ -93,6 +93,7 @@ main { position: relative; width: 100vw; height: 100dvh; overflow: hidden; backg
 .fallback-endpoints rect { fill: var(--ink); stroke: #fff; stroke-width: 3; }
 .fallback-map-note { position: absolute; right: 18px; top: 68px; padding: 6px 9px; border: 1px solid rgba(211,214,208,.9); border-radius: 5px; background: rgba(255,254,250,.94); color: #6c756f; font-size: 9px; font-weight: 600; }
 .maplibregl-ctrl-bottom-right { right: 14px; bottom: 12px; }
+.maplibregl-ctrl-top-right { top: 58px; right: 10px; }
 .maplibregl-ctrl-group { border-radius: 8px !important; box-shadow: 0 4px 16px rgba(30,42,36,.12) !important; overflow: hidden; }
 .maplibregl-ctrl-attrib { font-size: 9px; }
 
@@ -624,7 +625,7 @@ main { position: relative; width: 100vw; height: 100dvh; overflow: hidden; backg
 .task-source-list > a small { color: #707970; font-size: 8px; line-height: 1.4; }
 .task-emergency-note { margin-top: 11px !important; color: #81756d !important; font-size: 8px !important; }
 
-.map-lens-control { position: absolute; z-index: 4; right: 18px; bottom: 132px; width: 274px; padding: 10px; border: 1px solid rgba(211,214,208,.94); border-radius: 10px; background: rgba(255,254,250,.97); box-shadow: 0 7px 22px rgba(30,42,36,.11); backdrop-filter: blur(10px); }
+.map-lens-control { position: absolute; z-index: 4; right: 18px; bottom: 66px; width: 274px; padding: 10px; border: 1px solid rgba(211,214,208,.94); border-radius: 10px; background: rgba(255,254,250,.97); box-shadow: 0 7px 22px rgba(30,42,36,.11); backdrop-filter: blur(10px); }
 .map-lens-control > div:first-child { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
 .map-lens-control > div:first-child span { display: flex; align-items: center; gap: 6px; font-size: 10px; font-weight: 700; }
 .map-lens-control > div:first-child svg { width: 15px; height: 15px; color: #9b7446; }
@@ -705,6 +706,8 @@ main { position: relative; width: 100vw; height: 100dvh; overflow: hidden; backg
   .asset-popover::before { display: none; }
   .map-lens-control { top: 64px; right: 14px; bottom: auto; width: min(250px, calc(100vw - 28px)); padding: 9px; }
   .map-key { right: 14px; bottom: calc(48dvh + 10px); max-width: calc(100vw - 28px); display: flex; padding: 7px 9px; font-size: 11px; }
+  .maplibregl-ctrl-top-right { top: auto; right: 4px; bottom: calc(28dvh + 28px); }
+  .has-result .maplibregl-ctrl-top-right { bottom: calc(48dvh + 28px); }
   .maplibregl-ctrl-bottom-right { bottom: 28dvh; }
   .has-result .maplibregl-ctrl-bottom-right { bottom: 48dvh; }
 }

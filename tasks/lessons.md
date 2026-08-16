@@ -72,3 +72,7 @@
 
 - Ship new markup and its scoped responsive styles as one unit. Before exposing a preview, exercise the actual resident and planner flows at desktop and mobile widths so intrinsic SVG sizing and browser-default button, fieldset, or textarea styles cannot leak into the product.
 - Add a bounded layout check alongside screenshots: the document and primary sheet should match the viewport width, controls must remain within it, and inline icons should retain their intended dimensions.
+
+## 2026-08-16 — Reserve map corners by control family
+
+- Keep persistent navigation controls together near the map edge and leave data-layer controls near their content context. Before raising a panel to avoid a collision, check whether the smaller native control can move to a clearer corner instead.

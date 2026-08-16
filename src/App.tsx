@@ -1461,7 +1461,7 @@ export function App() {
       return;
     }
     map.addControl(new maplibregl.AttributionControl({ compact: true }), "bottom-right");
-    map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "bottom-right");
+    map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
     const captureViewport = () => {
       const bounds = map.getBounds();
       setMapViewport({ west: bounds.getWest(), south: bounds.getSouth(), east: bounds.getEast(), north: bounds.getNorth(), zoom: map.getZoom() });
