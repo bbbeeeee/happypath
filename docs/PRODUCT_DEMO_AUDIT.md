@@ -46,13 +46,13 @@ The six curated examples are route-level contracts rather than sample copy: test
 
 ### 1. Resident routing is the first obvious job
 
-The opening sheet now leads with one human request, three rehearsed journey shapes, and a quiet Trip Brief. Route editing, evidence layers, civic checks, and planning detail arrive after the first path; City view remains a compact expert shortcut rather than a second opening form.
+The opening sheet now leads with one human request, four rehearsed shortcuts—destination, loop, wander, and a shaded two-mile run—and a quiet Trip Brief. Route editing, evidence layers, civic checks, and planning detail arrive after the first path; City view remains a compact expert shortcut rather than a second opening form.
 
 **Keep:** protect this hierarchy as new datasets and planning proofs are added.
 
 ### 2. Path-query magic needs a maintained truth contract
 
-A good prompt is not merely parseable. Every important phrase must change the Trip Brief, constrain the route, affect ranking, or appear as unsupported. The preview now keeps typed contracts for its three opening prompts and route-level checks for six representative journeys; complete-token direction parsing and park/transit endings prevent earlier silent interpretation errors.
+A good prompt is not merely parseable. Every important phrase must change the Trip Brief, constrain the route, affect ranking, or appear as unsupported. The preview now keeps typed contracts for its four opening prompts and route-level checks for six representative journeys; complete-token direction parsing and park/transit endings prevent earlier silent interpretation errors.
 
 **Keep:** treat every new visible prompt as an executable product promise. Add its interpretation, route, receipt, fallback, and source expectations before shipping the copy.
 

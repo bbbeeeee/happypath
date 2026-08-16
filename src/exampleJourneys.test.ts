@@ -41,11 +41,11 @@ describe("curated Try examples", () => {
     expect(briefs["transit-wander"]).toMatchObject({ shape: "wander", walkingMinutes: 30, direction: "north", endCondition: "transit" });
     expect(briefs["rain-cover-loop"]).toMatchObject({ shape: "destination", destinationQuery: "Waterside Plaza" });
     expect(briefs["civic-check-loop"]).toMatchObject({ shape: "wander", walkingMinutes: 25, civicTaskIntent: "photo", priorities: ["water"] });
-    expect(briefs["shaded-run"]).toMatchObject({ shape: "loop", activity: "run", distanceMiles: 2, priorities: ["shade"] });
+    expect(briefs["shaded-run"]).toMatchObject({ shape: "loop", activity: "run", distanceMiles: 2, priorities: ["shade", "greenery"] });
   }, 30_000);
 
-  it("keeps exactly three typed opening prompts with visible phrase consequences and source evidence", () => {
-    expect(HERO_JOURNEYS).toHaveLength(3);
+  it("keeps four typed opening prompts with visible phrase consequences and source evidence", () => {
+    expect(HERO_JOURNEYS).toHaveLength(4);
     expect(HERO_PROMPT_CONTRACTS.map((contract) => contract.id)).toEqual(HERO_JOURNEYS.map((journey) => journey.id));
     for (const contract of HERO_PROMPT_CONTRACTS) {
       const brief = compileTripBrief(contract.prompt, { ...DEFAULT_BRIEF, priorities: [], destinationQuery: null, prompt: "" });

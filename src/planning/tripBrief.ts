@@ -153,7 +153,7 @@ export function parseCivicTaskIntent(text: string): CivicTaskIntent | undefined 
 
 function collectPriorities(text: string): RoutePriority[] {
   const priorities: RoutePriority[] = [];
-  if (/\b(?:shade|shady|sun|cooler)\b/i.test(text)) priorities.push("shade");
+  if (/\b(?:shade|shaded|shady|sun|cooler)\b/i.test(text)) priorities.push("shade");
   if (/\b(?:green|greener|greenery|leafy|trees?|park[- ]?lined)\b/i.test(text)) priorities.push("greenery");
   if (/\b(?:sit|seat|seating|bench|benches|rest)\b/i.test(text)) priorities.push("rest");
   if (/\b(?:water|fountains?)\b/i.test(text)) priorities.push("water");

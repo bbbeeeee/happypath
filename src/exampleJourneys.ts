@@ -63,8 +63,8 @@ export const EXAMPLE_JOURNEYS: readonly ExampleJourney[] = [
   },
   {
     id: "shaded-run",
-    label: "Go for a run",
-    prompt: "Map me a shaded 2-mile run that loops back here.",
+    label: "2-mile run",
+    prompt: "Map me a shaded 2-mile run through greener streets that loops back here.",
     originNodeId: "42429373", // West 13th Street & 5th Avenue
     originCoordinate: [-73.994118, 40.735313],
     destinationNodeId: null,
@@ -74,12 +74,17 @@ export const EXAMPLE_JOURNEYS: readonly ExampleJourney[] = [
 
 export const EXAMPLE_REQUESTS = EXAMPLE_JOURNEYS.map((example) => example.prompt);
 
-/** The opening product contract: exactly three supported, rehearsed journeys. */
-export const HERO_JOURNEYS = EXAMPLE_JOURNEYS.slice(0, 3);
+/** The opening product contract: four supported, rehearsed journeys. */
+export const HERO_JOURNEYS = [
+  EXAMPLE_JOURNEYS[0],
+  EXAMPLE_JOURNEYS[1],
+  EXAMPLE_JOURNEYS[2],
+  EXAMPLE_JOURNEYS[5],
+] as const;
 export const HERO_REQUESTS = HERO_JOURNEYS.map((example) => example.prompt);
 
 type HeroExpectedBrief = Pick<TripBrief,
-  "shape" | "destinationQuery" | "walkingMinutes" | "walkingTimeIntent" | "detourMinutes" | "priorities" | "direction" | "endCondition"
+  "shape" | "activity" | "destinationQuery" | "walkingMinutes" | "walkingTimeIntent" | "distanceMiles" | "detourMinutes" | "priorities" | "direction" | "endCondition"
 >;
 
 export interface HeroPromptContract {
@@ -90,7 +95,7 @@ export interface HeroPromptContract {
   evidenceSourceIds: readonly string[];
 }
 
-/** Typed truth contract for the three opening shortcuts and their route claims. */
+/** Typed truth contract for the four opening shortcuts and their route claims. */
 export const HERO_PROMPT_CONTRACTS: readonly HeroPromptContract[] = [
   {
     id: "destination-shade",
@@ -103,9 +108,11 @@ export const HERO_PROMPT_CONTRACTS: readonly HeroPromptContract[] = [
     ],
     expectedBrief: {
       shape: "destination",
+      activity: "walk",
       destinationQuery: "Union Square",
       walkingMinutes: 25,
       walkingTimeIntent: "target",
+      distanceMiles: null,
       detourMinutes: 5,
       priorities: ["shade", "greenery"],
       direction: null,
@@ -124,9 +131,11 @@ export const HERO_PROMPT_CONTRACTS: readonly HeroPromptContract[] = [
     ],
     expectedBrief: {
       shape: "loop",
+      activity: "walk",
       destinationQuery: null,
       walkingMinutes: 30,
       walkingTimeIntent: "target",
+      distanceMiles: null,
       detourMinutes: 5,
       priorities: ["greenery", "rest"],
       direction: null,
@@ -146,14 +155,40 @@ export const HERO_PROMPT_CONTRACTS: readonly HeroPromptContract[] = [
     ],
     expectedBrief: {
       shape: "wander",
+      activity: "walk",
       destinationQuery: null,
       walkingMinutes: 30,
       walkingTimeIntent: "target",
+      distanceMiles: null,
       detourMinutes: 5,
       priorities: ["greenery"],
       direction: "north",
       endCondition: "transit",
     },
     evidenceSourceIds: ["openstreetmap", "nyc-parks-properties", "mta-subway-entrances-2024"],
+  },
+  {
+    id: "shaded-run",
+    prompt: HERO_JOURNEYS[3].prompt,
+    phraseConsequences: [
+      { phrase: "2-mile", consequence: "distanceMiles" },
+      { phrase: "run", consequence: "activity" },
+      { phrase: "shaded", consequence: "priorities" },
+      { phrase: "greener streets", consequence: "priorities" },
+      { phrase: "loops back", consequence: "shape" },
+    ],
+    expectedBrief: {
+      shape: "loop",
+      activity: "run",
+      destinationQuery: null,
+      walkingMinutes: 25,
+      walkingTimeIntent: "target",
+      distanceMiles: 2,
+      detourMinutes: 5,
+      priorities: ["shade", "greenery"],
+      direction: null,
+      endCondition: null,
+    },
+    evidenceSourceIds: ["openstreetmap", "nyc-building-footprints", "building-shadow-model", "nyc-parks-properties"],
   },
 ];

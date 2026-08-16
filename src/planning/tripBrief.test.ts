@@ -59,12 +59,12 @@ describe("compileTripBrief", () => {
   });
 
   it("turns a distance-based run into a route-distance target", () => {
-    const run = compileTripBrief("Map me a shaded 2-mile run that loops back here.");
+    const run = compileTripBrief("Map me a shaded 2-mile run through greener streets that loops back here.");
     expect(run).toMatchObject({
       shape: "loop",
       activity: "run",
       distanceMiles: 2,
-      priorities: ["shade"],
+      priorities: ["shade", "greenery"],
     });
     expect(briefSummary(run)[0]).toBe("2-mile run, back to your start");
     expect(distanceMilesToRoutingMinutes(2)).toBeCloseTo(40.2336, 3);
