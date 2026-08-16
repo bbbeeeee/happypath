@@ -19,10 +19,10 @@ This document records what the `codex/happy-path-p1-mvp` implementation proves t
 
 ## Verification evidence
 
-- `npm test`: 13 test files, 60 tests passing.
+- `npm test`: 13 test files, 62 tests passing.
 - `npm run build`: TypeScript and Vite production build passing.
 - Generated graph: 4,487 directed edges; 10,671 stored polyline points; curved OSM way geometry retained.
-- Initial JavaScript bundle: about 808 KB gzip.
+- Initial JavaScript bundle: about 809 KB gzip.
 - One lazily loaded hourly shade snapshot: about 293–296 KB gzip. Only the selected departure hour is requested.
 - Initial CSS: about 15 KB gzip.
 
