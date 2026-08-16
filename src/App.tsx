@@ -1,7 +1,8 @@
 import { FormEvent, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import * as maplibregl from "maplibre-gl";
-import type { GeoJSONSource, Map as MapLibreMap, MapLayerMouseEvent } from "maplibre-gl";
+import type { DataDrivenPropertyValueSpecification, GeoJSONSource, Map as MapLibreMap, MapLayerMouseEvent, MapOptions } from "maplibre-gl";
 import { defaultDestination, defaultOrigin, ensureGraphCoverage, graphNodeById, isInsidePilot, nearestGraphNode, nearestGraphNodeWithin, pilotGraph } from "./data/cityGraph";
+import buildingFootprintsUrl from "./data/pilot-buildings.json?url";
 import { shadowTilesIntersectingBounds, supportedArea } from "./data/supportedArea";
 import { findCivicAssetsNearRoute, loadCivicAssetFixture, type CivicAsset, type CivicAssetKind } from "./data/civicAssets";
 import { createSessionCivicObservation, findCivicTasksNearRoute, listCivicTasks, loadCivicTaskFixture, type CivicTask, type SessionCivicObservation } from "./data/civicTasks";
@@ -28,16 +29,22 @@ import { routeComparisonDeltaGeoJSON } from "./routing/routeComparisonPresentati
 import type { Coordinate, JourneyRoute } from "./types";
 import type { RouteCityInsight } from "../server/insights";
 import { assetAvailabilityCopy, assetMarkerSvg, assetTransitLinesLabel, assetsGeoJSON, assetTypeLabel, civicTaskMarkerSvg, civicTasksGeoJSON, coverContextMarkerSvg, endpointsGeoJSON, routeGeoJSON } from "./mapPresentation";
+import { findOnRouteEvents, type OnRouteEvent } from "./planning/routeEvents";
+import { destinationMarkerSvg, navigationCursorGeoJSON, navigationCursorSvg, navigationProgressLabel, navigationTrailGeoJSON, originMarkerSvg } from "./navigationPresentation";
+import { EVENT_EVIDENCE_BOUNDARY, eventBlockRunLabel, eventOverlapLabel, eventSummaryLine, onRouteEventGeoJSON } from "./eventPresentation";
 import { civicAssetEvidence } from "./presentationEvidence";
 import { DEFAULT_MAP_OVERLAYS, showRelevantRouteMapOverlays, toggledMapOverlay, type MapOverlays } from "./mapLayerState";
 import {
   ArrowIcon,
   BackIcon,
   BenchIcon,
+  BuildingsIcon,
   CameraIcon,
   CheckCircleIcon,
   ChevronIcon,
   CloudRainIcon,
+  EventFlagIcon,
+  NavigateIcon,
   ClockIcon,
   CloseIcon,
   DropletIcon,
@@ -58,6 +65,7 @@ import { FallbackMap } from "./components/FallbackMap";
 import { useTypingPlaceholder } from "./components/useTypingPlaceholder";
 import { ThinkingStatus, type ThinkingMode } from "./components/ThinkingStatus";
 import { PreferencesPopover } from "./components/PreferencesPopover";
+import { CityStatusPill } from "./components/CityStatusPill";
 import { RouteFeedbackCard } from "./components/RouteFeedbackCard";
 import { clearUserPreferences, loadUserPreferences, newTripBriefFromPreferences, saveUserPreferences, type UserPreferences } from "./preferences";
 import { humanReadableEndpointName } from "./placeLabels";
@@ -107,6 +115,45 @@ const INITIAL_MAP_VIEWPORT: AmenityViewport = {
 type AppMode = "walk" | "planner";
 type MapLens = "route" | "shade" | "greenery" | "cover" | "flood" | "amenities" | "tasks";
 type PlannerView = "routes" | "notes" | "what_if";
+type MapPerspective = "street" | "isometric";
+
+const MAP_PERSPECTIVE_CAMERA: Record<MapPerspective, Pick<MapOptions, "bearing" | "pitch">> = {
+  street: { bearing: 0, pitch: 0 },
+  isometric: { bearing: -28, pitch: 58 },
+};
+
+/**
+ * Navigation frames the whole walk from directly overhead. The point is to see
+ * the shape of the route you are about to take, so the camera stays flat and
+ * north-up rather than following a heading.
+ */
+const NAVIGATION_CAMERA = { bearing: 0, pitch: 0 } as const;
+/** Seconds of wall clock for one full pass of the route in the demo playback. */
+const NAVIGATION_PLAYBACK_SECONDS = 45;
+
+const ISOMETRIC_BUILDING_COLOR = [
+  "match",
+  ["%", ["to-number", ["get", "bin"], 0], 7],
+  0, "#b96f5f",
+  1, "#d6c59a",
+  2, "#b99f76",
+  3, "#7d8793",
+  4, "#c78a70",
+  5, "#dedbd1",
+  "#596574",
+] as unknown as DataDrivenPropertyValueSpecification<string>;
+
+function isometricBasePaint(layer: { id: string; type: string }) {
+  const id = layer.id.toLowerCase();
+  if (layer.type === "background") return { property: "background-color", value: "#d8d0bc" };
+  if (layer.type === "fill" && id.includes("water")) return { property: "fill-color", value: "#83a9b7" };
+  if (layer.type === "line" && id.includes("water")) return { property: "line-color", value: "#6d929f" };
+  if (layer.type === "fill" && /park|green|landcover|landuse/.test(id)) return { property: "fill-color", value: "#91a775" };
+  if (layer.type === "line" && /road|street|transportation/.test(id)) {
+    return { property: "line-color", value: /case|outline|casing/.test(id) ? "#6e6a68" : "#a7a095" };
+  }
+  return null;
+}
 
 const PRIORITY_META: Record<RoutePriority, { label: string; icon: typeof SunIcon }> = {
   shade: { label: "Less direct sun", icon: SunIcon },
@@ -520,6 +567,21 @@ async function registerCoverContextMarkerImages(map: MapLibreMap) {
     image.onload = () => { if (!map.hasImage(id)) map.addImage(id, image, { pixelRatio: 2 }); resolve(); };
     image.onerror = () => reject(new Error(`Could not load the ${kind} map icon.`));
     image.src = coverContextMarkerSvg(kind);
+  })));
+}
+
+function registerNavigationImages(map: MapLibreMap) {
+  const images = [
+    { id: "nav-cursor", src: navigationCursorSvg() },
+    { id: "nav-origin", src: originMarkerSvg() },
+    { id: "nav-destination", src: destinationMarkerSvg() },
+  ];
+  return Promise.all(images.map(({ id, src }) => new Promise<void>((resolve, reject) => {
+    if (map.hasImage(id)) { resolve(); return; }
+    const image = new Image();
+    image.onload = () => { if (!map.hasImage(id)) map.addImage(id, image, { pixelRatio: 2 }); resolve(); };
+    image.onerror = () => reject(new Error(`Could not load the ${id} map icon.`));
+    image.src = src;
   })));
 }
 
@@ -940,6 +1002,8 @@ function MapLensControl({ overlays, onToggle, hour, onHourChange, planner, hasRo
 export function App() {
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
+  const streetLightRef = useRef<ReturnType<MapLibreMap["getLight"]> | null>(null);
+  const streetPaintRef = useRef<Array<{ layerId: string; property: string; value: unknown }>>([]);
   const originMarkerRef = useRef<maplibregl.Marker | null>(null);
   const destinationMarkerRef = useRef<maplibregl.Marker | null>(null);
   const waypointMarkerRef = useRef<maplibregl.Marker | null>(null);
@@ -984,8 +1048,13 @@ export function App() {
   const [activeCoverPoint, setActiveCoverPoint] = useState<{ x: number; y: number } | null>(null);
   const [activeFlood, setActiveFlood] = useState<{ label: string; depthBand: string; detail: string } | null>(null);
   const [activeFloodPoint, setActiveFloodPoint] = useState<{ x: number; y: number } | null>(null);
+  const [activeEvent, setActiveEvent] = useState<OnRouteEvent | null>(null);
+  const [activeEventPoint, setActiveEventPoint] = useState<{ x: number; y: number } | null>(null);
+  const [navigating, setNavigating] = useState(false);
+  const [navigationProgress, setNavigationProgress] = useState(0);
   const [mapReady, setMapReady] = useState(false);
   const [mapError, setMapError] = useState(false);
+  const [mapPerspective, setMapPerspective] = useState<MapPerspective>("street");
   const [appMode, setAppMode] = useState<AppMode>("walk");
   const [mapLens, setMapLens] = useState<MapLens>("route");
   const [mapOverlays, setMapOverlays] = useState<MapOverlays>(DEFAULT_MAP_OVERLAYS);
@@ -1032,6 +1101,17 @@ export function App() {
   const plannerNearbyAssets = useMemo(() => route
     ? findCivicAssetsNearRoute(route.coordinates, { maxDistanceMeters: 120, limit: 80 }).map((item) => item.asset)
     : [], [route]);
+  const onRouteEvents = useMemo(() => route
+    ? findOnRouteEvents(route, {
+        today: new Date().toISOString().slice(0, 10),
+        departureHour: brief.departureHour,
+      })
+    : [], [route, brief.departureHour]);
+  const onRouteEventLayer = useMemo(() => onRouteEventGeoJSON(onRouteEvents), [onRouteEvents]);
+  // Map handlers are registered once on load, so the current matches are read
+  // through a ref rather than captured from the first render.
+  const onRouteEventsRef = useRef<readonly OnRouteEvent[]>([]);
+  onRouteEventsRef.current = onRouteEvents;
   const detourScenario = useMemo(() => route ? buildShadeDetourScenario(pilotGraph, route, brief.departureHour) : null, [route, brief.departureHour]);
   const plannerScenario = useMemo(() => {
     if (!route) return null;
@@ -1156,6 +1236,9 @@ export function App() {
     setActiveTaskPoint(null);
     setActiveCover(null);
     setActiveCoverPoint(null);
+    setActiveEvent(null);
+    setActiveEventPoint(null);
+    setNavigating(false);
     setActiveFlood(null);
     setActiveFloodPoint(null);
     try {
@@ -1237,6 +1320,9 @@ export function App() {
     setDetail(null);
     setActiveCover(null);
     setActiveCoverPoint(null);
+    setActiveEvent(null);
+    setActiveEventPoint(null);
+    setNavigating(false);
     setActiveFlood(null);
     setActiveFloodPoint(null);
     setSelectedPlannerEdgeId(null);
@@ -1349,6 +1435,9 @@ export function App() {
     setPlannerInsightError("");
     setActiveCover(null);
     setActiveCoverPoint(null);
+    setActiveEvent(null);
+    setActiveEventPoint(null);
+    setNavigating(false);
     setActiveFlood(null);
     setActiveFloodPoint(null);
   }
@@ -1455,7 +1544,7 @@ export function App() {
     }
     let map: MapLibreMap;
     try {
-      map = new maplibregl.Map({ container: mapContainer.current, style: MAP_STYLE, center: supportedArea.defaultView.center, zoom: supportedArea.defaultView.zoom, attributionControl: false });
+      map = new maplibregl.Map({ container: mapContainer.current, style: MAP_STYLE, center: supportedArea.defaultView.center, zoom: supportedArea.defaultView.zoom, maxPitch: 70, attributionControl: false });
     } catch {
       setMapError(true);
       return;
@@ -1472,6 +1561,25 @@ export function App() {
       setMapReady(true);
       setMapError(false);
       captureViewport();
+      streetLightRef.current = map.getLight();
+      map.addSource("isometric-buildings", {
+        type: "geojson",
+        data: buildingFootprintsUrl,
+      });
+      map.addLayer({
+        id: "isometric-buildings",
+        type: "fill-extrusion",
+        source: "isometric-buildings",
+        minzoom: 12.5,
+        paint: {
+          "fill-extrusion-base": 0,
+          "fill-extrusion-color": ISOMETRIC_BUILDING_COLOR,
+          "fill-extrusion-height": ["*", ["coalesce", ["to-number", ["get", "heightRoofFeet"]], 35], 0.3048],
+          "fill-extrusion-opacity": 0.92,
+          "fill-extrusion-vertical-gradient": true,
+        },
+        layout: { visibility: "none" },
+      });
       map.addSource("building-shadows", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
       map.addLayer(BUILDING_SHADOW_LAYER);
       map.addSource("ambient-greenery", { type: "geojson", data: ambientGreeneryLayer });
@@ -1526,6 +1634,15 @@ export function App() {
       map.addSource("happy", { type: "geojson", data: routeGeoJSON() });
       map.addLayer({ id: "happy-casing", type: "line", source: "happy", paint: { "line-color": "#FFFFFF", "line-width": 11, "line-opacity": 0.95 } });
       map.addLayer({ id: "happy", type: "line", source: "happy", paint: { "line-color": "#F05A47", "line-width": 6 } });
+      // Permitted events sit above the route line: the walk is already chosen,
+      // and this marks the stretch of it the event is permitted for.
+      map.addSource("route-events", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+      map.addLayer({ id: "route-events", type: "line", source: "route-events", paint: {
+        "line-color": "#F05A47",
+        "line-width": 9,
+        "line-dasharray": [0.6, 0.9],
+        "line-opacity": 0.85,
+      }, layout: { "line-cap": "round", "line-join": "round" } });
       map.addSource("route-shade", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
       map.addLayer({ id: "route-shade", type: "line", source: "route-shade", paint: {
         "line-color": ["match", ["get", "shadeBand"], "mostly_shaded", "#294E43", "mixed", "#8A7C4A", "#E86248"],
@@ -1622,6 +1739,26 @@ export function App() {
         } : null);
         setActiveCoverPoint({ x: event.point.x, y: event.point.y });
       };
+      const showEventPopover = (event: MapLayerMouseEvent) => {
+        if (mapEndpointSelectionRef.current) return;
+        const eventId = event.features?.[0]?.properties?.eventId;
+        const match = onRouteEventsRef.current.find((candidate) => candidate.event.id === eventId);
+        if (!match) return;
+        setActiveAsset(null);
+        setActiveAssetPoint(null);
+        setActiveTask(null);
+        setActiveTaskPoint(null);
+        setActiveCover(null);
+        setActiveCoverPoint(null);
+        setActiveFlood(null);
+        setActiveFloodPoint(null);
+        setDetail(null);
+        setActiveEvent(match);
+        setActiveEventPoint({ x: event.point.x, y: event.point.y });
+      };
+      map.on("click", "route-events", showEventPopover);
+      map.on("mouseenter", "route-events", () => { map.getCanvas().style.cursor = "pointer"; });
+      map.on("mouseleave", "route-events", () => { map.getCanvas().style.cursor = ""; });
       const showFloodPopover = (event: MapLayerMouseEvent) => {
         if (mapEndpointSelectionRef.current) return;
         const properties = event.features?.[0]?.properties;
@@ -1631,6 +1768,8 @@ export function App() {
         setActiveTaskPoint(null);
         setActiveCover(null);
         setActiveCoverPoint(null);
+        setActiveEvent(null);
+        setActiveEventPoint(null);
         setDetail(null);
         setActiveFlood(properties ? {
           label: String(properties.label ?? "Modeled flood potential"),
@@ -1741,13 +1880,40 @@ export function App() {
         map.on("click", "civic-task-icons", showTaskPopover);
       }).catch(() => { /* The task hit area remains selectable if icon art cannot load. */ });
       map.on("click", "civic-task-hit", showTaskPopover);
+      // The stretch already walked, drawn under the route so the remaining path
+      // stays the brighter line.
+      map.addSource("nav-trail", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+      map.addLayer({ id: "nav-trail", type: "line", source: "nav-trail", paint: {
+        "line-color": "#1E2A24",
+        "line-width": 6,
+        "line-opacity": 0.28,
+      }, layout: { visibility: "none", "line-cap": "round", "line-join": "round" } });
       map.addSource("endpoints", { type: "geojson", data: endpointsGeoJSON() });
-      map.addLayer({ id: "endpoints", type: "circle", source: "endpoints", paint: {
-        "circle-radius": ["match", ["get", "kind"], "origin", 6, "start_finish", 9, 8],
-        "circle-color": ["match", ["get", "kind"], "destination", "#1E2A24", "#FFFDF8"],
-        "circle-stroke-color": ["match", ["get", "kind"], "start_finish", "#F05A47", "#1E2A24"],
-        "circle-stroke-width": ["match", ["get", "kind"], "start_finish", 3.5, 2.5],
+      // A loop has one combined start and finish, so it keeps the ring treatment.
+      map.addLayer({ id: "endpoints", type: "circle", source: "endpoints", filter: ["==", ["get", "kind"], "start_finish"], paint: {
+        "circle-radius": 9,
+        "circle-color": "#FFFDF8",
+        "circle-stroke-color": "#F05A47",
+        "circle-stroke-width": 3.5,
       } });
+      void registerNavigationImages(map).then(() => {
+        if (map.getLayer("endpoint-markers")) return;
+        map.addLayer({ id: "endpoint-markers", type: "symbol", source: "endpoints", filter: ["!=", ["get", "kind"], "start_finish"], layout: {
+          "icon-image": ["match", ["get", "kind"], "destination", "nav-destination", "nav-origin"],
+          "icon-size": 0.5,
+          "icon-anchor": ["match", ["get", "kind"], "destination", "bottom", "center"],
+          "icon-allow-overlap": true,
+        } });
+        map.addSource("nav-cursor", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+        map.addLayer({ id: "nav-cursor", type: "symbol", source: "nav-cursor", layout: {
+          "icon-image": "nav-cursor",
+          "icon-size": 1,
+          "icon-rotate": ["get", "bearing"],
+          "icon-rotation-alignment": "map",
+          "icon-allow-overlap": true,
+          visibility: "none",
+        } });
+      }).catch(() => { /* Endpoint markers are decorative; the route still reads without them. */ });
       const routeFeatureClick = (event: MapLayerMouseEvent) => {
         if (mapEndpointSelectionRef.current) return;
         const edgeId = event.features?.[0]?.properties?.edgeId ?? null;
@@ -1777,7 +1943,90 @@ export function App() {
 
   useEffect(() => {
     const map = mapRef.current;
-    if (!mapReady || !map || !route || route.coordinates.length === 0) {
+    if (!map || !mapReady || !map.getLayer("isometric-buildings")) return;
+    const isometric = mapPerspective === "isometric";
+    if (streetPaintRef.current.length === 0) {
+      streetPaintRef.current = (map.getStyle().layers ?? []).flatMap((layer) => {
+        const override = isometricBasePaint(layer);
+        return override ? [{
+          layerId: layer.id,
+          property: override.property,
+          value: map.getPaintProperty(layer.id, override.property as never),
+        }] : [];
+      });
+    }
+
+    for (const snapshot of streetPaintRef.current) {
+      const override = isometricBasePaint({
+        id: snapshot.layerId,
+        type: map.getLayer(snapshot.layerId)?.type ?? "",
+      });
+      map.setPaintProperty(
+        snapshot.layerId,
+        snapshot.property as never,
+        (isometric ? override?.value : snapshot.value) as never,
+      );
+    }
+
+    map.setLayoutProperty("isometric-buildings", "visibility", isometric ? "visible" : "none");
+    map.setPaintProperty("happy-casing", "line-color", isometric ? "#071426" : "#FFFFFF");
+    map.setPaintProperty("happy", "line-color", isometric ? "#75D46B" : "#F05A47");
+    map.setPaintProperty("baseline", "line-color", isometric ? "#AEB8C5" : "#6D716C");
+    if (isometric) {
+      map.setLight({
+        anchor: "map",
+        color: "#fff0c7",
+        intensity: 0.68,
+        position: [1.25, 205, 38],
+      });
+    } else if (streetLightRef.current) {
+      map.setLight(streetLightRef.current);
+    }
+    map.easeTo({
+      ...MAP_PERSPECTIVE_CAMERA[mapPerspective],
+      duration: 650,
+      essential: true,
+    });
+  }, [mapPerspective, mapReady]);
+
+  /**
+   * Entering navigation lifts the camera to an aerial framing of the whole
+   * walk, then advances the heading arrow along it on the demo clock.
+   */
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!mapReady || !map || !navigating || !route || route.coordinates.length < 2) return;
+    map.fitBounds(boundsForRoute(route), {
+      ...NAVIGATION_CAMERA,
+      padding: { top: 110, right: 90, bottom: 150, left: window.innerWidth > 800 ? 470 : 90 },
+      maxZoom: 15.6,
+      duration: 900,
+    });
+
+    let frame = 0;
+    const startedAt = performance.now();
+    const step = (now: number) => {
+      const elapsed = (now - startedAt) / 1000;
+      const next = Math.min(1, elapsed / NAVIGATION_PLAYBACK_SECONDS);
+      setNavigationProgress(next);
+      if (next < 1) frame = requestAnimationFrame(step);
+    };
+    frame = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(frame);
+  }, [navigating, route, mapReady]);
+
+  // Leaving navigation returns the camera to the perspective the user chose.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!mapReady || !map || navigating) return;
+    setNavigationProgress(0);
+  }, [navigating, mapReady]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    // Drag handles are an editing affordance. While navigating, the walk is
+    // settled, so the map shows fixed A and B markers and the heading arrow.
+    if (!mapReady || !map || !route || route.coordinates.length === 0 || navigating) {
       originMarkerRef.current?.remove();
       destinationMarkerRef.current?.remove();
       waypointMarkerRef.current?.remove();
@@ -1828,7 +2077,7 @@ export function App() {
       waypointMarkerRef.current?.remove();
       waypointMarkerRef.current = null;
     }
-  }, [route, waypointNodeId, mapReady]);
+  }, [route, waypointNodeId, mapReady, navigating]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -1837,6 +2086,9 @@ export function App() {
     (map.getSource("baseline") as GeoJSONSource | undefined)?.setData(routeGeoJSON(result?.baseline));
     (map.getSource("route-comparison-delta") as GeoJSONSource | undefined)?.setData(comparisonDelta);
     (map.getSource("route-shade") as GeoJSONSource | undefined)?.setData(shadeSegments);
+    (map.getSource("route-events") as GeoJSONSource | undefined)?.setData(onRouteEventLayer);
+    (map.getSource("nav-cursor") as GeoJSONSource | undefined)?.setData(navigationCursorGeoJSON(navigating ? route : null, navigationProgress));
+    (map.getSource("nav-trail") as GeoJSONSource | undefined)?.setData(navigationTrailGeoJSON(navigating ? route : null, navigationProgress));
     (map.getSource("ambient-greenery") as GeoJSONSource | undefined)?.setData(ambientGreeneryLayer);
     (map.getSource("route-greenery") as GeoJSONSource | undefined)?.setData(greeneryRouteSegments);
     (map.getSource("mapped-cover") as GeoJSONSource | undefined)?.setData(ambientCoverLayer);
@@ -1861,6 +2113,9 @@ export function App() {
     visibility("baseline-delta", showCurrentRoute && showBaseline && comparisonDelta.features.length > 0);
     visibility("recommended-delta", showCurrentRoute && showBaseline && comparisonDelta.features.length > 0);
     visibility("endpoints", false);
+    visibility("endpoint-markers", navigating && Boolean(route));
+    visibility("nav-cursor", navigating && Boolean(route));
+    visibility("nav-trail", navigating && Boolean(route));
     visibility("happy-casing", showCurrentRoute);
     visibility("happy", showCurrentRoute);
     visibility("route-shade", showCurrentRoute && mapOverlays.shade);
@@ -1886,17 +2141,17 @@ export function App() {
     visibility("route-activity-notes", showLocalActivity && plannerView === "notes");
     ["overview-clusters", "overview-cluster-count", "overview-icons", "assets", "asset-icons"].forEach((layer) => visibility(layer, mapOverlays.amenities));
     ["civic-task-halo", "civic-task-hit", "civic-task-icons"].forEach((layer) => visibility(layer, mapOverlays.tasks));
-  }, [route, result, showBaseline, comparisonDelta, representativeGap, representativeRoutes, showRepresentativeIntervention, activityMapData, plannerView, activeAssets, activeAsset?.id, overviewAssets, taskFeatures, shadeSegments, ambientGreeneryLayer, greeneryRouteSegments, ambientCoverLayer, coverRouteSegments, coverContextLayer, coverContextVicinities, floodContextLayer, plannerScenario, mapLens, mapOverlays, appMode, mapReady]);
+  }, [route, result, showBaseline, comparisonDelta, representativeGap, representativeRoutes, showRepresentativeIntervention, activityMapData, plannerView, activeAssets, activeAsset?.id, overviewAssets, taskFeatures, shadeSegments, onRouteEventLayer, ambientGreeneryLayer, greeneryRouteSegments, ambientCoverLayer, coverRouteSegments, coverContextLayer, coverContextVicinities, floodContextLayer, plannerScenario, mapLens, mapOverlays, appMode, mapReady, navigating, navigationProgress]);
 
   useEffect(() => {
     const map = mapRef.current;
     if (!route || !map || !mapReady || (appMode === "planner" && plannerView !== "what_if")) return;
     const frame = window.requestAnimationFrame(() => {
       map.resize();
-      map.fitBounds(boundsForRoute(route), { padding: { top: 90, right: 70, bottom: 90, left: window.innerWidth > 800 ? 460 : 70 }, maxZoom: appMode === "planner" ? 15.3 : 16, duration: 650 });
+      map.fitBounds(boundsForRoute(route), { ...MAP_PERSPECTIVE_CAMERA[mapPerspective], padding: { top: 90, right: 70, bottom: 90, left: window.innerWidth > 800 ? 460 : 70 }, maxZoom: appMode === "planner" ? 15.3 : 16, duration: 650 });
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [route, appMode, plannerView, mapReady]);
+  }, [route, appMode, plannerView, mapReady, mapPerspective]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -1907,12 +2162,13 @@ export function App() {
     const south = Math.min(...coordinates.map(([, latitude]) => latitude));
     const north = Math.max(...coordinates.map(([, latitude]) => latitude));
     const frame = window.requestAnimationFrame(() => map.fitBounds([[west, south], [east, north]], {
+      ...MAP_PERSPECTIVE_CAMERA[mapPerspective],
       padding: { top: 90, right: 70, bottom: 90, left: window.innerWidth > 800 ? 480 : 70 },
       maxZoom: 15.7,
       duration: 650,
     }));
     return () => window.cancelAnimationFrame(frame);
-  }, [appMode, plannerView, mapReady, representativeRoutes]);
+  }, [appMode, plannerView, mapReady, mapPerspective, representativeRoutes]);
 
   useEffect(() => {
     if (!mapOverlays.shade || !buildingShadeDetailVisible(mapViewport.zoom)) {
@@ -1959,6 +2215,12 @@ export function App() {
     "--asset-popover-top": `${Math.max(72, Math.min(window.innerHeight - 220, activeFloodPoint.y - 34))}px`,
   } as CSSProperties : undefined;
 
+  const eventPopoverOpensLeft = Boolean(activeEventPoint && activeEventPoint.x > window.innerWidth - 320);
+  const eventPopoverStyle = activeEventPoint ? {
+    "--asset-popover-left": `${Math.max(16, eventPopoverOpensLeft ? activeEventPoint.x - 296 : activeEventPoint.x + 18)}px`,
+    "--asset-popover-top": `${Math.max(72, Math.min(window.innerHeight - 230, activeEventPoint.y - 34))}px`,
+  } as CSSProperties : undefined;
+
   const taskPopoverOpensLeft = Boolean(activeTaskPoint && activeTaskPoint.x > window.innerWidth - 320);
   const taskPopoverStyle = activeTaskPoint ? {
     "--asset-popover-left": `${Math.max(16, taskPopoverOpensLeft ? activeTaskPoint.x - 296 : activeTaskPoint.x + 18)}px`,
@@ -1975,6 +2237,9 @@ export function App() {
     setActiveTaskPoint(null);
     setActiveCover(null);
     setActiveCoverPoint(null);
+    setActiveEvent(null);
+    setActiveEventPoint(null);
+    setNavigating(false);
     setActiveFlood(null);
     setActiveFloodPoint(null);
     setEditRoute(false);
@@ -2046,7 +2311,7 @@ export function App() {
     setSelectedActivityRouteId(routeId);
     const selected = routeActivityRef.current.find((item) => item.id === routeId);
     const bounds = selected ? boundsForCoordinates(selected.coordinates) : null;
-    if (bounds && mapRef.current) mapRef.current.fitBounds(bounds, { padding: { top: 100, right: 80, bottom: 100, left: window.innerWidth > 800 ? 470 : 70 }, maxZoom: 16, duration: 500 });
+    if (bounds && mapRef.current) mapRef.current.fitBounds(bounds, { ...MAP_PERSPECTIVE_CAMERA[mapPerspective], padding: { top: 100, right: 80, bottom: 100, left: window.innerWidth > 800 ? 470 : 70 }, maxZoom: 16, duration: 500 });
   };
 
   const clearLocalRouteActivity = () => {
@@ -2058,9 +2323,9 @@ export function App() {
     setActivityPersisted(clearRouteActivity());
   };
 
-  return <main className={`${route ? "has-result" : "is-compose"} mode-${appMode} ${mapEndpointSelection ? "map-picking" : ""}`}>
-    <div className="map-shell"><div className="map" ref={mapContainer} /><div className="map-wash" />{mapError && <FallbackMap graph={pilotGraph} route={route} baseline={showBaseline ? result?.baseline ?? null : null} comparisonDelta={comparisonDelta} representativeRoutes={representativeRoutes} activity={routeActivity} showActivity={appMode === "planner" && plannerView !== "what_if"} selectedActivityRouteId={selectedActivityRouteId} onActivityRouteClick={selectActivityRoute} lens={mapLens} overlays={mapOverlays} shadeSegments={shadeSegments} greenerySegments={greeneryRouteSegments} ambientGreenery={ambientGreeneryLayer} coverSegments={coverRouteSegments} ambientCover={ambientCoverLayer} coverContext={coverContextLayer} floodContext={floodContextLayer} selection={appMode === "planner" ? representativeGap : null} assets={viewportAssets} prominentAssetIds={activeAssets.map((asset) => asset.id)} selectedAssetId={activeAsset?.id} onMapClick={mapEndpointSelection && !route && appMode === "walk" ? (coordinate) => void selectEndpointFromMap(mapEndpointSelection, coordinate) : undefined} onAssetClick={(asset) => { setActiveTask(null); setActiveTaskPoint(null); setActiveFlood(null); setActiveFloodPoint(null); setActiveAsset(asset); setActiveAssetPoint({ x: Math.round(window.innerWidth * .68), y: 160 }); }} tasks={visibleTasks} selectedTaskId={activeTask?.id} completedTaskIds={Object.keys(taskObservations)} onTaskClick={(task) => { setActiveAsset(null); setActiveAssetPoint(null); setActiveFlood(null); setActiveFloodPoint(null); setActiveTask(task); setActiveTaskPoint({ x: Math.round(window.innerWidth * .68), y: 160 }); }} />}</div>
-    <div className="top-bar"><div className="brand-cluster"><Brand /><PreferencesPopover preferences={preferences} onSave={savePreferences} onReset={resetPreferences} appliesNow={!route} /><div className="mode-switch" aria-label="Product view"><button type="button" className={appMode === "walk" ? "active" : ""} aria-pressed={appMode === "walk"} onClick={() => switchMode("walk")}>Walk</button><button type="button" className={appMode === "planner" ? "active" : ""} aria-pressed={appMode === "planner"} onClick={() => switchMode("planner")}>City view</button></div></div><div className="map-actions">{!mapError && <IconButton label="Center map" onClick={() => mapRef.current?.easeTo({ center: graphNodeById(originNodeId)?.coordinate, zoom: 14.5 })}><LocateIcon /></IconButton>}{route && appMode === "walk" && <IconButton label="Map details" onClick={() => { setActiveAsset(null); setActiveAssetPoint(null); setActiveTask(null); setActiveTaskPoint(null); setDetail("data"); }}><LayersIcon /></IconButton>}</div></div>
+  return <main className={`${route ? "has-result" : "is-compose"} mode-${appMode} perspective-${mapPerspective} ${mapEndpointSelection ? "map-picking" : ""}`}>
+    <div className="map-shell"><div className="map" ref={mapContainer} /><div className="map-wash" />{navigating && route && <div className="navigation-readout"><NavigateIcon /><span><strong>{navigationProgressLabel(route, navigationProgress)}</strong><small>Following the planned walk. Not a device location.</small></span><i className="navigation-progress" aria-hidden="true"><b style={{ width: `${Math.round(navigationProgress * 100)}%` }} /></i></div>}{mapPerspective === "isometric" && !mapError && <div className="isometric-caption"><BuildingsIcon /><span><strong>Isometric city</strong><small>Brick, stone, and slate from NYC roof-height data</small></span><i className="isometric-swatches" aria-hidden="true"><b /><b /><b /><b /></i></div>}{mapError && <FallbackMap graph={pilotGraph} route={route} baseline={showBaseline ? result?.baseline ?? null : null} comparisonDelta={comparisonDelta} representativeRoutes={representativeRoutes} activity={routeActivity} showActivity={appMode === "planner" && plannerView !== "what_if"} selectedActivityRouteId={selectedActivityRouteId} onActivityRouteClick={selectActivityRoute} lens={mapLens} overlays={mapOverlays} shadeSegments={shadeSegments} greenerySegments={greeneryRouteSegments} ambientGreenery={ambientGreeneryLayer} coverSegments={coverRouteSegments} ambientCover={ambientCoverLayer} coverContext={coverContextLayer} floodContext={floodContextLayer} selection={appMode === "planner" ? representativeGap : null} assets={viewportAssets} prominentAssetIds={activeAssets.map((asset) => asset.id)} selectedAssetId={activeAsset?.id} onMapClick={mapEndpointSelection && !route && appMode === "walk" ? (coordinate) => void selectEndpointFromMap(mapEndpointSelection, coordinate) : undefined} onAssetClick={(asset) => { setActiveTask(null); setActiveTaskPoint(null); setActiveFlood(null); setActiveFloodPoint(null); setActiveAsset(asset); setActiveAssetPoint({ x: Math.round(window.innerWidth * .68), y: 160 }); }} tasks={visibleTasks} selectedTaskId={activeTask?.id} completedTaskIds={Object.keys(taskObservations)} onTaskClick={(task) => { setActiveAsset(null); setActiveAssetPoint(null); setActiveFlood(null); setActiveFloodPoint(null); setActiveTask(task); setActiveTaskPoint({ x: Math.round(window.innerWidth * .68), y: 160 }); }} />}</div>
+    <div className="top-bar"><div className="brand-cluster"><Brand /><PreferencesPopover preferences={preferences} onSave={savePreferences} onReset={resetPreferences} appliesNow={!route} /><div className="mode-switch" aria-label="Product view"><button type="button" className={appMode === "walk" ? "active" : ""} aria-pressed={appMode === "walk"} onClick={() => switchMode("walk")}>Walk</button><button type="button" className={appMode === "planner" ? "active" : ""} aria-pressed={appMode === "planner"} onClick={() => switchMode("planner")}>City view</button></div></div><div className="map-actions"><CityStatusPill />{route && appMode === "walk" && !mapError && <button type="button" className={`navigate-toggle ${navigating ? "active" : ""}`} aria-pressed={navigating} onClick={() => setNavigating((current) => !current)}><NavigateIcon /><span>{navigating ? "Exit navigation" : "Start walk"}</span></button>}{!mapError && <button type="button" className={`perspective-toggle ${mapPerspective === "isometric" ? "active" : ""}`} aria-pressed={mapPerspective === "isometric"} onClick={() => setMapPerspective((current) => current === "street" ? "isometric" : "street")}><BuildingsIcon /><span>{mapPerspective === "isometric" ? "Street map" : "Isometric"}</span></button>}{!mapError && <IconButton label="Center map" onClick={() => mapRef.current?.easeTo({ center: graphNodeById(originNodeId)?.coordinate, zoom: 14.5 })}><LocateIcon /></IconButton>}{route && appMode === "walk" && <IconButton label="Map details" onClick={() => { setActiveAsset(null); setActiveAssetPoint(null); setActiveTask(null); setActiveTaskPoint(null); setDetail("data"); }}><LayersIcon /></IconButton>}</div></div>
     {appMode === "planner"
       ? <RepresentativePlannerSheet scenario={representativeScenario} showIntervention={showRepresentativeIntervention} onShowIntervention={() => setShowRepresentativeIntervention(true)} onBack={() => switchMode("walk")} activity={routeActivity} activityPersisted={activityPersisted} view={plannerView} onViewChange={setPlannerView} selectedActivityRouteId={selectedActivityRouteId} onSelectActivityRoute={selectActivityRoute} onClearActivity={clearLocalRouteActivity} />
       : !route
@@ -2070,6 +2335,7 @@ export function App() {
     {activeAsset && detail !== "asset" && <aside className={`asset-popover ${assetPopoverOpensLeft ? "opens-left" : ""}`} style={assetPopoverStyle} role="dialog" aria-label={assetTypeLabel(activeAsset)}><div><AssetIcon kind={activeAsset.kind} /><IconButton label="Close" onClick={() => { setActiveAsset(null); setActiveAssetPoint(null); }}><CloseIcon /></IconButton></div><span className="eyebrow">{appMode === "planner" ? "Place on the map" : "Near your walk"}</span><h3>{activeAsset.kind === "transit" ? activeAsset.details.stopName : assetTypeLabel(activeAsset)}</h3>{assetTransitLinesLabel(activeAsset) && <strong className="asset-transit-lines">{assetTransitLinesLabel(activeAsset)}</strong>}<p>{activeAsset.kind === "transit" ? activeAsset.details.entranceType ?? "Mapped subway entrance" : activeAsset.locationLabel}</p><small>{assetAvailabilityCopy(activeAsset)}</small><small className="source-freshness">{civicAssetEvidence(activeAsset).freshnessLabel}</small>{appMode === "walk" && <button type="button" className="asset-more" onClick={() => setDetail("asset")}>See details</button>}</aside>}
     {activeTask && detail !== "task" && <aside className={`asset-popover civic-task-popover ${taskPopoverOpensLeft ? "opens-left" : ""}`} style={taskPopoverStyle} role="dialog" aria-label={activeTask.title}><div><CivicTaskIcon task={activeTask} /><IconButton label="Close" onClick={() => { setActiveTask(null); setActiveTaskPoint(null); }}><CloseIcon /></IconButton></div><span className="eyebrow">Optional · {activeTask.estimatedMinutes} min</span><h3>{activeTask.title}</h3><p>{activeTask.locationLabel}</p><small>A quick check that can help keep the map useful.</small>{taskObservations[activeTask.id] && <small className="task-complete-label"><CheckCircleIcon />Checked in this session</small>}{appMode === "walk" && <button type="button" className="asset-more" onClick={() => setDetail("task")}>{taskObservations[activeTask.id] ? "See observation" : "View check"}</button>}</aside>}
     {activeCover && <aside className="asset-popover cover-popover" style={coverPopoverStyle} role="dialog" aria-label="Cover evidence"><div><UmbrellaIcon /><IconButton label="Close" onClick={() => { setActiveCover(null); setActiveCoverPoint(null); }}><CloseIcon /></IconButton></div><span className="eyebrow">Cover evidence</span><h3>{activeCover.label}</h3><p>{activeCover.locationLabel}</p><small>{activeCover.detail}</small>{activeCover.taskId && <button type="button" className="asset-more" onClick={() => { const task = allCivicTasks.find((candidate) => candidate.id === activeCover.taskId); if (!task) return; setAppMode("walk"); setActiveCover(null); setActiveCoverPoint(null); setActiveTask(task); setActiveTaskPoint(null); setDetail("task"); }}>Help verify this</button>}{activeCover.sourceId && sourceRegistryPresentation(activeCover.sourceId) && <a className="asset-more" href={sourceRegistryPresentation(activeCover.sourceId)!.officialUrl} target="_blank" rel="noreferrer">Open source</a>}</aside>}
+    {activeEvent && <aside className={`asset-popover event-popover ${eventPopoverOpensLeft ? "opens-left" : ""}`} style={eventPopoverStyle} role="dialog" aria-label={activeEvent.event.name}><div><EventFlagIcon /><IconButton label="Close" onClick={() => { setActiveEvent(null); setActiveEventPoint(null); }}><CloseIcon /></IconButton></div><span className="eyebrow">On your way</span><h3>{activeEvent.event.name}</h3><p>{eventSummaryLine(activeEvent)}</p><div className="event-overlap"><div className="event-overlap-bar"><span style={{ width: `${Math.max(6, Math.round(activeEvent.routeShare * 100))}%` }} /></div><strong>{eventOverlapLabel(activeEvent)}</strong></div><small>{eventBlockRunLabel(activeEvent)}{activeEvent.event.closureType ? ` · ${activeEvent.event.closureType}` : ""}</small><small className="source-freshness event-boundary">{EVENT_EVIDENCE_BOUNDARY}</small></aside>}
     {activeFlood && <aside className="asset-popover flood-popover" style={floodPopoverStyle} role="dialog" aria-label="Modeled flood potential"><div><CloudRainIcon /><IconButton label="Close" onClick={() => { setActiveFlood(null); setActiveFloodPoint(null); }}><CloseIcon /></IconButton></div><span className="eyebrow">2050 model · not live</span><h3>{activeFlood.label}</h3><p>{activeFlood.depthBand}</p><small>{activeFlood.detail}</small><a className="asset-more" href={floodEvidenceMetadata.source.datasetUrl} target="_blank" rel="noreferrer">Open DEP model source</a></aside>}
     <MapLensControl overlays={mapOverlays} onToggle={toggleMapOverlay} hour={shadeHour} onHourChange={setShadeHour} planner={appMode === "planner"} hasRoute={Boolean(route)} shadeDetailVisible={buildingShadeDetailVisible(mapViewport.zoom)} canEdit={!mapError} editing={editRoute} onEditingChange={(editing) => { setEditRoute(editing); if (editing) setMapLens("route"); }} />
     <div className="map-key" role="list" aria-label="Visible map layers">{appMode === "planner" && plannerView !== "what_if" && routeActivity.length > 0 && <><span role="listitem"><i className="activity-route-key" />Mapped routes</span>{routeActivity.some((item) => item.feedback.length) && <span role="listitem"><i className="activity-note-key" />Route notes</span>}</>}{route && !(appMode === "planner" && plannerView !== "what_if") && <span role="listitem"><i className="route-key" />Happy Path</span>}{showBaseline && result?.baseline && !(appMode === "planner" && plannerView !== "what_if") && <span role="listitem"><i className="baseline-key" />Fastest route</span>}{mapOverlays.shade && ((appMode === "planner" && plannerView === "what_if") || detail === "data") && <span role="listitem"><i className="shade-deep-key" />{route || buildingShadeDetailVisible(mapViewport.zoom) ? `Shade at ${formatClock(shadeHour)}` : "Zoom in for shade"}</span>}{mapOverlays.greenery && ((appMode === "planner" && plannerView === "what_if") || detail === "data") && <span role="listitem"><i className="greenery-key" />Trees &amp; parks nearby</span>}{mapOverlays.cover && ((appMode === "planner" && plannerView === "what_if") || detail === "data") && <><span role="listitem"><i className="cover-key" />Mapped cover</span><span role="listitem"><i className="cover-context-key" />Approx. cover-record vicinity</span></>}{mapOverlays.flood && ((appMode === "planner" && plannerView === "what_if") || detail === "data") && <span role="listitem"><i className="flood-key" />Flood potential · 2050 model</span>}{mapOverlays.amenities && ((appMode === "planner" && plannerView === "what_if") || detail === "data") && <span role="listitem"><i className="amenity-key" />Nearby places</span>}{mapOverlays.tasks && ((appMode === "planner" && plannerView === "what_if") || detail === "data") && <span role="listitem"><i className="task-key" />Optional check</span>}</div>

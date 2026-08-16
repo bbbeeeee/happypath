@@ -1062,6 +1062,51 @@
         "Exact current or forecast water depth",
         "Safe, dry, clear, passable, low-risk, flood-free, or flood-avoiding route"
       ]
+    },
+    {
+      "source_id": "nyc-permitted-events",
+      "publisher": "NYC Street Activity Permit Office",
+      "dataset_name": "NYC Permitted Event Information",
+      "dataset_url": "https://data.cityofnewyork.us/d/tvpp-9vvx",
+      "canonical_url": "https://data.cityofnewyork.us/d/tvpp-9vvx",
+      "dataset_id": "tvpp-9vvx",
+      "asset_type": "dataset",
+      "authority": "official",
+      "access_method": "socrata_api",
+      "format": "JSON",
+      "terms_url": "https://opendata.cityofnewyork.us/overview/#termsofuse",
+      "attribution": "NYC Street Activity Permit Office",
+      "refresh_target": "Daily during the preview window",
+      "source_updated_at": null,
+      "retrieved_at": "2026-08-16T17:41:59.565Z",
+      "last_successful_ingest": "2026-08-16T17:41:59.565Z",
+      "snapshot_hash": "sha256:34830852ab0fad19b74bb54d68472dcd2f20f085c5778714faf5a17043a197c1",
+      "geometry_type": "Graph edge runs resolved from permit street prose",
+      "source_crs": "EPSG:4326",
+      "supported_area_id": "manhattan-south-of-60th-v1",
+      "pilot_coverage": null,
+      "pilot_record_count": 86,
+      "derived_from": [
+        "openstreetmap"
+      ],
+      "method_version": "permit-block-run-resolution-v1",
+      "capability_status": "ingested",
+      "current_operation_verified": false,
+      "known_limitations": [
+        "A permit records an approved application, not an event that is set up or happening",
+        "Event extent is resolved from street prose onto graph edges, not from a surveyed closure boundary",
+        "Permits naming streets outside the supported area are dropped rather than approximated"
+      ],
+      "allowed_claims": [
+        "A permitted event is on record for a block this route uses",
+        "Published permit window, event type, and closure type"
+      ],
+      "prohibited_claims": [
+        "The event is happening now",
+        "The street is currently closed",
+        "Complete coverage of events in the area"
+      ],
+      "validation_status": "pending"
     }
   ]
 }

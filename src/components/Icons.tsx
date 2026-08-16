@@ -18,6 +18,10 @@ export function BenchIcon(props: IconProps) {
   return <Icon {...props}><path d="M5 11h14v5H5z" /><path d="M7 16v3M17 16v3M6 8v3M18 8v3" /></Icon>;
 }
 
+export function BuildingsIcon(props: IconProps) {
+  return <Icon {...props}><path d="m4 10 8-5 8 5-8 5-8-5Z" /><path d="m4 10v5l8 5 8-5v-5" /><path d="M12 15v5M8 12.5v5M16 12.5v5" /></Icon>;
+}
+
 export function CameraIcon(props: IconProps) {
   return <Icon {...props}><path d="M5 8h3l1.5-2h5L16 8h3a2 2 0 0 1 2 2v8H3v-8a2 2 0 0 1 2-2Z" /><circle cx="12" cy="13" r="3" /></Icon>;
 }
@@ -48,6 +52,14 @@ export function CloudRainIcon(props: IconProps) {
 
 export function DropletIcon(props: IconProps) {
   return <Icon {...props}><path d="M12 3s5 5.5 5 10a5 5 0 0 1-10 0c0-4.5 5-10 5-10Z" /></Icon>;
+}
+
+export function NavigateIcon(props: IconProps) {
+  return <Icon {...props}><path d="M12 3.2 19 20a.7.7 0 0 1-1 .85L12 17.3 6 20.85A.7.7 0 0 1 5 20Z" /></Icon>;
+}
+
+export function EventFlagIcon(props: IconProps) {
+  return <Icon {...props}><path d="M5 21V4" /><path d="M5 4.5c3.5-2 6.5 2 10 0v8c-3.5 2-6.5-2-10 0Z" /></Icon>;
 }
 
 export function ExternalLinkIcon(props: IconProps) {
