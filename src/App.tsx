@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import * as maplibregl from "maplibre-gl";
 import type { GeoJSONSource, Map as MapLibreMap, MapLayerMouseEvent } from "maplibre-gl";
 import { defaultDestination, defaultOrigin, isInsidePilot, nearestGraphNode, pilotGraph } from "./data/cityGraph";
@@ -10,6 +10,7 @@ import { briefSummary, DEFAULT_BRIEF, mergeTripBrief, type RoutePriority, type T
 import { interpretTripBrief } from "./planning/interpretTripBrief";
 import { JourneyPlanningError, planJourney } from "./routing/journey";
 import type { Coordinate, JourneyResult, JourneyRoute, TripBrief as RoutingTripBrief } from "./types";
+import { assetAvailabilityCopy, assetMarkerSvg, assetsGeoJSON, assetTypeLabel, endpointsGeoJSON, routeGeoJSON } from "./mapPresentation";
 import {
   ArrowIcon,
   BackIcon,
@@ -33,12 +34,12 @@ const nodeById = new Map(pilotGraph.nodes.map((node) => [node.id, node]));
 const shadowModules = import.meta.glob("./data/shadows/hour-*.json");
 const civicFixture = loadCivicAssetFixture();
 const transitEndpoints = getPilotTransitEndpointCandidates({ maxSnapDistanceMeters: 50 });
-const allMapAssets = [...civicFixture.assets, ...transitEndpoints.map((candidate) => candidate.asset)];
+const allMapAssets = [...new Map([...civicFixture.assets, ...transitEndpoints.map((candidate) => candidate.asset)].map((asset) => [asset.id, asset])).values()];
 
-const SUGGESTIONS = [
-  "Less direct sun to Washington Square Park. I can add five minutes.",
-  "A green 20-minute loop with places to sit.",
-  "Wander north for 25 minutes and end near transit.",
+const EXAMPLE_REQUESTS = [
+  { label: "Go somewhere", prompt: "Take me to Washington Square with less direct sun. I can add five minutes." },
+  { label: "Take a loop", prompt: "A green 20-minute loop with a place to sit." },
+  { label: "Wander", prompt: "Wander north for 25 minutes and finish near a train." },
 ];
 
 const PRIORITY_META: Record<RoutePriority, { label: string; icon: typeof SunIcon }> = {
@@ -58,36 +59,6 @@ function formatClock(hour: number) {
   const suffix = hour >= 12 ? "PM" : "AM";
   const display = hour % 12 || 12;
   return `${display}:00 ${suffix}`;
-}
-
-function routeGeoJSON(route?: JourneyRoute | null) {
-  return {
-    type: "Feature" as const,
-    properties: {},
-    geometry: { type: "LineString" as const, coordinates: route?.coordinates ?? [] },
-  };
-}
-
-function endpointsGeoJSON(route?: JourneyRoute | null) {
-  const coordinates = route?.coordinates ?? [];
-  return {
-    type: "FeatureCollection" as const,
-    features: coordinates.length < 2 ? [] : [
-      { type: "Feature" as const, properties: { kind: "origin" }, geometry: { type: "Point" as const, coordinates: coordinates[0] } },
-      { type: "Feature" as const, properties: { kind: "destination" }, geometry: { type: "Point" as const, coordinates: coordinates.at(-1)! } },
-    ],
-  };
-}
-
-function assetsGeoJSON(assets: CivicAsset[]) {
-  return {
-    type: "FeatureCollection" as const,
-    features: assets.map((asset) => ({
-      type: "Feature" as const,
-      properties: { id: asset.id, kind: asset.kind, name: asset.name },
-      geometry: { type: "Point" as const, coordinates: asset.coordinate },
-    })),
-  };
 }
 
 function boundsForRoute(route: JourneyRoute) {
@@ -151,16 +122,65 @@ function makeRoutingBrief(brief: UiTripBrief, originNodeId: string, destinationN
   };
 }
 
+function planningErrorMessage(caught: unknown) {
+  if (caught instanceof JourneyPlanningError) {
+    return caught.code === "no-feasible-loop"
+      ? "We couldn’t find a satisfying loop in that time. Give us five more minutes and we’ll try again."
+      : caught.message;
+  }
+  return caught instanceof Error ? caught.message : "We couldn’t build that walk yet. Try a nearby destination or a little more time.";
+}
+
 function IconButton({ label, children, onClick, className = "" }: { label: string; children: React.ReactNode; onClick: () => void; className?: string }) {
   return <button type="button" className={`icon-button ${className}`} onClick={onClick} aria-label={label} title={label}>{children}</button>;
 }
 
 function Brand() {
-  return <div className="brand"><span className="brand-mark"><span /></span><span>Happy Path</span><small>Lower Manhattan preview</small></div>;
+  return <div className="brand"><span className="brand-mark"><span /></span><span>Happy Path</span><small>Lower Manhattan beta</small></div>;
 }
 
 function Segmented<T extends string>({ value, options, onChange, label }: { value: T; options: { value: T; label: string }[]; onChange: (value: T) => void; label: string }) {
   return <div className="segmented" aria-label={label}>{options.map((option) => <button type="button" key={option.value} className={value === option.value ? "selected" : ""} onClick={() => onChange(option.value)}>{option.label}</button>)}</div>;
+}
+
+function WalkControls({ brief, onChange, destinationText, onDestinationTextChange }: {
+  brief: UiTripBrief;
+  onChange: (brief: UiTripBrief) => void;
+  destinationText: string;
+  onDestinationTextChange: (value: string) => void;
+}) {
+  const patchBrief = (patch: Parameters<typeof mergeTripBrief>[1]) => onChange(mergeTripBrief(brief, patch, "controls"));
+  const changeShape = (shape: UiTripBrief["shape"]) => patchBrief({
+    shape,
+    destinationQuery: shape === "destination" ? brief.destinationQuery : null,
+    direction: shape === "wander" ? brief.direction : null,
+    endCondition: shape === "wander" ? brief.endCondition : null,
+  });
+  const togglePriority = (priority: RoutePriority) => {
+    const priorities = brief.priorities.includes(priority)
+      ? brief.priorities.filter((item) => item !== priority)
+      : [...brief.priorities, priority];
+    patchBrief({ priorities });
+  };
+
+  return <div className="walk-controls">
+    <div className="control-group"><span>Walk shape</span><Segmented value={brief.shape} label="Walk shape" options={[{ value: "destination", label: "Somewhere" }, { value: "loop", label: "Loop" }, { value: "wander", label: "Wander" }]} onChange={changeShape} /></div>
+    {brief.shape === "destination" && <label className="destination-control"><span>Destination</span><input aria-label="Destination" value={destinationText} onChange={(event) => onDestinationTextChange(event.target.value)} placeholder="Where are you going?" /></label>}
+    <div className="quick-picks" aria-label="What matters">
+      {(["shade", "greenery", "rest", "water", "restroom"] as RoutePriority[]).map((priority) => {
+        const meta = PRIORITY_META[priority];
+        const PriorityIcon = meta.icon;
+        return <button type="button" key={priority} className={brief.priorities.includes(priority) ? "active" : ""} aria-pressed={brief.priorities.includes(priority)} onClick={() => togglePriority(priority)}><PriorityIcon />{meta.label}</button>;
+      })}
+      <button type="button" className={brief.avoidMappedSteps ? "active" : ""} aria-pressed={brief.avoidMappedSteps} onClick={() => patchBrief({ avoidMappedSteps: !brief.avoidMappedSteps })}><StairsIcon />Fewer mapped steps</button>
+    </div>
+    <div className="trip-controls">
+      <div><span>{brief.shape === "destination" ? "Extra time" : brief.shape === "loop" ? "Loop length" : "Time limit"}</span>{brief.shape === "destination"
+        ? <Segmented value={String(brief.detourMinutes)} label="Extra time allowance" options={[{ value: "0", label: "Fastest" }, { value: "5", label: "+5 min" }, { value: "10", label: "+10 min" }]} onChange={(value) => patchBrief({ detourMinutes: Number(value) as 0 | 5 | 10 })} />
+        : <Segmented value={String(brief.walkingMinutes)} label="Walking time" options={[{ value: "15", label: "15" }, { value: "20", label: "20" }, { value: "25", label: "25" }, { value: "30", label: "30 min" }]} onChange={(value) => patchBrief({ walkingMinutes: Number(value) })} />}</div>
+      <label className="departure-control"><span><ClockIcon />Leaving</span><select value={brief.departureHour} onChange={(event) => patchBrief({ departureHour: Number(event.target.value) })}><option value={new Date().getHours()}>Now · {formatClock(new Date().getHours())}</option>{[8, 10, 12, 14, 16, 18].filter((hour) => hour !== new Date().getHours()).map((hour) => <option key={hour} value={hour}>{formatClock(hour)}</option>)}</select></label>
+    </div>
+  </div>;
 }
 
 interface ComposeSheetProps {
@@ -178,43 +198,25 @@ interface ComposeSheetProps {
 }
 
 function ComposeSheet({ brief, setBrief, prompt, setPrompt, originText, setOriginText, destinationText, setDestinationText, busy, error, onPlan }: ComposeSheetProps) {
-  const togglePriority = (priority: RoutePriority) => {
-    const priorities = brief.priorities.includes(priority) ? brief.priorities.filter((item) => item !== priority) : [...brief.priorities, priority];
-    setBrief(mergeTripBrief(brief, { priorities }, "controls"));
-  };
+  const [manualChanged, setManualChanged] = useState(false);
+  const setManualBrief = (nextBrief: UiTripBrief) => { setManualChanged(true); setBrief(nextBrief); };
   return <section className="sheet compose-sheet" aria-label="Plan a walk">
     <div className="sheet-handle" />
-    <div className="compose-heading"><span className="eyebrow">A better way through the city</span><h1>Where and how would you like to walk?</h1></div>
-    <div className="journey-row">
-      <Segmented value={brief.shape} label="Journey shape" options={[{ value: "destination", label: "Somewhere" }, { value: "loop", label: "Loop" }, { value: "wander", label: "Wander" }]} onChange={(shape) => setBrief(mergeTripBrief(brief, { shape }, "controls"))} />
-    </div>
-    <div className="location-stack">
+    <div className="compose-heading"><span className="eyebrow">Plan a better walk</span><h1>What kind of walk would feel better?</h1></div>
+    <div className="location-stack start-only">
       <label className="location-input"><span className="location-dot origin-dot" /><span className="field-label">From</span><input aria-label="Starting point" value={originText} onChange={(event) => setOriginText(event.target.value)} /></label>
-      {brief.shape === "destination" && <label className="location-input"><span className="location-dot destination-dot" /><span className="field-label">To</span><input aria-label="Destination" value={destinationText} onChange={(event) => setDestinationText(event.target.value)} placeholder="Where are you going?" /></label>}
     </div>
     <label className="prompt-box">
       <SparkIcon />
-      <textarea aria-label="Describe your walk" value={prompt} onChange={(event) => setPrompt(event.target.value)} placeholder={brief.shape === "destination" ? "Less direct sun, and no more than five minutes longer…" : "Green streets, places to pause, finish near transit…"} rows={3} />
+      <textarea aria-label="Describe your walk" value={prompt} onChange={(event) => setPrompt(event.target.value)} placeholder="Tell us where you’re going—or ask for a loop or a wander—and what would make the walk better." rows={4} />
     </label>
-    <div className="suggestions" aria-label="Example requests">{SUGGESTIONS.map((suggestion) => <button type="button" key={suggestion} onClick={() => setPrompt(suggestion)}>{suggestion}</button>)}</div>
-    <div className="quick-picks" aria-label="Quick preferences">
-      {(["shade", "greenery", "rest", "water", "restroom"] as RoutePriority[]).map((priority) => {
-        const meta = PRIORITY_META[priority];
-        const PriorityIcon = meta.icon;
-        return <button type="button" key={priority} className={brief.priorities.includes(priority) ? "active" : ""} aria-pressed={brief.priorities.includes(priority)} onClick={() => togglePriority(priority)}><PriorityIcon />{meta.label}</button>;
-      })}
-      <button type="button" className={brief.avoidMappedSteps ? "active" : ""} aria-pressed={brief.avoidMappedSteps} onClick={() => setBrief(mergeTripBrief(brief, { avoidMappedSteps: !brief.avoidMappedSteps }, "controls"))}><StairsIcon />Avoid mapped steps</button>
+    <div className="example-requests" aria-label="Example requests">
+      {EXAMPLE_REQUESTS.map((example) => <button type="button" key={example.label} onClick={() => setPrompt(example.prompt)}><strong>{example.label}</strong><span>{example.prompt}</span></button>)}
     </div>
-    <div className="trip-controls">
-      <div><span>{brief.shape === "destination" ? "Extra time" : brief.shape === "loop" ? "Loop length" : "Time limit"}</span>{brief.shape === "destination"
-        ? <Segmented value={String(brief.detourMinutes)} label="Extra time allowance" options={[{ value: "0", label: "Fastest" }, { value: "5", label: "+5 min" }, { value: "10", label: "+10 min" }]} onChange={(value) => setBrief(mergeTripBrief(brief, { detourMinutes: Number(value) as 0 | 5 | 10 }, "controls"))} />
-        : <Segmented value={String(brief.walkingMinutes)} label="Walking time" options={[{ value: "15", label: "15" }, { value: "20", label: "20" }, { value: "25", label: "25" }, { value: "30", label: "30 min" }]} onChange={(value) => setBrief(mergeTripBrief(brief, { walkingMinutes: Number(value) }, "controls"))} />}</div>
-      <label className="departure-control"><span><ClockIcon />Leaving</span><select value={brief.departureHour} onChange={(event) => setBrief(mergeTripBrief(brief, { departureHour: Number(event.target.value) }, "controls"))}><option value={new Date().getHours()}>Now · {formatClock(new Date().getHours())}</option>{[8, 10, 12, 14, 16, 18].filter((hour) => hour !== new Date().getHours()).map((hour) => <option key={hour} value={hour}>{formatClock(hour)}</option>)}</select></label>
-    </div>
-    <div className="brief-preview"><div><span className="eyebrow">Your walk</span><strong>{briefSummary(brief)[0]}</strong></div><div className="brief-tags">{briefSummary(brief).slice(1).map((item) => <span key={item}>{item}</span>)}{brief.avoidMappedSteps && <span>No mapped steps</span>}{brief.unsupported.map((item) => <span className="unsupported-tag" key={item}>{item}</span>)}</div></div>
+    <details className="manual-details"><summary>Set the details yourself</summary><WalkControls brief={brief} onChange={setManualBrief} destinationText={destinationText} onDestinationTextChange={(value) => { setManualChanged(true); setDestinationText(value); }} /></details>
     {error && <p className="status-message error" role="alert">{error}</p>}
-    <button type="button" className="primary-action" disabled={busy || (!prompt.trim() && brief.priorities.length === 0)} onClick={onPlan}><span>{busy ? "Finding a better way…" : "Find my Happy Path"}</span><ArrowIcon /></button>
-    <p className="privacy-note">Your route is not saved. If language interpretation is enabled, the configured model provider receives your request; route facts still come from map and City data.</p>
+    <button type="button" className="primary-action" disabled={busy || (!prompt.trim() && !manualChanged)} onClick={onPlan}><span>{busy ? "Finding a better way…" : "Plan my walk"}</span><ArrowIcon /></button>
+    <p className="privacy-note">Your request and route aren’t saved.</p>
   </section>;
 }
 
@@ -225,15 +227,32 @@ function AssetIcon({ kind }: { kind: CivicAssetKind }) {
   return <DropletIcon />;
 }
 
-function ResultSheet({ brief, route, result, assets, delta, onBack, onRefine, onShowWhy, onShowData, onShowDetour, detourScenario, showBaseline, setShowBaseline, busy, modelFallback }: {
+const ASSET_KINDS: CivicAssetKind[] = ["seating", "restroom", "drinking_fountain", "transit"];
+
+async function registerAssetMarkerImages(map: MapLibreMap) {
+  await Promise.all(ASSET_KINDS.map((kind) => new Promise<void>((resolve, reject) => {
+    if (map.hasImage(`asset-${kind}`)) { resolve(); return; }
+    const image = new Image();
+    image.onload = () => { if (!map.hasImage(`asset-${kind}`)) map.addImage(`asset-${kind}`, image, { pixelRatio: 2 }); resolve(); };
+    image.onerror = () => reject(new Error(`Could not load the ${kind} map icon.`));
+    image.src = assetMarkerSvg(kind);
+  })));
+}
+
+function ResultSheet({ brief, route, result, assets, destinationText, setDestinationText, delta, error, onBack, onRefine, onAdjust, onShowWhy, onShowAsset, onShowData, onShowDetour, detourScenario, showBaseline, setShowBaseline, busy, modelFallback }: {
   brief: UiTripBrief;
   route: JourneyRoute;
   result: JourneyResult;
   assets: CivicAsset[];
+  destinationText: string;
+  setDestinationText: (value: string) => void;
   delta: string;
+  error: string;
   onBack: () => void;
   onRefine: (value: string) => void;
+  onAdjust: (brief: UiTripBrief) => Promise<boolean>;
   onShowWhy: () => void;
+  onShowAsset: (asset: CivicAsset) => void;
   onShowData: () => void;
   onShowDetour: () => void;
   detourScenario: ShadeDetourScenario | null;
@@ -243,6 +262,9 @@ function ResultSheet({ brief, route, result, assets, delta, onBack, onRefine, on
   modelFallback: boolean;
 }) {
   const [refinement, setRefinement] = useState("");
+  const [showAdjustments, setShowAdjustments] = useState(false);
+  const [draftBrief, setDraftBrief] = useState(brief);
+  useEffect(() => setDraftBrief(brief), [brief]);
   const primary = brief.priorities[0] ?? "shade";
   const sunSaved = result.baseline ? Math.max(0, result.baseline.directSunMinutes - route.directSunMinutes) : null;
   const greenGain = result.baseline ? Math.max(0, route.greeneryPercent - result.baseline.greeneryPercent) : null;
@@ -255,52 +277,77 @@ function ResultSheet({ brief, route, result, assets, delta, onBack, onRefine, on
         : "Shade checked, without an extra detour"
     : primary === "greenery" ? "A greener way through" : assets.length ? "Useful stops, kept close" : "A considered way through";
   const submit = (event: FormEvent) => { event.preventDefault(); if (!refinement.trim()) return; onRefine(refinement); setRefinement(""); };
+  const applyAdjustments = async () => { if (await onAdjust(draftBrief)) setShowAdjustments(false); };
+  const summary = [
+    ...briefSummary(brief),
+    `Leaving ${formatClock(brief.departureHour)}`,
+    ...(brief.avoidMappedSteps ? ["Fewer mapped steps"] : []),
+  ];
   return <section className="sheet result-sheet" aria-label="Your Happy Path">
     <div className="sheet-handle" />
-    <div className="result-nav"><IconButton label="Plan another walk" onClick={onBack}><BackIcon /></IconButton><span>Your Happy Path</span><span className="result-time">{formatMinutes(route.durationMinutes)}</span></div>
+    <div className="result-nav"><IconButton label="Plan a new walk" onClick={onBack}><BackIcon /></IconButton><span>Your Happy Path</span><span className="result-time">{formatMinutes(route.durationMinutes)}</span></div>
     {delta && <div className="route-delta"><SparkIcon />Route updated · {delta}</div>}
-    <div className="result-lead"><p>{headline}</p><h2>{brief.shape === "loop" ? `${Math.round(route.durationMinutes)}-minute loop` : brief.shape === "wander" ? `${Math.round(route.durationMinutes)}-minute wander · within your ${brief.walkingMinutes}-minute limit` : `${Math.round(route.durationMinutes)} minutes · ${Math.round(route.extraMinutesVsBaseline ?? 0)} longer`}</h2></div>
+    <div className="result-lead"><h1>{headline}</h1><p>{brief.shape === "loop" ? `${Math.round(route.durationMinutes)}-minute loop` : brief.shape === "wander" ? `${Math.round(route.durationMinutes)}-minute wander · within your ${brief.walkingMinutes}-minute limit` : `${Math.round(route.durationMinutes)} minutes · ${Math.round(route.extraMinutesVsBaseline ?? 0)} longer`}</p></div>
+    <div className="intent-summary"><div><span className="eyebrow">What we planned</span><div className="brief-tags">{summary.map((item) => <span key={item}>{item}</span>)}</div></div><button type="button" onClick={() => setShowAdjustments((value) => !value)} aria-expanded={showAdjustments}>{showAdjustments ? "Done" : "Adjust"}</button></div>
+    {showAdjustments && <div className="adjust-panel"><WalkControls brief={draftBrief} onChange={setDraftBrief} destinationText={destinationText} onDestinationTextChange={setDestinationText} /><button type="button" className="apply-adjustments" disabled={busy} onClick={applyAdjustments}>{busy ? "Updating your walk…" : "Update this walk"}</button></div>}
     <div className="benefit-list">
       {brief.priorities.includes("shade") && <button type="button" onClick={onShowWhy}><SunIcon /><span>{route.directSunMinutes < 0.05 ? <><strong>Nighttime departure</strong><small>No modeled direct sun at {formatClock(brief.departureHour)}</small></> : sunSaved !== null && sunSaved >= 0.05 ? <><strong>{sunSaved.toFixed(1)} fewer min</strong><small>in estimated direct sun</small></> : <><strong>{route.shadePercent.toFixed(0)}% estimated shade</strong><small>along this route at {formatClock(brief.departureHour)}</small></>}</span><ChevronIcon /></button>}
       {brief.priorities.includes("greenery") && <button type="button" onClick={onShowWhy}><LeafIcon /><span>{greenGain !== null && greenGain >= 0.5 ? <><strong>{greenGain.toFixed(0)} points greener</strong><small>than the fastest route</small></> : <><strong>{route.greeneryPercent.toFixed(0)}% mapped greenery</strong><small>from nearby tree and park records</small></>}</span><ChevronIcon /></button>}
-      {assets.slice(0, 2).map((asset) => <button type="button" key={asset.id} onClick={onShowWhy}><AssetIcon kind={asset.kind} /><span><strong>{asset.name}</strong><small>mapped nearby · operation unverified</small></span><ChevronIcon /></button>)}
+      {assets.slice(0, 2).map((asset) => <button type="button" key={asset.id} onClick={() => onShowAsset(asset)}><AssetIcon kind={asset.kind} /><span><strong>{asset.name}</strong><small>Mapped near your route · availability may have changed</small></span><ChevronIcon /></button>)}
       {brief.avoidMappedSteps && <button type="button" onClick={onShowWhy}><StairsIcon /><span><strong>Avoids mapped steps</strong><small>Not an accessibility guarantee</small></span><ChevronIcon /></button>}
     </div>
     {missingAmenities.length > 0 && <div className="coverage-note"><strong>Not found near this route</strong><span>{missingAmenities.map((kind) => ({ seating: "mapped seating", restroom: "a mapped restroom", drinking_fountain: "a mapped drinking fountain", transit: "a mapped subway entrance" })[kind]).join(" or ")} within 90 meters. Inventory coverage and current operation may vary.</span></div>}
-    <div className="confidence-row"><span className="confidence-dot" /><p><strong>Good confidence for route and time</strong><small>{brief.priorities.includes("shade") ? "Shade is an estimate from building shapes and sun position." : "Some street and asset details may be incomplete."}</small></p></div>
+    <div className="confidence-row"><span className="confidence-dot" /><p><strong>Built from mapped walking paths</strong><small>{brief.priorities.includes("shade") ? "Shade is estimated from building shapes and the sun’s position." : "Some street and place details may be incomplete."}</small></p></div>
     {result.baseline && <button type="button" className="text-action" onClick={() => setShowBaseline(!showBaseline)}><span className="baseline-swatch" />{showBaseline ? "Hide" : "Compare with"} fastest · {formatMinutes(result.baseline.durationMinutes)}</button>}
     {brief.unsupported.length > 0 && <div className="request-limit" role="status"><strong>Kept out of the route score</strong><span>{brief.unsupported.join(" · ")}. You can still use the mapped evidence above.</span></div>}
-    <button type="button" className="data-action" onClick={onShowData}><LayersIcon /><span><strong>City data used</strong><small>{Object.keys(civicFixture.sources).length + 4} mapped and derived sources</small></span><ChevronIcon /></button>
-    {detourScenario && detourScenario.avoidedDirectSunMinutes >= 0.05 && <button type="button" className="detour-action" onClick={onShowDetour}><span className="detour-mark">D</span><span><strong>Detour planning proof</strong><small>What if one exposed block had more shade?</small></span><ChevronIcon /></button>}
+    <button type="button" className="data-action" onClick={onShowData}><LayersIcon /><span><strong>Built with city and street data</strong><small>{Object.keys(civicFixture.sources).length + 4} sources behind this walk</small></span><ChevronIcon /></button>
+    {detourScenario && detourScenario.avoidedDirectSunMinutes >= 0.05 && <button type="button" className="detour-action" onClick={onShowDetour}><span className="detour-mark">D</span><span><strong>A city planning what-if</strong><small>What if one exposed block had more shade?</small></span><ChevronIcon /></button>}
     <form className="refine-box" onSubmit={submit}><SparkIcon /><input value={refinement} onChange={(event) => setRefinement(event.target.value)} placeholder="Shorter, but keep the bathroom…" aria-label="Refine this route" /><button disabled={busy || !refinement.trim()} aria-label="Update route"><ArrowIcon /></button></form>
-    {modelFallback && <p className="status-message subtle">Language service is unavailable, so Happy Path used its built-in trip controls.</p>}
+    {error && <p className="status-message error" role="alert">{error}</p>}
+    {modelFallback && <p className="status-message subtle">We used built-in trip understanding this time. You can adjust the details above.</p>}
   </section>;
 }
 
-type DetailMode = "why" | "data" | "detour";
+type DetailMode = "why" | "data" | "detour" | "asset";
 
-function DetailPanel({ mode, brief, route, assets, detourScenario, onClose }: { mode: DetailMode; brief: UiTripBrief; route: JourneyRoute; assets: CivicAsset[]; detourScenario: ShadeDetourScenario | null; onClose: () => void }) {
-  const label = mode === "why" ? "Why this way" : mode === "data" ? "City data used" : "Detour planning proof";
+function AssetDetails({ asset }: { asset: CivicAsset }) {
+  const facts = asset.kind === "seating"
+    ? [asset.details.subtype || asset.details.category, asset.details.neighborhood]
+    : asset.kind === "restroom"
+      ? [asset.details.publishedHours ? `Published hours: ${asset.details.publishedHours}` : null, asset.details.operator, asset.details.season]
+      : asset.kind === "drinking_fountain"
+        ? [asset.details.fountainType, asset.details.propertyName, asset.details.fountainCount ? `${asset.details.fountainCount} fountain${asset.details.fountainCount === 1 ? "" : "s"} listed here` : null]
+        : [asset.details.daytimeRoutes.length ? `Trains: ${asset.details.daytimeRoutes.join(", ")}` : null, asset.details.entranceType, asset.details.publishedEntryAllowed === true ? "Listed as an entrance" : null];
+  return <>
+    <div className="asset-detail-title"><AssetIcon kind={asset.kind} /><span><span className="eyebrow">{assetTypeLabel(asset)}</span><h2>{asset.name}</h2></span></div>
+    <p>{asset.locationLabel}</p>
+    <div className="asset-facts">{facts.filter(Boolean).map((fact) => <span key={fact}>{fact}</span>)}</div>
+    <div className="asset-caveat"><strong>Good to know</strong><span>{assetAvailabilityCopy(asset)}</span></div>
+  </>;
+}
+
+function DetailPanel({ mode, brief, route, assets, activeAsset, detourScenario, onClose }: { mode: DetailMode; brief: UiTripBrief; route: JourneyRoute; assets: CivicAsset[]; activeAsset: CivicAsset | null; detourScenario: ShadeDetourScenario | null; onClose: () => void }) {
+  const label = mode === "why" ? "Why this way" : mode === "data" ? "City data behind this walk" : mode === "asset" ? activeAsset?.name ?? "Place details" : "City planning what-if";
   return <aside className="detail-panel" role="dialog" aria-modal="true" aria-label={label}>
-    <div className="detail-header"><span className="eyebrow">{mode === "why" ? "Why this way?" : mode === "data" ? "Behind your walk" : "Guided planning proof"}</span><IconButton label="Close" onClick={onClose}><CloseIcon /></IconButton></div>
+    <div className="detail-header"><span className="eyebrow">{mode === "why" ? "Why this way?" : mode === "data" ? "Behind your walk" : mode === "asset" ? "Along your walk" : "A planning what-if"}</span><IconButton label="Close" onClick={onClose}><CloseIcon /></IconButton></div>
     {mode === "why" ? <>
       <h2>{route.streets[0] || "This part of the route"} fits what you asked for.</h2>
       <p>{brief.priorities.includes("shade") ? `About ${Math.round(route.shadePercent)}% of this walk is in estimated building shade at ${formatClock(brief.departureHour)}.` : "The route favors the mapped qualities in your Trip Brief while staying inside your time budget."}</p>
       <div className="evidence-cards">
         {brief.priorities.includes("shade") && <article><SunIcon /><span><strong>Estimated building shade</strong><small>Derived from building footprints, roof heights, and deterministic sun position. It is not measured temperature.</small></span></article>}
         {brief.priorities.includes("greenery") && <article><LeafIcon /><span><strong>Mapped greenery</strong><small>{route.nearbyTreeCount} nearby tree records{route.adjacentParkNames.length ? ` and ${route.adjacentParkNames.slice(0, 2).join(", ")}` : ""}. Tree points do not prove canopy or shade.</small></span></article>}
-        {assets.map((asset) => <article key={asset.id}><AssetIcon kind={asset.kind} /><span><strong>{asset.name}</strong><small>{asset.locationLabel}. The inventory record is official; current operation is unknown.</small></span></article>)}
+        {assets.map((asset) => <article key={asset.id}><AssetIcon kind={asset.kind} /><span><strong>{asset.name}</strong><small>{asset.locationLabel}. Listed by NYC; availability may have changed.</small></span></article>)}
       </div>
     </> : mode === "data" ? <>
       <h2>Public data, translated into one useful walk.</h2>
       <p>The route uses only the layers relevant to this request. Technical detail stays here so the map can stay calm.</p>
       <div className="source-list">
         <article><span>Community map</span><strong>OpenStreetMap pedestrian paths</strong><small>Connectivity and mapped steps · coverage varies</small></article>
-        <article><span>NYC Open Data</span><strong>Building footprints and roof heights</strong><small>Used for estimated shade · validation pending</small></article>
+        <article><span>NYC Open Data</span><strong>Building footprints and roof heights</strong><small>Used for estimated shade · not measured temperature</small></article>
         <article><span>NYC Parks</span><strong>Trees and park properties</strong><small>Used for mapped greenery · not current shade</small></article>
         {Object.values(civicFixture.sources).map((source) => <article key={source.sourceId}><span>{source.publisher}</span><strong>{source.datasetName}</strong><small>{source.recordCount} records in this pilot · operation unverified</small></article>)}
       </div>
-    </> : detourScenario ? <>
+    </> : mode === "asset" && activeAsset ? <AssetDetails asset={activeAsset} /> : detourScenario ? <>
       <span className="hypothetical-badge">Hypothetical · not a project proposal</span>
       <h2>{detourScenario.title}</h2>
       <p>Detour reuses the resident route’s shade evidence to show one bounded planning scenario. It does not rank or recommend a real capital project.</p>
@@ -333,6 +380,7 @@ export function App() {
   const [delta, setDelta] = useState("");
   const [modelFallback, setModelFallback] = useState(false);
   const [activeAsset, setActiveAsset] = useState<CivicAsset | null>(null);
+  const [activeAssetPoint, setActiveAssetPoint] = useState<{ x: number; y: number } | null>(null);
   const [mapReady, setMapReady] = useState(false);
   const [mapError, setMapError] = useState(false);
   const activeAssets = useMemo(() => route ? relevantAssets(route, brief) : [], [route, brief]);
@@ -343,7 +391,7 @@ export function App() {
     if (!query.trim() || query.trim() === current?.name) return currentNodeId;
     const found = await searchNycAddress(query);
     if (!found) throw new Error(`We couldn’t find “${query}”. Try a nearby street or landmark.`);
-    if (!isInsidePilot(found.coordinate)) throw new Error("That place is outside this Lower Manhattan preview. Try somewhere between Canal Street and Washington Square.");
+    if (!isInsidePilot(found.coordinate)) throw new Error("Happy Path is exploring Lower Manhattan for now. Try a start and destination between Canal Street and Union Square.");
     return nearestGraphNode(found.coordinate).id;
   }
 
@@ -372,6 +420,9 @@ export function App() {
     setResult(nextResult);
     setRoute(nextRoute);
     setShowBaseline(false);
+    setActiveAsset(null);
+    setActiveAssetPoint(null);
+    setDetail(null);
     if (isRefinement && oldRoute) {
       const minuteChange = Math.round(nextRoute.durationMinutes - oldRoute.durationMinutes);
       const sunChange = nextRoute.directSunMinutes - oldRoute.directSunMinutes;
@@ -388,10 +439,21 @@ export function App() {
       setModelFallback(Boolean(value.trim()) && interpreted.interpretedBy === "fallback");
       await compute(interpreted, isRefinement);
     } catch (caught) {
-      const message = caught instanceof JourneyPlanningError
-        ? caught.code === "no-feasible-loop" ? "This starting point does not have a good loop inside that time. Try five more minutes." : caught.message
-        : caught instanceof Error ? caught.message : "Happy Path could not build that walk yet.";
-      setError(message);
+      setError(planningErrorMessage(caught));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function adjust(nextBrief: UiTripBrief) {
+    setBusy(true);
+    setError("");
+    try {
+      await compute(nextBrief, true);
+      return true;
+    } catch (caught) {
+      setError(planningErrorMessage(caught));
+      return false;
     } finally {
       setBusy(false);
     }
@@ -423,16 +485,40 @@ export function App() {
       map.addLayer({ id: "happy-casing", type: "line", source: "happy", paint: { "line-color": "#FFFFFF", "line-width": 11, "line-opacity": 0.95 } });
       map.addLayer({ id: "happy", type: "line", source: "happy", paint: { "line-color": "#F05A47", "line-width": 6 } });
       map.addSource("assets", { type: "geojson", data: assetsGeoJSON([]) });
-      map.addLayer({ id: "assets", type: "circle", source: "assets", paint: { "circle-radius": 13, "circle-color": "#FFFDF8", "circle-stroke-color": ["match", ["get", "kind"], "seating", "#4F8963", "restroom", "#6478B8", "transit", "#D94C3B", "#2E6F85"], "circle-stroke-width": 2 } });
-      map.addLayer({ id: "asset-labels", type: "symbol", source: "assets", layout: { "text-field": ["match", ["get", "kind"], "seating", "S", "restroom", "R", "transit", "T", "W"], "text-size": 10, "text-font": ["Open Sans Bold"] }, paint: { "text-color": "#1E2A24" } });
+      map.addLayer({ id: "assets", type: "circle", source: "assets", paint: {
+        "circle-radius": ["case", ["get", "selected"], 18, 15],
+        "circle-color": "#FFFDF8",
+        "circle-opacity": ["case", ["get", "selected"], 0.98, 0],
+        "circle-stroke-color": "#F05A47",
+        "circle-stroke-width": ["case", ["get", "selected"], 3, 0],
+      } });
+      void registerAssetMarkerImages(map).then(() => {
+        if (map.getLayer("asset-icons")) return;
+        map.addLayer({ id: "asset-icons", type: "symbol", source: "assets", layout: {
+          "icon-image": ["match", ["get", "kind"], "seating", "asset-seating", "restroom", "asset-restroom", "transit", "asset-transit", "asset-drinking_fountain"],
+          "icon-size": ["case", ["get", "selected"], 1.35, 1.2],
+          "icon-anchor": "bottom",
+          "icon-allow-overlap": true,
+          "icon-ignore-placement": true,
+        } });
+        map.on("mouseenter", "asset-icons", () => { map.getCanvas().style.cursor = "pointer"; });
+        map.on("mouseleave", "asset-icons", () => { map.getCanvas().style.cursor = ""; });
+      }).catch(() => { /* The selectable marker hit areas remain available if icon art cannot load. */ });
       map.addSource("endpoints", { type: "geojson", data: endpointsGeoJSON() });
-      map.addLayer({ id: "endpoints", type: "circle", source: "endpoints", paint: { "circle-radius": ["match", ["get", "kind"], "origin", 6, 8], "circle-color": ["match", ["get", "kind"], "origin", "#FFFDF8", "#1E2A24"], "circle-stroke-color": "#1E2A24", "circle-stroke-width": 2.5 } });
+      map.addLayer({ id: "endpoints", type: "circle", source: "endpoints", paint: {
+        "circle-radius": ["match", ["get", "kind"], "origin", 6, "start_finish", 9, 8],
+        "circle-color": ["match", ["get", "kind"], "destination", "#1E2A24", "#FFFDF8"],
+        "circle-stroke-color": ["match", ["get", "kind"], "start_finish", "#F05A47", "#1E2A24"],
+        "circle-stroke-width": ["match", ["get", "kind"], "start_finish", 3.5, 2.5],
+      } });
       map.on("mouseenter", "happy", () => { map.getCanvas().style.cursor = "pointer"; });
       map.on("mouseleave", "happy", () => { map.getCanvas().style.cursor = ""; });
       map.on("click", "happy", () => setDetail("why"));
       map.on("click", "assets", (event: MapLayerMouseEvent) => {
         const id = event.features?.[0]?.properties?.id;
+        setDetail(null);
         setActiveAsset(allMapAssets.find((asset) => asset.id === id) ?? null);
+        setActiveAssetPoint({ x: event.point.x, y: event.point.y });
       });
     });
     map.on("error", () => { if (!map.isStyleLoaded()) setMapError(true); });
@@ -446,13 +532,13 @@ export function App() {
     (map.getSource("happy") as GeoJSONSource | undefined)?.setData(routeGeoJSON(route));
     (map.getSource("baseline") as GeoJSONSource | undefined)?.setData(routeGeoJSON(result?.baseline));
     (map.getSource("endpoints") as GeoJSONSource | undefined)?.setData(endpointsGeoJSON(route));
-    (map.getSource("assets") as GeoJSONSource | undefined)?.setData(assetsGeoJSON(activeAssets));
+    (map.getSource("assets") as GeoJSONSource | undefined)?.setData(assetsGeoJSON(activeAssets, activeAsset?.id));
     map.setLayoutProperty("baseline", "visibility", showBaseline && result?.baseline ? "visible" : "none");
-    if (route) map.fitBounds(boundsForRoute(route), { padding: { top: 100, right: 80, bottom: 100, left: window.innerWidth > 800 ? 500 : 80 }, maxZoom: 16, duration: 700 });
-  }, [route, result, showBaseline, activeAssets, mapReady]);
+    if (route) map.fitBounds(boundsForRoute(route), { padding: { top: 90, right: 70, bottom: 90, left: window.innerWidth > 800 ? 450 : 70 }, maxZoom: 16, duration: 700 });
+  }, [route, result, showBaseline, activeAssets, activeAsset?.id, mapReady]);
 
   useEffect(() => {
-    if (!brief.priorities.includes("shade")) {
+    if (!route || !brief.priorities.includes("shade")) {
       if (mapRef.current?.getLayer("building-shadows")) mapRef.current.setLayoutProperty("building-shadows", "visibility", "none");
       return;
     }
@@ -466,15 +552,21 @@ export function App() {
       (mapRef.current?.getSource("building-shadows") as GeoJSONSource | undefined)?.setData((module as { default: never }).default);
     });
     return () => { cancelled = true; };
-  }, [brief.departureHour, brief.priorities, mapReady]);
+  }, [route, brief.departureHour, brief.priorities, mapReady]);
+
+  const assetPopoverOpensLeft = Boolean(activeAssetPoint && activeAssetPoint.x > window.innerWidth - 320);
+  const assetPopoverStyle = activeAssetPoint ? {
+    "--asset-popover-left": `${Math.max(16, assetPopoverOpensLeft ? activeAssetPoint.x - 296 : activeAssetPoint.x + 18)}px`,
+    "--asset-popover-top": `${Math.max(72, Math.min(window.innerHeight - 190, activeAssetPoint.y - 34))}px`,
+  } as CSSProperties : undefined;
 
   return <main className={route ? "has-result" : "is-compose"}>
     <div className="map-shell"><div className="map" ref={mapContainer} /><div className="map-wash" />{mapError && <div className="map-fallback" role="status"><strong>The map could not load.</strong><span>You can still plan a route and review its receipt. Check your connection to restore the map.</span></div>}</div>
-    <div className="top-bar"><Brand /><div className="map-actions"><IconButton label="Center map" onClick={() => mapRef.current?.easeTo({ center: nodeById.get(originNodeId)?.coordinate, zoom: 14.5 })}><LocateIcon /></IconButton><IconButton label="Map details" onClick={() => setDetail("data")}><LayersIcon /></IconButton></div></div>
+    <div className="top-bar"><Brand /><div className="map-actions"><IconButton label="Center map" onClick={() => mapRef.current?.easeTo({ center: nodeById.get(originNodeId)?.coordinate, zoom: 14.5 })}><LocateIcon /></IconButton>{route && <IconButton label="Map details" onClick={() => { setActiveAsset(null); setActiveAssetPoint(null); setDetail("data"); }}><LayersIcon /></IconButton>}</div></div>
     {!route ? <ComposeSheet brief={brief} setBrief={setBrief} prompt={prompt} setPrompt={setPrompt} originText={originText} setOriginText={setOriginText} destinationText={destinationText} setDestinationText={setDestinationText} busy={busy} error={error} onPlan={() => plan()} />
-      : result && <ResultSheet brief={brief} route={route} result={result} assets={activeAssets} delta={delta} onBack={() => { setRoute(null); setResult(null); setDetail(null); setActiveAsset(null); setError(""); }} onRefine={(value) => plan(value, true)} onShowWhy={() => setDetail("why")} onShowData={() => setDetail("data")} onShowDetour={() => setDetail("detour")} detourScenario={detourScenario} showBaseline={showBaseline} setShowBaseline={setShowBaseline} busy={busy} modelFallback={modelFallback} />}
-    {detail && route && <DetailPanel mode={detail} brief={brief} route={route} assets={activeAssets} detourScenario={detourScenario} onClose={() => setDetail(null)} />}
-    {activeAsset && <aside className="asset-popover" role="dialog" aria-label={activeAsset.name}><div><AssetIcon kind={activeAsset.kind} /><IconButton label="Close" onClick={() => setActiveAsset(null)}><CloseIcon /></IconButton></div><span className="eyebrow">Mapped nearby</span><h3>{activeAsset.name}</h3><p>{activeAsset.locationLabel}</p><small>Official inventory record. Current operation is unknown.</small></aside>}
-    {!mapError && <div className="map-key" aria-hidden="true"><span><i className="route-key" />Happy Path</span>{brief.priorities.includes("shade") && <span><i className="shade-key" />Estimated shade</span>}</div>}
+      : result && <ResultSheet brief={brief} route={route} result={result} assets={activeAssets} destinationText={destinationText} setDestinationText={setDestinationText} delta={delta} error={error} onBack={() => { setRoute(null); setResult(null); setDetail(null); setActiveAsset(null); setActiveAssetPoint(null); setError(""); }} onRefine={(value) => plan(value, true)} onAdjust={adjust} onShowWhy={() => { setActiveAsset(null); setActiveAssetPoint(null); setDetail("why"); }} onShowAsset={(asset) => { setActiveAsset(asset); setActiveAssetPoint(null); setDetail("asset"); }} onShowData={() => { setActiveAsset(null); setActiveAssetPoint(null); setDetail("data"); }} onShowDetour={() => { setActiveAsset(null); setActiveAssetPoint(null); setDetail("detour"); }} detourScenario={detourScenario} showBaseline={showBaseline} setShowBaseline={setShowBaseline} busy={busy} modelFallback={modelFallback} />}
+    {detail && route && <DetailPanel mode={detail} brief={brief} route={route} assets={activeAssets} activeAsset={activeAsset} detourScenario={detourScenario} onClose={() => { setDetail(null); if (detail === "asset") { setActiveAsset(null); setActiveAssetPoint(null); } }} />}
+    {activeAsset && detail !== "asset" && <aside className={`asset-popover ${assetPopoverOpensLeft ? "opens-left" : ""}`} style={assetPopoverStyle} role="dialog" aria-label={assetTypeLabel(activeAsset)}><div><AssetIcon kind={activeAsset.kind} /><IconButton label="Close" onClick={() => { setActiveAsset(null); setActiveAssetPoint(null); }}><CloseIcon /></IconButton></div><span className="eyebrow">Along your walk</span><h3>{assetTypeLabel(activeAsset)}</h3><p>{activeAsset.locationLabel}</p><small>{assetAvailabilityCopy(activeAsset)}</small>{(activeAsset.kind === "restroom" || activeAsset.kind === "transit") && <button type="button" className="asset-more" onClick={() => setDetail("asset")}>See details</button>}</aside>}
+    {!mapError && route && <div className="map-key" aria-hidden="true"><span><i className="route-key" />Happy Path</span>{brief.priorities.includes("shade") && <span><i className="shade-key" />Estimated shade</span>}</div>}
   </main>;
 }
