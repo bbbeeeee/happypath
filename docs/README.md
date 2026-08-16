@@ -2,25 +2,29 @@
 
 This folder contains the durable product and system documentation for Happy Path.
 
+The current pull request establishes the product contract and delivery plan. Implementation follows later through focused pull requests to `main`.
+
 ## Canonical documents
 
 | Document | Responsibility |
 | --- | --- |
-| [PRD](PRD.md) | Product goals, scope, phases, requirements, and acceptance criteria |
-| [UX](UX.md) | Resident interaction, map behavior, route receipt, and screen states |
-| [Data and inference](data-and-inference.md) | Source registry, evidence rules, feature derivation, inference boundary, and validation |
-| [Detour](DETOUR.md) | City-planning use case, burden metrics, gap analysis, and intervention simulation |
-| [Build](BUILD.md) | Milestones, dependencies, parallel work, and completion gates |
-| [Prototypes](PROTOTYPES.md) | What each branch proves, what is reusable, and what should remain isolated |
+| [PRD](PRD.md) | Product purpose, P1 scope, geography, requirements, and acceptance criteria |
+| [UX and product language](UX.md) | Resident interaction, map behavior, copy, visual hierarchy, demo quality, and screen states |
+| [Data and inference](data-and-inference.md) | Source registry, cleaned layer contracts, evidence rules, feature derivation, AI boundary, live-data direction, and validation |
+| [Detour](DETOUR.md) | Planning proof, journey burdens, amenity gaps, intervention simulation, and future workflow direction |
+| [Build](BUILD.md) | Delivery sequence, shared contracts, quality gates, and implementation workflow |
+| [Prototypes](PROTOTYPES.md) | What existing branches prove and how they may be referenced without becoming the implementation base |
 | [Ideas](ideas/README.md) | Possibilities that are not committed product scope |
-| [Tasks](../tasks/README.md) | Current work packages, status, ownership, dependencies, and acceptance criteria |
+| [Tasks](../tasks/README.md) | End-to-end work packages, status, dependencies, and acceptance criteria |
 
 ## Working agreement
 
-1. **The PRD owns product scope.** Do not place live task status or implementation checklists in it.
-2. **Companion docs own detail.** UX, data, inference, and Detour details should not be duplicated throughout the PRD.
-3. **Task files own execution.** Each work package has one file under `tasks/`; the task board summarizes status and dependencies.
-4. **Evidence strength controls product language.** A layer may be visualizable before it is safe to use for routing or planning claims.
-5. **Keep the interface simple even when the data platform is broad.** The route is primary; evidence appears when it helps explain or refine the result.
-6. **Prototype branches are inputs, not automatic architecture decisions.** Record what is retained or rejected in [PROTOTYPES.md](PROTOTYPES.md).
-7. **Update linked artifacts together.** A product-scope change should update the PRD and affected task acceptance criteria in the same pull request.
+1. **The PRD owns product scope.** Do not place live task status or engineering checklists in it.
+2. **UX owns the resident experience and voice.** Primary screens should feel friendly, polished, and free of implementation jargon.
+3. **Data and inference own truth boundaries.** A layer may be shown before it is safe to use for routing or planning claims.
+4. **Detour reuses the resident city model.** Do not create a separate planning-only ingestion stack.
+5. **Task files own execution.** The task board summarizes status and dependencies.
+6. **Build broadly, show selectively.** The data platform can be thorough while the visible route remains simple.
+7. **Real data, curated delivery.** Cropping, cleaning, caching, and preparing strong demos are encouraged; fabricated route benefits are not.
+8. **Prototype branches are references.** No existing branch is the designated implementation base, and `bryan` is not part of the current visual direction.
+9. **Update linked artifacts together.** A scope or quality-bar change should update the PRD, companion docs, and affected task criteria in the same pull request.
