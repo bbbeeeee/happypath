@@ -17,6 +17,7 @@ const priorities = ["shade", "greenery", "rest", "water", "restroom", "construct
 const directions = ["north", "south", "east", "west"] as const;
 const endConditions = ["transit", "park"] as const;
 const walkingTimeIntents = ["target", "maximum"] as const;
+const ACCESSIBILITY_LIMITATION = "We can avoid mapped steps, but cannot verify curb ramps, slopes, obstructions, or ADA accessibility";
 
 export const tripBriefJsonSchema = {
   type: "object",
@@ -91,11 +92,20 @@ export const tripBriefJsonSchema = {
   additionalProperties: false,
 } as const;
 
-const systemPrompt = `You convert a resident's walking request into a Happy Path Trip Brief.
+const systemPrompt = `You convert a resident's walking request into a Happy Path Trip Brief for a deterministic pedestrian routing engine.
 
-Return only the structured fields required by the schema. Treat the current brief as retained state during a refinement: keep a value unless the new request explicitly changes or removes it. The new request always wins when it is explicit.
+Return only the structured fields required by the schema. Treat the current brief as retained state during a refinement: keep a value unless the new request explicitly changes or removes it. The new request always wins when it is explicit. The initial current brief may be an empty destination draft; never return shape "destination" with destinationQuery null. A timed walk without a named destination is a wander.
 
-Supported priorities are shade, greenery, places to rest, water, restrooms, and less construction friction. "Avoid mapped steps" is supported only as a mapped-data exclusion and is never an accessibility guarantee. Do not claim safety, guaranteed accessibility, live quietness, live crowding, or current amenity operation; add a short statement to unsupported when the resident asks for one of those. Preserve the resident's destination wording without inventing an address. Preserve any integer walkingMinutes from 10 through 60. Use walkingTimeIntent "target" for ordinary requests such as "a 30-minute walk" and "maximum" only for explicit limits such as "up to 30 minutes". Use 0/5/10 for detourMinutes and a whole local hour from 0 through 23.`;
+Supported priorities are shade, greenery, places to rest, water, restrooms, and less construction friction. Preserve the resident's destination wording without inventing an address. Preserve any integer walkingMinutes from 10 through 60. Use walkingTimeIntent "target" for ordinary requests such as "a 30-minute walk" and "maximum" only for explicit limits such as "up to 30 minutes". Use 0/5/10 for detourMinutes and a whole local hour from 0 through 23.
+
+Interpret accessibility language narrowly and helpfully. If the resident asks for an accessible, wheelchair-friendly, mobility-friendly, stroller-friendly, or step-free route, set avoidMappedSteps to true and include this limitation in unsupported: "We can avoid mapped steps, but cannot verify curb ramps, slopes, obstructions, or ADA accessibility". If a refinement says steps or stairs are okay, set avoidMappedSteps to false. Do not claim safety, guaranteed accessibility, live quietness, live crowding, live weather, current construction state, or current amenity operation. Keep those requests visible in unsupported instead of pretending they were satisfied.
+
+Examples:
+- "A green 37-minute loop with a bench halfway" means shape loop, walkingMinutes 37, walkingTimeIntent target, priorities greenery and rest.
+- "Wander west for no more than 30 minutes and finish near a train" means shape wander, walkingMinutes 30, walkingTimeIntent maximum, direction west, endCondition transit.
+- "It’s raining. Find me a 25-minute walk with more likely cover" means shape wander, walkingMinutes 25, with the weather/cover limitation visible in unsupported.
+- "I need an accessible route to Washington Square Park" means shape destination, destinationQuery Washington Square Park, avoidMappedSteps true, plus the accessibility limitation above.
+- "A little shorter, but keep the bathroom" is a refinement: retain the current shape, destination or endpoint, and priorities, then reduce walkingMinutes by five when no exact duration is given.`;
 
 type OpenRouterFetch = typeof fetch;
 
@@ -142,7 +152,7 @@ function isStringArray(value: unknown): value is string[] {
 export function isTripBrief(value: unknown): value is TripBrief {
   if (!isRecord(value)) return false;
   return journeyShapes.includes(value.shape as (typeof journeyShapes)[number])
-    && (value.destinationQuery === null || (typeof value.destinationQuery === "string" && value.destinationQuery.length <= 160))
+    && (value.destinationQuery === null || (typeof value.destinationQuery === "string" && value.destinationQuery.trim().length > 0 && value.destinationQuery.length <= 160))
     && typeof value.walkingMinutes === "number" && Number.isInteger(value.walkingMinutes)
     && value.walkingMinutes >= 10 && value.walkingMinutes <= 60
     && walkingTimeIntents.includes(value.walkingTimeIntent as (typeof walkingTimeIntents)[number])
@@ -179,7 +189,7 @@ function parseModelPatch(value: unknown): TripBriefPatch {
   return {
     shape: value.shape,
     destinationQuery: typeof value.destinationQuery === "string"
-      ? value.destinationQuery.slice(0, 160) || null
+      ? value.destinationQuery.trim().slice(0, 160) || null
       : null,
     walkingMinutes: value.walkingMinutes,
     walkingTimeIntent: value.walkingTimeIntent,
@@ -231,7 +241,7 @@ export async function interpretTripBriefWithOpenRouter(
             schema: tripBriefJsonSchema,
           },
         },
-        provider: { require_parameters: true },
+        provider: { require_parameters: true, data_collection: "deny" },
         stream: false,
         max_tokens: 600,
       }),
@@ -265,7 +275,20 @@ export async function interpretTripBriefWithOpenRouter(
   } catch {
     throw new TripBriefInterpretError("invalid-output");
   }
-  const brief = mergeTripBrief(currentBrief, parseModelPatch(parsed), "model");
+  const patch = parseModelPatch(parsed);
+  // A destination route without a destination cannot be planned. Models can
+  // over-retain the empty initial draft, so keep this domain invariant here.
+  if (patch.shape === "destination" && patch.destinationQuery === null) {
+    patch.shape = "wander";
+  }
+  const relaxesMappedSteps = /\b(?:steps?|stairs?)\s+(?:are\s+)?(?:okay|ok|fine)\b|\bdon'?t\s+(?:need\s+to\s+)?avoid\s+(?:mapped\s+)?(?:steps?|stairs?)\b/i.test(prompt);
+  const requestsMappedStepAvoidance = /(?:avoid|no)\s+(?:mapped\s+)?(?:steps?|stairs?)|\bstep[- ]free\b|\b(?:accessible|accessibility|wheelchair|mobility|ada(?:-compliant)?|stroller)\b/i.test(prompt);
+  if (relaxesMappedSteps) patch.avoidMappedSteps = false;
+  else if (requestsMappedStepAvoidance) {
+    patch.avoidMappedSteps = true;
+    patch.unsupported = [...new Set([...(patch.unsupported ?? []), ACCESSIBILITY_LIMITATION])].slice(0, 4);
+  }
+  const brief = mergeTripBrief(currentBrief, patch, "model");
   return { ...brief, prompt };
 }
 

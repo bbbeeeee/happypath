@@ -15,7 +15,11 @@ describe("pilot data contract", () => {
       expect(source.dataset_url).toMatch(/^https:/);
       expect(source.retrieved_at).toBeTruthy();
       if (source.snapshot_hash) expect(source.snapshot_hash).toMatch(/^sha256:[a-f0-9]{64}$/);
-      expect(source.validation_status).toBe("pending");
+      expect(["pending", "cataloged"]).toContain(source.validation_status);
+      if (source.validation_status === "cataloged") {
+        expect(["reference_only", "live_reference"]).toContain(source.capability_status);
+        expect(source.last_successful_ingest).toBeNull();
+      }
     }
   });
 

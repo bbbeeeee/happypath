@@ -18,6 +18,15 @@ export const DEFAULT_TARGET_TOLERANCE_RATIO = 0.1;
 
 export type WalkingTimeIntent = "target" | "maximum";
 
+export interface JourneyEdgePreference {
+  /** Stable diagnostic label, such as "likely_cover_demo". */
+  id: string;
+  /** Relative zero-to-one strength alongside built-in route preferences. */
+  weight: number;
+  /** Deterministic zero-to-one fit for one edge. */
+  score: (edge: GraphEdge) => number;
+}
+
 export interface JourneyPlanningOptions {
   /**
    * Set target after interpreting an ordinary duration request. The routing
@@ -27,6 +36,13 @@ export interface JourneyPlanningOptions {
   walkingTimeIntent?: WalkingTimeIntent;
   /** Defaults to ten percent on either side of the requested target. */
   targetToleranceRatio?: number;
+  /**
+   * Optional proof or adapter-backed edge signal. This keeps experimental
+   * layers such as likely cover out of the permanent graph schema while still
+   * allowing path generation—not just post-hoc alternative selection—to use
+   * them.
+   */
+  edgePreference?: JourneyEdgePreference;
 }
 
 export interface JourneyTimingMetadata {
@@ -80,6 +96,7 @@ interface PlannerContext {
   adjacency: Map<string, AdjacentEdge[]>;
   featuresByEdgeId: Map<string, EdgeFeatures>;
   preferences: JourneyPreference[];
+  edgePreference: JourneyEdgePreference | null;
   avoidMappedSteps: boolean;
   departureHour: number;
 }
@@ -136,8 +153,13 @@ class MinQueue {
   }
 }
 
-function buildContext(graph: PilotGraph, brief: TripBrief): PlannerContext {
+function buildContext(
+  graph: PilotGraph,
+  brief: TripBrief,
+  options: JourneyPlanningOptions = {},
+): PlannerContext {
   const preferences = normalizePreferences(brief.preferences ?? []);
+  const edgePreference = normalizeEdgePreference(options.edgePreference);
   const nodeById = new Map(graph.nodes.map((node) => [node.id, node]));
   const neighbors = new Map<string, AdjacentEdge[]>(graph.nodes.map((node) => [node.id, []]));
   for (const edge of graph.edges) {
@@ -159,9 +181,34 @@ function buildContext(graph: PilotGraph, brief: TripBrief): PlannerContext {
     adjacency: neighbors,
     featuresByEdgeId,
     preferences,
+    edgePreference,
     avoidMappedSteps: brief.requirements?.avoidMappedSteps ?? false,
     departureHour: brief.departureHour,
   };
+}
+
+function normalizeEdgePreference(preference: JourneyEdgePreference | undefined): JourneyEdgePreference | null {
+  if (!preference) return null;
+  if (!preference.id.trim() || !Number.isFinite(preference.weight) || preference.weight < 0 || preference.weight > 1) {
+    throw new JourneyPlanningError("invalid-brief", "Edge preference must have an id and a weight between zero and one");
+  }
+  return preference;
+}
+
+function edgePreferenceSignal(context: PlannerContext, edge: GraphEdge) {
+  if (!context.edgePreference) return null;
+  const score = context.edgePreference.score(edge);
+  if (!Number.isFinite(score) || score < 0 || score > 1) {
+    throw new JourneyPlanningError(
+      "invalid-brief",
+      `Edge preference ${context.edgePreference.id} returned a score outside zero and one`,
+    );
+  }
+  return score;
+}
+
+function hasPreferences(context: PlannerContext) {
+  return context.preferences.length > 0 || Boolean(context.edgePreference?.weight);
 }
 
 function normalizePreferences(preferences: JourneyPreference[]): JourneyPreference[] {
@@ -310,13 +357,18 @@ function pathDistance(path: GraphPath) {
 }
 
 function edgePreferenceFit(context: PlannerContext, edge: GraphEdge) {
-  const totalWeight = context.preferences.reduce((sum, preference) => sum + preference.weight, 0);
+  const totalWeight = context.preferences.reduce((sum, preference) => sum + preference.weight, 0)
+    + (context.edgePreference?.weight ?? 0);
   if (totalWeight === 0) return 0;
   const features = context.featuresByEdgeId.get(edge.id)!;
-  return context.preferences.reduce((sum, preference) => {
+  const builtInFit = context.preferences.reduce((sum, preference) => {
     const fit = preference.featureId === "shade" ? features.shade : features.green;
     return sum + fit * preference.weight;
-  }, 0) / totalWeight;
+  }, 0);
+  const adapterFit = context.edgePreference
+    ? (edgePreferenceSignal(context, edge) ?? 0) * context.edgePreference.weight
+    : 0;
+  return (builtInFit + adapterFit) / totalWeight;
 }
 
 function routingCost(
@@ -367,13 +419,20 @@ function summarize(context: PlannerContext, path: GraphPath): RouteResult {
   };
 }
 
-function routePreferenceScore(context: PlannerContext, route: RouteResult) {
-  const totalWeight = context.preferences.reduce((sum, preference) => sum + preference.weight, 0);
+function routePreferenceScore(context: PlannerContext, path: GraphPath, route: RouteResult) {
+  const totalWeight = context.preferences.reduce((sum, preference) => sum + preference.weight, 0)
+    + (context.edgePreference?.weight ?? 0);
   if (totalWeight === 0) return 0;
-  return context.preferences.reduce((sum, preference) => {
+  const builtInFit = context.preferences.reduce((sum, preference) => {
     const fit = preference.featureId === "shade" ? route.shadePercent / 100 : route.greeneryPercent / 100;
     return sum + fit * preference.weight;
-  }, 0) / totalWeight;
+  }, 0);
+  const adapterFit = context.edgePreference && route.distanceMeters > 0
+    ? path.edges.reduce((sum, edge) => (
+        sum + edge.distanceMeters * (edgePreferenceSignal(context, edge) ?? 0)
+      ), 0) / route.distanceMeters * context.edgePreference.weight
+    : 0;
+  return (builtInFit + adapterFit) / totalWeight;
 }
 
 function stableCandidateId(shape: TripBrief["journeyShape"], path: GraphPath) {
@@ -401,7 +460,7 @@ function toJourneyRoute(
     edgeIds: path.edges.map((edge) => edge.id),
     endpointNodeId: path.nodeIds.at(-1)!,
     repeatedEdgeRatio: path.edges.length === 0 ? 0 : (path.edges.length - uniqueEdges.size) / path.edges.length,
-    preferenceScore: routePreferenceScore(context, route),
+    preferenceScore: routePreferenceScore(context, path, route),
     extraMinutesVsBaseline: baselineDuration === null
       ? null
       : Math.max(0, route.durationMinutes - baselineDuration),
@@ -446,7 +505,7 @@ function destinationJourney(context: PlannerContext, brief: Extract<TripBrief, {
   const paths = new Map<string, GraphPath>();
   paths.set(pathKey(fastestPath, "destination"), fastestPath);
 
-  const strengths = context.preferences.length === 0 ? [0] : [0.3, 0.5, 0.7, 0.86, 1];
+  const strengths = hasPreferences(context) ? [0.3, 0.5, 0.7, 0.86, 1] : [0];
   for (const strength of strengths) {
     const preferred = shortestPath(
       context,
@@ -467,7 +526,7 @@ function destinationJourney(context: PlannerContext, brief: Extract<TripBrief, {
         context,
         brief.originNodeId,
         brief.destinationNodeId,
-        routingCost(context, context.preferences.length === 0 ? 0 : 0.85, (edge) => seedEdges.has(edge.id) ? penalty : 1),
+        routingCost(context, hasPreferences(context) ? 0.85 : 0, (edge) => seedEdges.has(edge.id) ? penalty : 1),
       );
       if (diverse && pathDistance(diverse) <= maximumDistance + 0.01) {
         paths.set(pathKey(diverse, "destination"), diverse);
@@ -485,7 +544,7 @@ function destinationJourney(context: PlannerContext, brief: Extract<TripBrief, {
   const score = (route: JourneyRoute) => route.preferenceScore
     - ((route.extraMinutesVsBaseline ?? 0) / allowance) * 0.025;
   const ordered = candidates.sort((a, b) => score(b) - score(a) || a.durationMinutes - b.durationMinutes);
-  const recommended = context.preferences.length === 0 || brief.detourAllowanceMinutes === 0
+  const recommended = !hasPreferences(context) || brief.detourAllowanceMinutes === 0
     ? baseline
     : ordered[0];
   return {
@@ -556,7 +615,7 @@ function loopJourney(
   const budgetMeters = timeWindow.maximumMinutes * WALKING_METERS_PER_MINUTE;
   const requestedMeters = timeWindow.requestedMinutes * WALKING_METERS_PER_MINUTE;
   const paths = new Map<string, GraphPath>();
-  const strengths = context.preferences.length === 0 ? [0] : [0, 0.55, 0.9];
+  const strengths = hasPreferences(context) ? [0, 0.55, 0.9] : [0];
 
   for (const anchor of loopAnchorNodes(context, brief.originNodeId, budgetMeters)) {
     for (const strength of strengths) {
@@ -698,7 +757,7 @@ function wanderJourney(
   const budgetMeters = timeWindow.maximumMinutes * WALKING_METERS_PER_MINUTE;
   const requestedMeters = timeWindow.requestedMinutes * WALKING_METERS_PER_MINUTE;
   const paths = new Map<string, GraphPath>();
-  const strengths = context.preferences.length === 0 ? [0] : [0, 0.5, 0.82, 1];
+  const strengths = hasPreferences(context) ? [0, 0.5, 0.82, 1] : [0];
   const endpoints = wanderEndpointNodes(context, brief, timeWindow);
   for (const endpoint of endpoints) {
     const endpointPaths: GraphPath[] = [];
@@ -722,7 +781,7 @@ function wanderJourney(
             context,
             brief.originNodeId,
             endpoint.node.id,
-            routingCost(context, context.preferences.length === 0 ? 0 : 0.82, (edge) => seedEdges.has(edge.id) ? penalty : 1),
+            routingCost(context, hasPreferences(context) ? 0.82 : 0, (edge) => seedEdges.has(edge.id) ? penalty : 1),
           );
           if (!diverse || pathDistance(diverse) > budgetMeters + 0.01) continue;
           paths.set(pathKey(diverse, "wander"), diverse);
@@ -759,7 +818,7 @@ function wanderJourney(
           context,
           brief.originNodeId,
           waypoint.id,
-          routingCost(context, context.preferences.length === 0 ? 0 : 0.82),
+          routingCost(context, hasPreferences(context) ? 0.82 : 0),
         );
         if (!outward || pathDistance(outward) > budgetMeters) continue;
         const outwardEdges = new Set(outward.edges.map((edge) => edge.id));
@@ -767,7 +826,7 @@ function wanderJourney(
           context,
           waypoint.id,
           endpoint.node.id,
-          routingCost(context, context.preferences.length === 0 ? 0 : 0.82, (edge) => outwardEdges.has(edge.id) ? 6 : 1),
+          routingCost(context, hasPreferences(context) ? 0.82 : 0, (edge) => outwardEdges.has(edge.id) ? 6 : 1),
         );
         if (!finishing) continue;
         const sweep: GraphPath = {
@@ -839,11 +898,11 @@ export function rerouteJourneyThroughWaypoint(
   options: JourneyPlanningOptions = {},
 ): JourneyRoute {
   validateBrief(graph, brief);
-  const context = buildContext(graph, brief);
+  const context = buildContext(graph, brief, options);
   if (!context.nodeById.has(waypointNodeId)) {
     throw new JourneyPlanningError("unknown-node", `Unknown waypoint node: ${waypointNodeId}`);
   }
-  const preferenceStrength = context.preferences.length === 0 ? 0 : 0.82;
+  const preferenceStrength = hasPreferences(context) ? 0.82 : 0;
   const cost = routingCost(context, preferenceStrength);
   const first = shortestPath(context, brief.originNodeId, waypointNodeId, cost);
   const second = shortestPath(context, waypointNodeId, currentRoute.endpointNodeId, cost);
@@ -885,7 +944,7 @@ export function planJourney(
   options: JourneyPlanningOptions = {},
 ): PlannedJourneyResult {
   validateBrief(graph, brief);
-  const context = buildContext(graph, brief);
+  const context = buildContext(graph, brief, options);
   const result = brief.journeyShape === "destination"
     ? destinationJourney(context, brief)
     : brief.journeyShape === "loop"

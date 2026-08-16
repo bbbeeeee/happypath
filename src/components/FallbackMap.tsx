@@ -46,8 +46,8 @@ export function FallbackMap({ graph, route, lens, shadeSegments, coverSegments, 
     .filter((edge, index, candidates) => candidates.findIndex((candidate) => candidate.street === edge.street) === index)
     .slice(0, 11);
   const visibleAssets = assets
-    .filter((asset) => asset.id === selectedAssetId || prominent.has(asset.id) || stableNumber(asset.id) % (lens === "amenities" ? 2 : 4) === 0)
-    .slice(0, lens === "amenities" ? 78 : 45);
+    .filter((asset) => asset.id === selectedAssetId || prominent.has(asset.id) || stableNumber(asset.id) % (lens === "amenities" ? 2 : 6) === 0)
+    .slice(0, lens === "amenities" ? 60 : 26);
 
   return <div className="fallback-map" aria-label="Street map preview">
     <svg viewBox={`${viewX} 0 ${viewWidth} ${height}`} preserveAspectRatio="xMidYMid slice" role="img" aria-label="Happy Path route and neighborhood amenities">
@@ -76,7 +76,7 @@ export function FallbackMap({ graph, route, lens, shadeSegments, coverSegments, 
         const [x, y] = point(asset.coordinate as Coordinate);
         const isProminent = prominent.has(asset.id);
         const isSelected = asset.id === selectedAssetId;
-        return <g key={asset.id} className={`fallback-asset asset-${asset.kind} ${isProminent ? "prominent" : ""} ${isSelected ? "selected" : ""}`} transform={`translate(${x} ${y})`} role={isProminent || isSelected ? "button" : undefined} tabIndex={isProminent || isSelected ? 0 : undefined} onClick={() => onAssetClick(asset)} onKeyDown={(event) => { if ((isProminent || isSelected) && (event.key === "Enter" || event.key === " ")) onAssetClick(asset); }}>
+        return <g key={asset.id} className={`fallback-asset asset-${asset.kind} ${isProminent ? "prominent" : ""} ${isSelected ? "selected" : ""}`} transform={`translate(${x} ${y})`} role="button" tabIndex={0} aria-label={asset.name} onClick={() => onAssetClick(asset)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") onAssetClick(asset); }}>
           <circle r={prominent.has(asset.id) ? 14 : 10} />
           <AssetGlyph kind={asset.kind} />
           <title>{asset.name}</title>
@@ -84,7 +84,7 @@ export function FallbackMap({ graph, route, lens, shadeSegments, coverSegments, 
       })}</g>
       {route && <g className="fallback-endpoints"><circle cx={point(route.coordinates[0])[0]} cy={point(route.coordinates[0])[1]} r="9" />{route.journeyShape !== "loop" && <rect x={point(route.coordinates.at(-1)!)[0] - 8} y={point(route.coordinates.at(-1)!)[1] - 8} width="16" height="16" rx="3" />}</g>}
     </svg>
-    <span className="fallback-map-note">Interactive map preview unavailable · showing the same route data</span>
+    <span className="fallback-map-note">Map preview mode · routes and city data still work</span>
   </div>;
 }
 

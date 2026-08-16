@@ -56,7 +56,9 @@ describe("interpretTripBriefWithOpenRouter", () => {
       type: "json_schema",
       json_schema: { name: "happy_path_trip_brief", strict: true },
     });
-    expect(body.provider).toEqual({ require_parameters: true });
+    expect(body.provider).toEqual({ require_parameters: true, data_collection: "deny" });
+    expect(body.messages[0].content).toMatch(/accessibility language narrowly/);
+    expect(body.messages[0].content).toMatch(/37-minute loop/);
     const refinement = JSON.parse(body.messages[1].content);
     expect(refinement.currentBrief).toEqual(current);
   });
@@ -67,6 +69,76 @@ describe("interpretTripBriefWithOpenRouter", () => {
       { prompt: "Give me a shady walk" },
       { apiKey: "test-key", fetchImpl },
     )).rejects.toMatchObject({ kind: "invalid-output" });
+  });
+
+  it("repairs an empty destination draft into a plannable wander", async () => {
+    const fetchImpl = vi.fn(async () => completion({
+      shape: "destination",
+      destinationQuery: null,
+      walkingMinutes: 25,
+      walkingTimeIntent: "target",
+      detourMinutes: 5,
+      departureHour: 15,
+      priorities: ["shade"],
+      avoidMappedSteps: false,
+      direction: null,
+      endCondition: null,
+      unsupported: ["We cannot verify weather-protected paths."],
+    })) as unknown as typeof fetch;
+
+    const brief = await interpretTripBriefWithOpenRouter(
+      { prompt: "It’s raining. Find me a 25-minute walk with more likely cover." },
+      { apiKey: "test-key", fetchImpl },
+    );
+
+    expect(brief).toMatchObject({ shape: "wander", destinationQuery: null, walkingMinutes: 25 });
+  });
+
+  it("enforces mapped-step avoidance and its evidence boundary for accessibility intent", async () => {
+    const fetchImpl = vi.fn(async () => completion({
+      shape: "destination",
+      destinationQuery: "Washington Square Park",
+      walkingMinutes: 25,
+      walkingTimeIntent: "target",
+      detourMinutes: 5,
+      departureHour: 15,
+      priorities: [],
+      avoidMappedSteps: false,
+      direction: null,
+      endCondition: null,
+      unsupported: [],
+    })) as unknown as typeof fetch;
+
+    const brief = await interpretTripBriefWithOpenRouter(
+      { prompt: "I need a wheelchair-accessible route to Washington Square Park" },
+      { apiKey: "test-key", fetchImpl },
+    );
+
+    expect(brief.avoidMappedSteps).toBe(true);
+    expect(brief.unsupported.join(" ")).toMatch(/curb ramps, slopes, obstructions/);
+  });
+
+  it("trims a whitespace-only destination and repairs the route shape", async () => {
+    const fetchImpl = vi.fn(async () => completion({
+      shape: "destination",
+      destinationQuery: "   ",
+      walkingMinutes: 25,
+      walkingTimeIntent: "target",
+      detourMinutes: 5,
+      departureHour: 15,
+      priorities: ["shade"],
+      avoidMappedSteps: false,
+      direction: null,
+      endCondition: null,
+      unsupported: [],
+    })) as unknown as typeof fetch;
+
+    const brief = await interpretTripBriefWithOpenRouter(
+      { prompt: "Find me a 25-minute walk" },
+      { apiKey: "test-key", fetchImpl },
+    );
+
+    expect(brief).toMatchObject({ shape: "wander", destinationQuery: null });
   });
 
   it("aborts an upstream request at the configured timeout", async () => {

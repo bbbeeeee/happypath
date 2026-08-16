@@ -70,7 +70,13 @@ function parseMinutes(prompt: string) {
 
 function parseWalkingTimeIntent(prompt: string, parsedMinutes: number | null): WalkingTimeIntent | null {
   if (parsedMinutes === null) return null;
-  return /\b(?:up to|no more than|at most|within|only have)\b|\b(?:maximum|max|limit)\b/i.test(prompt)
+  const minuteValue = String.raw`(?:\d{1,3}|ten|fifteen|twenty(?:[- ]?five)?|thirty(?:[- ]?five)?|forty(?:[- ]?five)?|fifty(?:[- ]?five)?|sixty)`;
+  const minuteUnit = String.raw`(?:minutes?|mins?)`;
+  const explicitMaximum = new RegExp(
+    String.raw`\b(?:up to|no more than|at most|only have)\s+${minuteValue}\s*${minuteUnit}\b|\bwithin\s+${minuteValue}\s*${minuteUnit}\b|\b${minuteValue}\s*${minuteUnit}\s*(?:maximum|max|limit)\b|\b(?:maximum|max|limit)(?:\s+of|\s+is|\s*:)?\s+${minuteValue}\s*${minuteUnit}\b`,
+    "i",
+  );
+  return explicitMaximum.test(prompt)
     ? "maximum"
     : "target";
 }
@@ -94,20 +100,34 @@ function collectPriorities(text: string): RoutePriority[] {
 function collectUnsupported(text: string) {
   const unsupported: string[] = [];
   if (/\bsafe(?:st|ty)?\b/i.test(text)) unsupported.push("Safety ranking is not supported");
-  if (/wheelchair accessible|ada(?:-compliant)?/i.test(text)) unsupported.push("Guaranteed accessibility is not supported");
+  if (/\b(?:accessible|accessibility|wheelchair|mobility|ada(?:-compliant)?|stroller)\b/i.test(text)) {
+    unsupported.push("We can avoid mapped steps, but cannot verify curb ramps, slopes, obstructions, or ADA accessibility");
+  }
   if (/quiet|noise|crowd/i.test(text)) unsupported.push("Live quietness and crowding are not supported");
   if (/open now/i.test(text)) unsupported.push("Current amenity operation is not verified");
   return unsupported;
 }
 
+function parseMappedStepPreference(text: string): boolean | null {
+  if (/\b(?:steps?|stairs?)\s+(?:are\s+)?(?:okay|ok|fine)\b|\bdon'?t\s+(?:need\s+to\s+)?avoid\s+(?:mapped\s+)?(?:steps?|stairs?)\b/i.test(text)) {
+    return false;
+  }
+  if (/(?:avoid|no)\s+(?:mapped\s+)?(?:steps?|stairs?)|\bstep[- ]free\b|\b(?:accessible|accessibility|wheelchair|mobility|ada(?:-compliant)?|stroller)\b/i.test(text)) {
+    return true;
+  }
+  return null;
+}
+
 export function compileTripBrief(prompt: string, current: TripBrief = DEFAULT_BRIEF): TripBrief {
   const text = prompt.trim();
   const lower = text.toLowerCase();
+  const parsedDestination = parseDestination(text);
   const isRefinement = Boolean(current.prompt) && !/\b(loop|wander|walk me|get me|take me|route me)\b/i.test(text);
   let shape: JourneyShape = current.shape;
   if (/\bloop\b|back (?:to|where) (?:i|we) start/i.test(text)) shape = "loop";
   else if (/\bwander\b|walk (?:north|south|east|west)|finish|end near/i.test(text)) shape = "wander";
-  else if (parseDestination(text)) shape = "destination";
+  else if (parsedDestination) shape = "destination";
+  else if (!current.destinationQuery && parseMinutes(text) !== null && /\b(?:walk|walking|stroll|roam|explore)\b/i.test(text)) shape = "wander";
 
   const parsedMinutesRaw = shape === "destination" ? null : parseMinutes(text);
   const parsedMinutes = parsedMinutesRaw === null
@@ -138,7 +158,8 @@ export function compileTripBrief(prompt: string, current: TripBrief = DEFAULT_BR
     : /(?:end|finish) near (?:a |the )?park/i.test(text)
       ? "park"
       : shape === "wander" ? current.endCondition : null;
-  const destinationQuery = shape === "destination" ? (parseDestination(text) ?? current.destinationQuery) : null;
+  const destinationQuery = shape === "destination" ? (parsedDestination ?? current.destinationQuery) : null;
+  const mappedStepPreference = parseMappedStepPreference(text);
 
   return {
     ...current,
@@ -148,7 +169,7 @@ export function compileTripBrief(prompt: string, current: TripBrief = DEFAULT_BR
     walkingTimeIntent: parsedWalkingTimeIntent ?? current.walkingTimeIntent,
     detourMinutes,
     priorities,
-    avoidMappedSteps: /(?:avoid|no) (?:mapped )?(?:steps|stairs)/i.test(text) ? true : current.avoidMappedSteps,
+    avoidMappedSteps: mappedStepPreference ?? current.avoidMappedSteps,
     direction,
     endCondition,
     unsupported: unique([...collectUnsupported(text), ...(isRefinement ? current.unsupported : [])]),
@@ -170,6 +191,17 @@ export function mergeTripBrief(base: TripBrief, patch: TripBriefPatch, interpret
     priorities: unique(next.priorities).filter((priority): priority is RoutePriority => ["shade", "greenery", "rest", "water", "restroom", "construction"].includes(priority)),
     unsupported: unique(next.unsupported).slice(0, 4),
   };
+}
+
+export function withDestinationOverride(brief: TripBrief, destination: string): TripBrief {
+  const destinationQuery = destination.trim();
+  if (!destinationQuery) return brief;
+  return mergeTripBrief(brief, {
+    shape: "destination",
+    destinationQuery,
+    direction: null,
+    endCondition: null,
+  }, brief.interpretedBy);
 }
 
 export function briefSummary(brief: TripBrief) {

@@ -46,6 +46,39 @@ const squareGraph: PilotGraph = {
 };
 
 describe("planJourney destination", () => {
+  it("generates routes from a deterministic adapter-backed edge preference", () => {
+    const graph: PilotGraph = {
+      nodes: [
+        { id: "a", name: "A", coordinate: [-74, 40.73] },
+        { id: "open", name: "Open", coordinate: [-73.9995, 40.7305] },
+        { id: "covered", name: "Covered", coordinate: [-74.0005, 40.7305] },
+        { id: "d", name: "D", coordinate: [-74, 40.731] },
+      ],
+      edges: [
+        edge("open-1", "a", "open"),
+        edge("open-2", "open", "d"),
+        edge("covered-1", "a", "covered"),
+        edge("covered-2", "covered", "d"),
+      ],
+    };
+    const result = planJourney(graph, {
+      journeyShape: "destination",
+      originNodeId: "a",
+      destinationNodeId: "d",
+      departureHour: 15,
+      detourAllowanceMinutes: 2,
+    }, {
+      edgePreference: {
+        id: "cover-test",
+        weight: 1,
+        score: (candidate) => candidate.id.startsWith("covered") ? 1 : 0,
+      },
+    });
+
+    expect(result.recommended.edgeIds).toEqual(["covered-1", "covered-2"]);
+    expect(result.recommended.preferenceScore).toBe(1);
+  });
+
   it("steers a valid route through a graph-snapped waypoint", () => {
     const brief: TripBrief = {
       journeyShape: "destination",
@@ -397,6 +430,18 @@ describe("Trip Brief validation", () => {
       departureHour: 15,
       detourAllowanceMinutes: 1,
       preferences: [{ featureId: "shade", weight: 2 }],
+    })).toThrowError(expect.objectContaining<Partial<JourneyPlanningError>>({ code: "invalid-brief" }));
+  });
+
+  it("rejects invalid adapter-backed edge scores", () => {
+    expect(() => planJourney(squareGraph, {
+      journeyShape: "destination",
+      originNodeId: "a",
+      destinationNodeId: "c",
+      departureHour: 15,
+      detourAllowanceMinutes: 2,
+    }, {
+      edgePreference: { id: "bad-signal", weight: 1, score: () => 2 },
     })).toThrowError(expect.objectContaining<Partial<JourneyPlanningError>>({ code: "invalid-brief" }));
   });
 });

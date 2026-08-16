@@ -42,6 +42,10 @@ export function DropletIcon(props: IconProps) {
   return <Icon {...props}><path d="M12 3s5 5.5 5 10a5 5 0 0 1-10 0c0-4.5 5-10 5-10Z" /></Icon>;
 }
 
+export function ExternalLinkIcon(props: IconProps) {
+  return <Icon {...props}><path d="M14 5h5v5" /><path d="m19 5-8 8" /><path d="M17 13v5a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1h5" /></Icon>;
+}
+
 export function LayersIcon(props: IconProps) {
   return <Icon {...props}><path d="m4 9 8-4 8 4-8 4-8-4Z" /><path d="m4 13 8 4 8-4M4 17l8 4 8-4" /></Icon>;
 }

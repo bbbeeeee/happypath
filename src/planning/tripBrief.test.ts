@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { briefSummary, compileTripBrief, DEFAULT_BRIEF, mergeTripBrief } from "./tripBrief";
+import { briefSummary, compileTripBrief, DEFAULT_BRIEF, mergeTripBrief, withDestinationOverride } from "./tripBrief";
 
 describe("compileTripBrief", () => {
   it.each([
@@ -39,6 +39,20 @@ describe("compileTripBrief", () => {
     expect(brief.unsupported).toHaveLength(4);
     expect(brief.unsupported.join(" ")).toMatch(/Safety/);
     expect(brief.unsupported.join(" ")).toMatch(/accessibility/);
+    expect(brief.avoidMappedSteps).toBe(true);
+  });
+
+  it("turns broad accessibility language into a narrow mapped-step constraint", () => {
+    const accessible = compileTripBrief("I need an accessible route to Washington Square Park");
+    const relaxed = compileTripBrief("Steps are okay after all", accessible);
+
+    expect(accessible).toMatchObject({
+      shape: "destination",
+      destinationQuery: "Washington Square Park",
+      avoidMappedSteps: true,
+    });
+    expect(accessible.unsupported.join(" ")).toMatch(/curb ramps, slopes, obstructions/);
+    expect(relaxed.avoidMappedSteps).toBe(false);
   });
 
   it("patches refinements without dropping retained needs", () => {
@@ -66,6 +80,26 @@ describe("compileTripBrief", () => {
     expect(maximum.walkingTimeIntent).toBe("maximum");
     expect(briefSummary(target)[0]).toBe("Wander for about 30 minutes");
     expect(briefSummary(maximum)[0]).toBe("Wander for up to 30 minutes");
+  });
+
+  it("does not mistake an unrelated nearby-distance phrase for a time limit", () => {
+    const brief = compileTripBrief("Give me a 30-minute loop with seating within 100 meters");
+    expect(brief.walkingTimeIntent).toBe("target");
+  });
+
+  it("treats a timed weather-aware walk without a destination as a wander", () => {
+    const brief = compileTripBrief("It’s raining. Find me a 25-minute walk with more likely cover.");
+    expect(brief).toMatchObject({ shape: "wander", destinationQuery: null, walkingMinutes: 25 });
+  });
+
+  it("lets the explicit To field override an otherwise destination-free prompt", () => {
+    const interpreted = compileTripBrief("I need a step-free route with a place to rest.");
+    expect(withDestinationOverride(interpreted, " Washington Square Park ")).toMatchObject({
+      shape: "destination",
+      destinationQuery: "Washington Square Park",
+      avoidMappedSteps: true,
+      priorities: ["rest"],
+    });
   });
 
   it("sanitizes model patches at the domain boundary", () => {

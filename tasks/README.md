@@ -28,6 +28,7 @@ The task plan defines outcomes, dependencies, and verification. It intentionally
 | [008](008-demo-deployment-and-submission.md) | Magical demo, deployment, and submission | M4 | Blocked | 007 | 009 when contracts stabilize |
 | [009](009-detour-planning-extension.md) | Detour planning proof | M4 / P1 | Planned | stable 003, 006, 007 contracts | May begin as a data spike |
 | [010](010-civic-assets-and-contributions.md) | Civic Assets & Actions | Later | Later | 006, 009 | — |
+| [011](011-route-intelligence-data-and-polish.md) | Route intelligence, city evidence, and product polish | M4 / P1 | Done | 003, 005, 006, 009 | Verified resident and planner integration |
 
 ## Dependency shape
 
