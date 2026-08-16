@@ -13,6 +13,7 @@ The current work establishes the product contract and delivery plan. Future impl
 | [Data and inference](data-and-inference.md) | Source registry, cleaned layer contracts, evidence rules, feature derivation, AI boundary, live-data direction, and validation |
 | [Detour](DETOUR.md) | Planning proof, journey burdens, amenity gaps, intervention simulation, and future workflow direction |
 | [Build](BUILD.md) | Delivery sequence, shared contracts, quality gates, and implementation principles |
+| [Deployment](DEPLOYMENT.md) | Production artifact, single-VM service, HTTPS proxy, health checks, rollback, and preview security boundary |
 | [Prototypes](PROTOTYPES.md) | What existing branches prove without making them implementation authority |
 | [Ideas](ideas/README.md) | Possibilities that are not committed product scope |
 | [Tasks](../tasks/README.md) | End-to-end work packages, status, dependencies, and acceptance criteria |

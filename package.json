@@ -3,6 +3,16 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
+  "engines": {
+    "node": ">=22.12"
+  },
+  "files": [
+    "dist",
+    "dist-server",
+    "docs/DEPLOYMENT.md",
+    "README.md",
+    ".env.example"
+  ],
   "scripts": {
     "data:osm": "node scripts/ingest-osm.mjs",
     "data:buildings": "node scripts/ingest-buildings.mjs",
@@ -11,7 +21,10 @@
     "data:greenery": "node scripts/derive-greenery.mjs",
     "dev": "vite",
     "preview": "vite preview",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && vite build && tsc -p tsconfig.server.json",
+    "start": "node dist-server/server/production.js",
+    "deploy:check": "npm run build && node scripts/smoke-production.mjs",
+    "deploy:package": "npm run deploy:check && node scripts/package-release.mjs",
     "test": "vitest run"
   },
   "dependencies": {

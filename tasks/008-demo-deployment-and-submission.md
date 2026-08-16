@@ -131,6 +131,8 @@ Hackathon quality is not only feature count. The demo must feel fast, clean, fri
 
 Run a timed dress rehearsal from a clean browser and phone, record the deployed build, verify every number and source, test failure recovery, and complete the final P1 acceptance checklist.
 
+The vendor-neutral packaging slice is complete in [013 — Single-VM deployment readiness](013-vm-deployment-readiness.md). This package remains blocked only on choosing and creating the actual environment, assigning a production URL, and completing the final public-demo rehearsal and submission.
+
 ## Handoff
 
 After submission, move unfinished later work into explicit follow-up tasks rather than implying it shipped.

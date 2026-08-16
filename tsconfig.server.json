@@ -1,0 +1,23 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "types": ["node"],
+    "strict": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "resolveJsonModule": true,
+    "rewriteRelativeImportExtensions": true,
+    "rootDir": ".",
+    "outDir": "dist-server",
+    "tsBuildInfoFile": "dist-server/tsconfig.server.tsbuildinfo"
+  },
+  "include": [
+    "server/production.ts",
+    "server/interpret.ts",
+    "server/insights.ts",
+    "src/planning/tripBrief.ts"
+  ]
+}

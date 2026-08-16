@@ -18,18 +18,20 @@ This document records what the `codex/happy-path-p1-mvp` implementation proves t
 - A rain-intent proof that visibly favors a deterministic simulated-cover signal while clearly withholding live-weather and guaranteed-cover claims.
 - A resident-readable City what-if mode that compares shade changes across held-still routes and uses OpenRouter to rank only bounded, precomputed intervention candidates and evidence IDs.
 - Linked official-source views for data used by the walk and high-value next evidence, including pedestrian ramps, pedestrian plazas, POPS, cooling options, and sidewalk-shed permit candidates.
+- Optional, published civic-data checks that can influence an explicitly helpful wander, remain separate from official inventory, and accept only session-local demo observations.
+- A portable, dependency-free runtime archive and single-VM Node server with health checks, caching, gzip, bounded API traffic, and graceful shutdown.
 - Graceful behavior when the model service or basemap is unavailable.
 
 ## Verification evidence
 
-- `npm test`: 23 test files, 146 tests passing.
-- `npm run build`: TypeScript and Vite production build passing.
+- `npm test`: 25 unique test files, 156 tests passing; generated TypeScript output is excluded so server tests run once.
+- `npm run deploy:check`: TypeScript, Vite, production-server compilation, and live artifact smoke checks passing.
 - Deterministic route scorecard: 29.14-minute transit wander for a 30-minute target; 23.62-minute loop for a custom 23-minute target; 22.69-minute rain proof with 53.0% simulated cover versus 6.6% for the ordinary comparison; zero mapped-step edges in the constrained destination scenario.
 - Live browser checks: OpenRouter interpretation and City intervention ranking, rain route, explicit destination precedence, linked resident/planner sources, desktop, 390 × 844 responsive layout, and clean console after reload.
 - Generated graph: 4,487 directed edges; 10,671 stored polyline points; curved OSM way geometry retained.
-- Initial JavaScript bundle: about 838 KB gzip.
+- Initial JavaScript bundle: about 845 KB gzip.
 - One lazily loaded hourly shade snapshot: about 293–296 KB gzip. Only the selected departure hour is requested.
-- Initial CSS: about 18 KB gzip.
+- Initial CSS: about 19 KB gzip.
 
 The current working payload guardrails are 850 KB gzip for initial JavaScript and 310 KB gzip for one hourly shade snapshot. These are preview budgets, not final production targets.
 
@@ -39,8 +41,8 @@ The current working payload guardrails are 850 KB gzip for initial JavaScript an
 - Sidewalk-shed permit records are linked as reference-only planning evidence because a permit candidate does not prove installed, present, passable, or dry cover. Rain routing therefore uses a visibly simulated proof signal.
 - Broader manual street review, device coverage, and accessibility audit remain before production use.
 - External basemap fonts/styles and address geocoding still require network access; checked-in routing data does not.
-- This branch is not deployed and no production environment or migration has been changed.
-- The key-backed model endpoints are for the local/demo server. Add deployment-layer authentication and rate limiting before exposing them publicly.
+- This branch is not deployed and no production environment or migration has been changed. It now produces a dependency-free runtime archive with a VM runbook, health checks, graceful shutdown, static caching, gzip, and bounded model API traffic.
+- The key-backed model endpoints are suitable for a limited preview behind HTTPS and the included request limit. Add edge abuse controls, monitoring, and an explicit access policy before broad public exposure.
 
 ## Data and claim boundaries
 

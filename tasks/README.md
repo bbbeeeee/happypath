@@ -30,6 +30,7 @@ The task plan defines outcomes, dependencies, and verification. It intentionally
 | [010](010-civic-assets-and-contributions.md) | Civic Assets & Actions | Later | Later | 006, 009 | — |
 | [011](011-route-intelligence-data-and-polish.md) | Route intelligence, city evidence, and product polish | M4 / P1 | Done | 003, 005, 006, 009 | Verified resident and planner integration |
 | [012](012-civic-data-checks.md) | Optional civic data checks and extensible map layer | M1 / P1 | Done | 006, 010, 011 | — |
+| [013](013-vm-deployment-readiness.md) | Single-VM deployment readiness | M4 | Done | 007, 008 | — |
 
 ## Dependency shape
 
