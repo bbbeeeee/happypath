@@ -23,6 +23,7 @@ describe("interpretTripBriefWithOpenRouter", () => {
       shape: "loop",
       destinationQuery: null,
       walkingMinutes: 20,
+      walkingTimeIntent: "target",
       detourMinutes: 5,
       departureHour: 15,
       priorities: ["greenery", "water"],
@@ -40,6 +41,7 @@ describe("interpretTripBriefWithOpenRouter", () => {
     expect(brief).toMatchObject({
       shape: "loop",
       walkingMinutes: 20,
+      walkingTimeIntent: "target",
       priorities: ["greenery", "water"],
       interpretedBy: "model",
       prompt: "A little shorter, but keep the water",

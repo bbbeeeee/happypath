@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { defaultDestination, defaultOrigin, pilotGraph } from "../data/cityGraph";
 import type { GraphEdge, PilotGraph, TripBrief } from "../types";
-import { JourneyPlanningError, planJourney, WALKING_METERS_PER_MINUTE } from "./journey";
+import { JourneyPlanningError, planJourney, rerouteJourneyThroughWaypoint, WALKING_METERS_PER_MINUTE } from "./journey";
 
 function edge(
   id: string,
@@ -46,6 +46,22 @@ const squareGraph: PilotGraph = {
 };
 
 describe("planJourney destination", () => {
+  it("steers a valid route through a graph-snapped waypoint", () => {
+    const brief: TripBrief = {
+      journeyShape: "destination",
+      originNodeId: "a",
+      destinationNodeId: "c",
+      departureHour: 15,
+      detourAllowanceMinutes: 10,
+    };
+    const planned = planJourney(squareGraph, brief);
+    const steered = rerouteJourneyThroughWaypoint(squareGraph, brief, planned.recommended, "d");
+
+    expect(steered.nodeIds).toContain("d");
+    expect(steered.nodeIds[0]).toBe("a");
+    expect(steered.nodeIds.at(-1)).toBe("c");
+  });
+
   it("uses an explicit minute detour allowance", () => {
     const result = planJourney(pilotGraph, {
       journeyShape: "destination",
@@ -241,6 +257,100 @@ describe("planJourney wander", () => {
       edge("path-4", "origin", "west", 80),
     ],
   };
+
+  const durationGraph: PilotGraph = {
+    nodes: [
+      { id: "origin", name: "Origin", coordinate: [-74, 40.73] },
+      { id: "one", name: "One minute", coordinate: [-73.99905, 40.73] },
+      { id: "two", name: "Two minutes", coordinate: [-73.9981, 40.73] },
+      { id: "three", name: "Three minutes", coordinate: [-73.99715, 40.73] },
+      { id: "four", name: "Four minutes", coordinate: [-73.9962, 40.73] },
+    ],
+    edges: [
+      edge("duration-1", "origin", "one"),
+      edge("duration-2", "one", "two"),
+      edge("duration-3", "two", "three"),
+      edge("duration-4", "three", "four"),
+    ],
+  };
+
+  it("treats an ordinary duration as a target band", () => {
+    const result = planJourney(durationGraph, {
+      journeyShape: "wander",
+      originNodeId: "origin",
+      departureHour: 15,
+      walkingBudgetMinutes: 4,
+    }, { walkingTimeIntent: "target" });
+
+    expect(result.recommended.durationMinutes).toBe(4);
+    expect(result.timing).toMatchObject({
+      intent: "target",
+      requestedMinutes: 4,
+      actualMinutes: 4,
+      status: "within-target",
+      targetRangeMinutes: { minimum: 3.6, maximum: 4.4 },
+    });
+  });
+
+  it("prioritizes a qualifying endpoint near the target over a tiny one", () => {
+    const result = planJourney(durationGraph, {
+      journeyShape: "wander",
+      originNodeId: "origin",
+      departureHour: 15,
+      walkingBudgetMinutes: 4,
+      endCondition: { nodeIds: ["one", "four"], label: "near transit" },
+    }, { walkingTimeIntent: "target" });
+
+    expect(result.recommended.endpointNodeId).toBe("four");
+    expect(result.timing.status).toBe("within-target");
+  });
+
+  it("marks a short end-condition route as closest feasible instead of silently matching", () => {
+    const result = planJourney(durationGraph, {
+      journeyShape: "wander",
+      originNodeId: "origin",
+      departureHour: 15,
+      walkingBudgetMinutes: 10,
+      endCondition: { nodeIds: ["one"], label: "near transit" },
+    }, { walkingTimeIntent: "target" });
+
+    expect(result.recommended.durationMinutes).toBe(1);
+    expect(result.timing).toMatchObject({
+      intent: "target",
+      requestedMinutes: 10,
+      status: "closest-feasible",
+      differenceMinutes: -9,
+    });
+  });
+
+  it("keeps the typed walking budget as a hard maximum by default", () => {
+    const result = planJourney(durationGraph, {
+      journeyShape: "wander",
+      originNodeId: "origin",
+      departureHour: 15,
+      walkingBudgetMinutes: 3,
+    });
+
+    expect(result.recommended.durationMinutes).toBeLessThanOrEqual(3);
+    expect(result.timing.intent).toBe("maximum");
+  });
+
+  it("preserves explicit maximum semantics when requested", () => {
+    const result = planJourney(durationGraph, {
+      journeyShape: "wander",
+      originNodeId: "origin",
+      departureHour: 15,
+      walkingBudgetMinutes: 3,
+    }, { walkingTimeIntent: "maximum" });
+
+    expect(result.recommended.durationMinutes).toBeLessThanOrEqual(3);
+    expect(result.timing).toMatchObject({
+      intent: "maximum",
+      requestedMinutes: 3,
+      status: "within-maximum",
+      targetRangeMinutes: null,
+    });
+  });
 
   it("enforces both direction and a resolved end condition", () => {
     const result = planJourney(directionalGraph, {

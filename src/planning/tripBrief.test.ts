@@ -49,6 +49,25 @@ describe("compileTripBrief", () => {
     expect(refined.shape).toBe("loop");
   });
 
+  it("keeps custom integer minutes instead of rounding them to presets", () => {
+    const initial = compileTripBrief("Give me a shady 37-minute loop");
+    const refined = compileTripBrief("Make it a little longer", initial);
+
+    expect(initial).toMatchObject({ walkingMinutes: 37, walkingTimeIntent: "target" });
+    expect(refined.walkingMinutes).toBe(42);
+    expect(mergeTripBrief(initial, { walkingMinutes: 43 }, "controls").walkingMinutes).toBe(43);
+  });
+
+  it("distinguishes an ordinary target from an explicit maximum", () => {
+    const target = compileTripBrief("Wander west for 30 minutes");
+    const maximum = compileTripBrief("Wander west for no more than 30 minutes");
+
+    expect(target.walkingTimeIntent).toBe("target");
+    expect(maximum.walkingTimeIntent).toBe("maximum");
+    expect(briefSummary(target)[0]).toBe("Wander for about 30 minutes");
+    expect(briefSummary(maximum)[0]).toBe("Wander for up to 30 minutes");
+  });
+
   it("sanitizes model patches at the domain boundary", () => {
     const merged = mergeTripBrief(DEFAULT_BRIEF, { walkingMinutes: 999, departureHour: -8, detourMinutes: 7 as 5 }, "model");
     expect(merged.walkingMinutes).toBe(60);
@@ -59,7 +78,7 @@ describe("compileTripBrief", () => {
   it("makes wander constraints visible in the plan summary", () => {
     const brief = compileTripBrief("Wander north for 25 minutes and finish near a train. Avoid mapped steps.");
     expect(briefSummary(brief)).toEqual([
-      "Wander for up to 25 minutes",
+      "Wander for about 25 minutes",
       "Head north",
       "Finish near transit",
       "Less direct sun",

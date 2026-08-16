@@ -34,12 +34,20 @@ export function CompassIcon(props: IconProps) {
   return <Icon {...props}><circle cx="12" cy="12" r="8" /><path d="m15 9-2 4-4 2 2-4 4-2Z" /></Icon>;
 }
 
+export function CloudRainIcon(props: IconProps) {
+  return <Icon {...props}><path d="M7 17h10a4 4 0 0 0 .6-8A6 6 0 0 0 6.4 7.5 4.5 4.5 0 0 0 7 17Z" /><path d="m8 20 1-1M12 21l1-2M16 20l1-1" /></Icon>;
+}
+
 export function DropletIcon(props: IconProps) {
   return <Icon {...props}><path d="M12 3s5 5.5 5 10a5 5 0 0 1-10 0c0-4.5 5-10 5-10Z" /></Icon>;
 }
 
 export function LayersIcon(props: IconProps) {
   return <Icon {...props}><path d="m4 9 8-4 8 4-8 4-8-4Z" /><path d="m4 13 8 4 8-4M4 17l8 4 8-4" /></Icon>;
+}
+
+export function MapIcon(props: IconProps) {
+  return <Icon {...props}><path d="m4 6 5-2 6 2 5-2v14l-5 2-6-2-5 2V6Z" /><path d="M9 4v14M15 6v14" /></Icon>;
 }
 
 export function LeafIcon(props: IconProps) {
@@ -58,6 +66,10 @@ export function RestroomIcon(props: IconProps) {
   return <Icon {...props}><circle cx="8" cy="5" r="2" /><circle cx="16" cy="5" r="2" /><path d="M5 20v-8c0-2 1-3 3-3s3 1 3 3v8M13 20l1-7c.3-2.5 1-4 2-4s1.7 1.5 2 4l1 7M3 14h8M13 14h6" /></Icon>;
 }
 
+export function RouteIcon(props: IconProps) {
+  return <Icon {...props}><circle cx="6" cy="18" r="2" /><circle cx="18" cy="6" r="2" /><path d="M8 18h3a3 3 0 0 0 3-3v-6a3 3 0 0 1 3-3" /></Icon>;
+}
+
 export function SparkIcon(props: IconProps) {
   return <Icon {...props}><path d="m12 3 1.3 4.2L17 9l-3.7 1.8L12 15l-1.3-4.2L7 9l3.7-1.8L12 3Z" /><path d="m18 14 .7 2.3L21 17l-2.3.7L18 20l-.7-2.3L15 17l2.3-.7L18 14Z" /></Icon>;
 }
@@ -72,4 +84,8 @@ export function SunIcon(props: IconProps) {
 
 export function TrainIcon(props: IconProps) {
   return <Icon {...props}><rect x="6" y="3" width="12" height="15" rx="3" /><path d="M8 18l-2 3M16 18l2 3M8 13h8M9 7h6" /><circle cx="9" cy="15" r=".5" fill="currentColor" /><circle cx="15" cy="15" r=".5" fill="currentColor" /></Icon>;
+}
+
+export function UmbrellaIcon(props: IconProps) {
+  return <Icon {...props}><path d="M4 12a8 8 0 0 1 16 0H4Z" /><path d="M12 4v14a2 2 0 0 0 4 0" /><path d="M8 12c0-2 1.8-3.5 4-3.5s4 1.5 4 3.5" /></Icon>;
 }

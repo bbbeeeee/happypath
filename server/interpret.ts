@@ -16,6 +16,7 @@ const journeyShapes = ["destination", "loop", "wander"] as const;
 const priorities = ["shade", "greenery", "rest", "water", "restroom", "construction"] as const;
 const directions = ["north", "south", "east", "west"] as const;
 const endConditions = ["transit", "park"] as const;
+const walkingTimeIntents = ["target", "maximum"] as const;
 
 export const tripBriefJsonSchema = {
   type: "object",
@@ -31,7 +32,14 @@ export const tripBriefJsonSchema = {
     },
     walkingMinutes: {
       type: "integer",
-      description: "Walking budget from 10 to 60 minutes, rounded to five-minute increments.",
+      minimum: 10,
+      maximum: 60,
+      description: "Requested walking time from 10 to 60 minutes. Preserve custom integer values.",
+    },
+    walkingTimeIntent: {
+      type: "string",
+      enum: walkingTimeIntents,
+      description: "Use target for an ordinary duration request and maximum only for explicit limits such as up to or no more than.",
     },
     detourMinutes: {
       type: "integer",
@@ -71,6 +79,7 @@ export const tripBriefJsonSchema = {
     "shape",
     "destinationQuery",
     "walkingMinutes",
+    "walkingTimeIntent",
     "detourMinutes",
     "departureHour",
     "priorities",
@@ -86,7 +95,7 @@ const systemPrompt = `You convert a resident's walking request into a Happy Path
 
 Return only the structured fields required by the schema. Treat the current brief as retained state during a refinement: keep a value unless the new request explicitly changes or removes it. The new request always wins when it is explicit.
 
-Supported priorities are shade, greenery, places to rest, water, restrooms, and less construction friction. "Avoid mapped steps" is supported only as a mapped-data exclusion and is never an accessibility guarantee. Do not claim safety, guaranteed accessibility, live quietness, live crowding, or current amenity operation; add a short statement to unsupported when the resident asks for one of those. Preserve the resident's destination wording without inventing an address. Use five-minute increments from 10 through 60 for walkingMinutes, 0/5/10 for detourMinutes, and a whole local hour from 0 through 23.`;
+Supported priorities are shade, greenery, places to rest, water, restrooms, and less construction friction. "Avoid mapped steps" is supported only as a mapped-data exclusion and is never an accessibility guarantee. Do not claim safety, guaranteed accessibility, live quietness, live crowding, or current amenity operation; add a short statement to unsupported when the resident asks for one of those. Preserve the resident's destination wording without inventing an address. Preserve any integer walkingMinutes from 10 through 60. Use walkingTimeIntent "target" for ordinary requests such as "a 30-minute walk" and "maximum" only for explicit limits such as "up to 30 minutes". Use 0/5/10 for detourMinutes and a whole local hour from 0 through 23.`;
 
 type OpenRouterFetch = typeof fetch;
 
@@ -135,7 +144,8 @@ export function isTripBrief(value: unknown): value is TripBrief {
   return journeyShapes.includes(value.shape as (typeof journeyShapes)[number])
     && (value.destinationQuery === null || (typeof value.destinationQuery === "string" && value.destinationQuery.length <= 160))
     && typeof value.walkingMinutes === "number" && Number.isInteger(value.walkingMinutes)
-    && value.walkingMinutes >= 10 && value.walkingMinutes <= 60 && value.walkingMinutes % 5 === 0
+    && value.walkingMinutes >= 10 && value.walkingMinutes <= 60
+    && walkingTimeIntents.includes(value.walkingTimeIntent as (typeof walkingTimeIntents)[number])
     && [0, 5, 10].includes(value.detourMinutes as number)
     && typeof value.departureHour === "number" && Number.isInteger(value.departureHour)
     && value.departureHour >= 0 && value.departureHour <= 23
@@ -155,6 +165,7 @@ function parseModelPatch(value: unknown): TripBriefPatch {
     || !journeyShapes.includes(value.shape as (typeof journeyShapes)[number])
     || !(value.destinationQuery === null || typeof value.destinationQuery === "string")
     || typeof value.walkingMinutes !== "number" || !Number.isFinite(value.walkingMinutes)
+    || !walkingTimeIntents.includes(value.walkingTimeIntent as (typeof walkingTimeIntents)[number])
     || ![0, 5, 10].includes(value.detourMinutes as number)
     || typeof value.departureHour !== "number" || !Number.isFinite(value.departureHour)
     || !Array.isArray(value.priorities) || !value.priorities.every((item) => priorities.includes(item))
@@ -171,6 +182,7 @@ function parseModelPatch(value: unknown): TripBriefPatch {
       ? value.destinationQuery.slice(0, 160) || null
       : null,
     walkingMinutes: value.walkingMinutes,
+    walkingTimeIntent: value.walkingTimeIntent,
     detourMinutes: value.detourMinutes,
     departureHour: value.departureHour,
     priorities: value.priorities,

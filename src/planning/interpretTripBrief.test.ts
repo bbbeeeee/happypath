@@ -18,6 +18,21 @@ describe("interpretTripBrief", () => {
     expect(JSON.parse(String(init.body))).toEqual({ prompt: "Make it shorter", currentBrief: current });
   });
 
+  it("accepts a custom integer duration from the model", async () => {
+    const current = compileTripBrief("Give me a shady 25-minute loop");
+    const brief = {
+      ...current,
+      walkingMinutes: 37,
+      prompt: "Make it 37 minutes",
+      interpretedBy: "model" as const,
+    };
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ brief }), { status: 200 }));
+
+    await expect(interpretTripBrief("Make it 37 minutes", current, {
+      fetchImpl: fetchMock as unknown as typeof fetch,
+    })).resolves.toMatchObject({ walkingMinutes: 37, walkingTimeIntent: "target" });
+  });
+
   it("uses the deterministic compiler when the endpoint is unavailable", async () => {
     const current = compileTripBrief("Give me a green 25-minute loop with water nearby");
     const fetchImpl = vi.fn(async () => new Response("unavailable", { status: 503 })) as unknown as typeof fetch;

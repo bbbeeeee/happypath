@@ -18,6 +18,7 @@ const shapes = ["destination", "loop", "wander"];
 const priorities = ["shade", "greenery", "rest", "water", "restroom", "construction"];
 const directions = ["north", "south", "east", "west"];
 const endConditions = ["transit", "park"];
+const walkingTimeIntents = ["target", "maximum"];
 
 function isTripBrief(value: unknown): value is TripBrief {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
@@ -25,7 +26,10 @@ function isTripBrief(value: unknown): value is TripBrief {
   return shapes.includes(brief.shape as string)
     && (brief.destinationQuery === null || (typeof brief.destinationQuery === "string" && brief.destinationQuery.length <= 160))
     && typeof brief.walkingMinutes === "number" && Number.isInteger(brief.walkingMinutes)
-    && brief.walkingMinutes >= 10 && brief.walkingMinutes <= 60 && brief.walkingMinutes % 5 === 0
+    && brief.walkingMinutes >= 10 && brief.walkingMinutes <= 60
+    // Accept one release of legacy model responses while the server schema rolls
+    // forward; callers receive a normalized intent below.
+    && (brief.walkingTimeIntent === undefined || walkingTimeIntents.includes(brief.walkingTimeIntent as string))
     && [0, 5, 10].includes(brief.detourMinutes as number)
     && typeof brief.departureHour === "number" && Number.isInteger(brief.departureHour)
     && brief.departureHour >= 0 && brief.departureHour <= 23
@@ -55,7 +59,12 @@ export async function interpretTripBrief(
     });
     if (!response.ok) return fallback();
     const payload = await response.json() as InterpretResponse;
-    return isTripBrief(payload.brief) ? payload.brief : fallback();
+    return isTripBrief(payload.brief)
+      ? {
+          ...payload.brief,
+          walkingTimeIntent: payload.brief.walkingTimeIntent ?? currentBrief.walkingTimeIntent,
+        }
+      : fallback();
   } catch {
     return fallback();
   }

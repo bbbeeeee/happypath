@@ -14,6 +14,31 @@ import { routeCoordinates } from "./geometry";
 import { edgeShade } from "./shade";
 
 export const WALKING_METERS_PER_MINUTE = 80;
+export const DEFAULT_TARGET_TOLERANCE_RATIO = 0.1;
+
+export type WalkingTimeIntent = "target" | "maximum";
+
+export interface JourneyPlanningOptions {
+  /**
+   * Set target after interpreting an ordinary duration request. The routing
+   * API itself defaults to maximum so legacy walkingBudgetMinutes callers
+   * retain their documented hard ceiling.
+   */
+  walkingTimeIntent?: WalkingTimeIntent;
+  /** Defaults to ten percent on either side of the requested target. */
+  targetToleranceRatio?: number;
+}
+
+export interface JourneyTimingMetadata {
+  intent: "destination" | WalkingTimeIntent;
+  requestedMinutes: number | null;
+  actualMinutes: number;
+  targetRangeMinutes: { minimum: number; maximum: number } | null;
+  status: "destination" | "within-target" | "closest-feasible" | "within-maximum";
+  differenceMinutes: number | null;
+}
+
+export type PlannedJourneyResult = JourneyResult & { timing: JourneyTimingMetadata };
 
 export type JourneyPlanningErrorCode =
   | "invalid-brief"
@@ -57,6 +82,13 @@ interface PlannerContext {
   preferences: JourneyPreference[];
   avoidMappedSteps: boolean;
   departureHour: number;
+}
+
+interface WalkingTimeWindow {
+  intent: WalkingTimeIntent;
+  requestedMinutes: number;
+  minimumMinutes: number;
+  maximumMinutes: number;
 }
 
 interface QueueItem {
@@ -171,6 +203,59 @@ function validateBrief(graph: PilotGraph, brief: TripBrief) {
     const unknown = brief.endCondition.nodeIds.find((nodeId) => !nodeIds.has(nodeId));
     if (unknown) throw new JourneyPlanningError("unknown-node", `Unknown end-condition node: ${unknown}`);
   }
+}
+
+function walkingTimeWindow(
+  brief: Extract<TripBrief, { journeyShape: "loop" | "wander" }>,
+  options: JourneyPlanningOptions,
+): WalkingTimeWindow {
+  const intent = options.walkingTimeIntent ?? "maximum";
+  const requestedMinutes = brief.walkingBudgetMinutes;
+  if (intent === "maximum") {
+    return { intent, requestedMinutes, minimumMinutes: 0, maximumMinutes: requestedMinutes };
+  }
+  const tolerance = options.targetToleranceRatio ?? DEFAULT_TARGET_TOLERANCE_RATIO;
+  if (!Number.isFinite(tolerance) || tolerance < 0 || tolerance > 0.5) {
+    throw new JourneyPlanningError("invalid-brief", "Target tolerance must be between zero and one half");
+  }
+  return {
+    intent,
+    requestedMinutes,
+    minimumMinutes: requestedMinutes * (1 - tolerance),
+    maximumMinutes: requestedMinutes * (1 + tolerance),
+  };
+}
+
+function timingMetadata(
+  brief: TripBrief,
+  route: JourneyRoute,
+  options: JourneyPlanningOptions,
+): JourneyTimingMetadata {
+  if (brief.journeyShape === "destination") {
+    return {
+      intent: "destination",
+      requestedMinutes: null,
+      actualMinutes: route.durationMinutes,
+      targetRangeMinutes: null,
+      status: "destination",
+      differenceMinutes: null,
+    };
+  }
+  const window = walkingTimeWindow(brief, options);
+  const withinTarget = route.durationMinutes >= window.minimumMinutes - 0.0001
+    && route.durationMinutes <= window.maximumMinutes + 0.0001;
+  return {
+    intent: window.intent,
+    requestedMinutes: window.requestedMinutes,
+    actualMinutes: route.durationMinutes,
+    targetRangeMinutes: window.intent === "target"
+      ? { minimum: window.minimumMinutes, maximum: window.maximumMinutes }
+      : null,
+    status: window.intent === "maximum"
+      ? "within-maximum"
+      : withinTarget ? "within-target" : "closest-feasible",
+    differenceMinutes: route.durationMinutes - window.requestedMinutes,
+  };
 }
 
 function shortestPath(
@@ -462,8 +547,14 @@ function loopAnchorNodes(context: PlannerContext, originNodeId: string, budgetMe
   return [...selected.values()].map(({ node }) => node);
 }
 
-function loopJourney(context: PlannerContext, brief: Extract<TripBrief, { journeyShape: "loop" }>): JourneyResult {
-  const budgetMeters = brief.walkingBudgetMinutes * WALKING_METERS_PER_MINUTE;
+function loopJourney(
+  context: PlannerContext,
+  brief: Extract<TripBrief, { journeyShape: "loop" }>,
+  options: JourneyPlanningOptions,
+): JourneyResult {
+  const timeWindow = walkingTimeWindow(brief, options);
+  const budgetMeters = timeWindow.maximumMinutes * WALKING_METERS_PER_MINUTE;
+  const requestedMeters = timeWindow.requestedMinutes * WALKING_METERS_PER_MINUTE;
   const paths = new Map<string, GraphPath>();
   const strengths = context.preferences.length === 0 ? [0] : [0, 0.55, 0.9];
 
@@ -487,7 +578,7 @@ function loopJourney(context: PlannerContext, brief: Extract<TripBrief, { journe
         const distance = pathDistance(path);
         const uniqueEdges = new Set(path.edges.map((edge) => edge.id));
         const repeatedEdgeRatio = path.edges.length === 0 ? 1 : (path.edges.length - uniqueEdges.size) / path.edges.length;
-        if (distance > budgetMeters + 0.01 || distance < budgetMeters * 0.52) continue;
+        if (distance > budgetMeters + 0.01 || distance < requestedMeters * 0.52) continue;
         if (uniqueEdges.size < 3 || new Set(path.nodeIds).size < 3 || repeatedEdgeRatio > 0.2) continue;
         paths.set(pathKey(path, "loop"), path);
       }
@@ -498,11 +589,32 @@ function loopJourney(context: PlannerContext, brief: Extract<TripBrief, { journe
   if (candidates.length === 0) {
     throw new JourneyPlanningError("no-feasible-loop", "No nontrivial loop fits the walking budget and requirements");
   }
-  const score = (route: JourneyRoute) => {
-    const budgetUse = route.durationMinutes / brief.walkingBudgetMinutes;
+  const maximumScore = (route: JourneyRoute) => {
+    const budgetUse = route.durationMinutes / timeWindow.requestedMinutes;
     return route.preferenceScore * 0.48 + budgetUse * 0.52 - route.repeatedEdgeRatio;
   };
-  const ordered = candidates.sort((a, b) => score(b) - score(a) || b.durationMinutes - a.durationMinutes);
+  const inTargetRange = (route: JourneyRoute) => route.durationMinutes >= timeWindow.minimumMinutes - 0.0001
+    && route.durationMinutes <= timeWindow.maximumMinutes + 0.0001;
+  const hasTargetMatch = timeWindow.intent === "target" && candidates.some(inTargetRange);
+  const ordered = candidates.sort((a, b) => {
+    if (timeWindow.intent === "maximum") return maximumScore(b) - maximumScore(a) || b.durationMinutes - a.durationMinutes;
+    const aInRange = inTargetRange(a);
+    const bInRange = inTargetRange(b);
+    if (aInRange !== bInRange) return bInRange ? 1 : -1;
+    const aDifference = Math.abs(a.durationMinutes - timeWindow.requestedMinutes);
+    const bDifference = Math.abs(b.durationMinutes - timeWindow.requestedMinutes);
+    // If no route hits the band, “closest feasible” must mean closest in time;
+    // preferences only break near-ties. Inside the band, retain meaningful
+    // comfort choice while gently favoring the requested duration.
+    if (!hasTargetMatch && Math.abs(aDifference - bDifference) > 0.05) return aDifference - bDifference;
+    const aScore = a.preferenceScore * 0.52
+      + (1 - Math.min(1, aDifference / Math.max(1, timeWindow.requestedMinutes))) * 0.48
+      - a.repeatedEdgeRatio;
+    const bScore = b.preferenceScore * 0.52
+      + (1 - Math.min(1, bDifference / Math.max(1, timeWindow.requestedMinutes))) * 0.48
+      - b.repeatedEdgeRatio;
+    return bScore - aScore || aDifference - bDifference;
+  });
   const recommended = ordered[0];
   return {
     brief,
@@ -513,10 +625,15 @@ function loopJourney(context: PlannerContext, brief: Extract<TripBrief, { journe
   };
 }
 
-function wanderEndpointNodes(context: PlannerContext, brief: Extract<TripBrief, { journeyShape: "wander" }>) {
+function wanderEndpointNodes(
+  context: PlannerContext,
+  brief: Extract<TripBrief, { journeyShape: "wander" }>,
+  timeWindow: WalkingTimeWindow,
+) {
   const origin = context.nodeById.get(brief.originNodeId)!;
-  const budgetMeters = brief.walkingBudgetMinutes * WALKING_METERS_PER_MINUTE;
-  const minimumProgress = Math.max(20, Math.min(120, budgetMeters * 0.1));
+  const budgetMeters = timeWindow.maximumMinutes * WALKING_METERS_PER_MINUTE;
+  const requestedMeters = timeWindow.requestedMinutes * WALKING_METERS_PER_MINUTE;
+  const minimumProgress = Math.max(20, Math.min(120, requestedMeters * 0.1));
   const allowedIds = brief.endCondition ? new Set(brief.endCondition.nodeIds) : null;
   const eligible = context.graph.nodes
     .filter((node) => node.id !== brief.originNodeId && (!allowedIds || allowedIds.has(node.id)))
@@ -531,22 +648,142 @@ function wanderEndpointNodes(context: PlannerContext, brief: Extract<TripBrief, 
 
   if (allowedIds) return eligible;
   return [...eligible]
-    .sort((a, b) => Math.abs(a.distance - budgetMeters * 0.78) - Math.abs(b.distance - budgetMeters * 0.78))
+    .sort((a, b) => Math.abs(a.distance - requestedMeters * 0.78) - Math.abs(b.distance - requestedMeters * 0.78))
     .slice(0, 72);
 }
 
-function wanderJourney(context: PlannerContext, brief: Extract<TripBrief, { journeyShape: "wander" }>): JourneyResult {
-  const budgetMeters = brief.walkingBudgetMinutes * WALKING_METERS_PER_MINUTE;
+function wanderWaypointNodes(
+  context: PlannerContext,
+  originNodeId: string,
+  endpointNodeId: string,
+  requestedMeters: number,
+) {
+  const origin = context.nodeById.get(originNodeId)!;
+  const endpoint = context.nodeById.get(endpointNodeId)!;
+  const ranked = context.graph.nodes
+    .filter((node) => node.id !== originNodeId && node.id !== endpointNodeId)
+    .map((node) => ({
+      node,
+      // Straight-line distance is only a cheap search heuristic. Every
+      // candidate is still validated against the walking graph below.
+      sweepMeters: coordinateDistance(origin.coordinate, node.coordinate)
+        + coordinateDistance(node.coordinate, endpoint.coordinate),
+    }))
+    .filter(({ sweepMeters }) => sweepMeters >= requestedMeters * 0.42)
+    .sort((a, b) => Math.abs(a.sweepMeters - requestedMeters * 0.76)
+      - Math.abs(b.sweepMeters - requestedMeters * 0.76));
+
+  // Graph exports contain several nodes at almost the same intersection.
+  // A small spatial key keeps the search broad enough to find a pleasant arc
+  // without turning every request into hundreds of pathfinding runs.
+  const spatialCells = new Set<string>();
+  const selected: PilotGraph["nodes"] = [];
+  for (const candidate of ranked) {
+    const [longitude, latitude] = candidate.node.coordinate;
+    const key = `${Math.round(longitude * 2_500)}:${Math.round(latitude * 2_500)}`;
+    if (spatialCells.has(key)) continue;
+    spatialCells.add(key);
+    selected.push(candidate.node);
+    if (selected.length === 28) break;
+  }
+  return selected;
+}
+
+function wanderJourney(
+  context: PlannerContext,
+  brief: Extract<TripBrief, { journeyShape: "wander" }>,
+  options: JourneyPlanningOptions,
+): JourneyResult {
+  const timeWindow = walkingTimeWindow(brief, options);
+  const budgetMeters = timeWindow.maximumMinutes * WALKING_METERS_PER_MINUTE;
+  const requestedMeters = timeWindow.requestedMinutes * WALKING_METERS_PER_MINUTE;
   const paths = new Map<string, GraphPath>();
   const strengths = context.preferences.length === 0 ? [0] : [0, 0.5, 0.82, 1];
-  for (const endpoint of wanderEndpointNodes(context, brief)) {
+  const endpoints = wanderEndpointNodes(context, brief, timeWindow);
+  for (const endpoint of endpoints) {
+    const endpointPaths: GraphPath[] = [];
     for (const strength of strengths) {
       const path = shortestPath(context, brief.originNodeId, endpoint.node.id, routingCost(context, strength));
       if (!path) continue;
       const distance = pathDistance(path);
       if (distance > budgetMeters + 0.01) continue;
-      if (!brief.endCondition && distance < budgetMeters * 0.38) continue;
+      if (!brief.endCondition && distance < requestedMeters * 0.38) continue;
       paths.set(pathKey(path, "wander"), path);
+      endpointPaths.push(path);
+    }
+    // Resolved end conditions often include a nearby transit entrance. Search
+    // materially different valid approaches so a target-duration request does
+    // not collapse to the shortest possible walk when a longer route exists.
+    if (brief.endCondition) {
+      for (const seed of endpointPaths.slice(0, 2)) {
+        const seedEdges = new Set(seed.edges.map((edge) => edge.id));
+        for (const penalty of [1.5, 3, 8]) {
+          const diverse = shortestPath(
+            context,
+            brief.originNodeId,
+            endpoint.node.id,
+            routingCost(context, context.preferences.length === 0 ? 0 : 0.82, (edge) => seedEdges.has(edge.id) ? penalty : 1),
+          );
+          if (!diverse || pathDistance(diverse) > budgetMeters + 0.01) continue;
+          paths.set(pathKey(diverse, "wander"), diverse);
+        }
+      }
+    }
+  }
+
+
+  // A wander is allowed to take the scenic way to its endpoint. If ordinary
+  // shortest/diverse routes all fall short of a requested target, try a
+  // graph-snapped intermediate sweep. This is what makes “30-minute wander,
+  // ending near a train” behave like a duration request rather than silently
+  // collapsing to the nearest station.
+  const initialRoutes = [...paths.values()].map((path) => toJourneyRoute(context, "wander", path, null));
+  const hasInitialTargetMatch = timeWindow.intent === "target"
+    && initialRoutes.some((route) => route.durationMinutes >= timeWindow.minimumMinutes - 0.0001
+      && route.durationMinutes <= timeWindow.maximumMinutes + 0.0001);
+  if (timeWindow.intent === "target" && !hasInitialTargetMatch) {
+    const endpointsByPromise = endpoints
+      .map((endpoint) => ({
+        endpoint,
+        difference: initialRoutes
+          .filter((route) => route.endpointNodeId === endpoint.node.id)
+          .reduce((best, route) => Math.min(best, Math.abs(route.distanceMeters - requestedMeters)), Number.POSITIVE_INFINITY),
+      }))
+      .sort((a, b) => a.difference - b.difference)
+      .slice(0, brief.endCondition ? 12 : 8);
+
+    let foundTargetSweep = false;
+    for (const { endpoint } of endpointsByPromise) {
+      for (const waypoint of wanderWaypointNodes(context, brief.originNodeId, endpoint.node.id, requestedMeters)) {
+        const outward = shortestPath(
+          context,
+          brief.originNodeId,
+          waypoint.id,
+          routingCost(context, context.preferences.length === 0 ? 0 : 0.82),
+        );
+        if (!outward || pathDistance(outward) > budgetMeters) continue;
+        const outwardEdges = new Set(outward.edges.map((edge) => edge.id));
+        const finishing = shortestPath(
+          context,
+          waypoint.id,
+          endpoint.node.id,
+          routingCost(context, context.preferences.length === 0 ? 0 : 0.82, (edge) => outwardEdges.has(edge.id) ? 6 : 1),
+        );
+        if (!finishing) continue;
+        const sweep: GraphPath = {
+          nodeIds: [...outward.nodeIds, ...finishing.nodeIds.slice(1)],
+          edges: [...outward.edges, ...finishing.edges],
+        };
+        const distance = pathDistance(sweep);
+        if (distance > budgetMeters + 0.01 || distance < timeWindow.minimumMinutes * WALKING_METERS_PER_MINUTE) continue;
+        const uniqueEdges = new Set(sweep.edges.map((edge) => edge.id));
+        const repeatedEdgeRatio = sweep.edges.length === 0 ? 1 : (sweep.edges.length - uniqueEdges.size) / sweep.edges.length;
+        if (repeatedEdgeRatio > 0.25) continue;
+        paths.set(pathKey(sweep, "wander"), sweep);
+        if (distance <= budgetMeters + 0.01) foundTargetSweep = true;
+        if (paths.size >= 48) break;
+      }
+      if (foundTargetSweep || paths.size >= 48) break;
     }
   }
 
@@ -555,13 +792,29 @@ function wanderJourney(context: PlannerContext, brief: Extract<TripBrief, { jour
     throw new JourneyPlanningError("no-feasible-wander", "No wander endpoint fits the direction, end condition, budget, and requirements");
   }
   const origin = context.nodeById.get(brief.originNodeId)!;
-  const score = (route: JourneyRoute) => {
+  const maximumScore = (route: JourneyRoute) => {
     const endpoint = context.nodeById.get(route.endpointNodeId)!;
     const { alignment } = directionMetrics(origin.coordinate, endpoint.coordinate, brief.direction);
-    const budgetUse = route.durationMinutes / brief.walkingBudgetMinutes;
+    const budgetUse = route.durationMinutes / timeWindow.requestedMinutes;
     return route.preferenceScore * 0.5 + budgetUse * 0.38 + Math.max(0, alignment) * 0.12;
   };
-  const ordered = candidates.sort((a, b) => score(b) - score(a) || b.durationMinutes - a.durationMinutes);
+  const inTargetRange = (route: JourneyRoute) => route.durationMinutes >= timeWindow.minimumMinutes - 0.0001
+    && route.durationMinutes <= timeWindow.maximumMinutes + 0.0001;
+  const hasTargetMatch = timeWindow.intent === "target" && candidates.some(inTargetRange);
+  const ordered = candidates.sort((a, b) => {
+    if (timeWindow.intent === "maximum") return maximumScore(b) - maximumScore(a) || b.durationMinutes - a.durationMinutes;
+    const aInRange = inTargetRange(a);
+    const bInRange = inTargetRange(b);
+    if (aInRange !== bInRange) return bInRange ? 1 : -1;
+    const aDifference = Math.abs(a.durationMinutes - timeWindow.requestedMinutes);
+    const bDifference = Math.abs(b.durationMinutes - timeWindow.requestedMinutes);
+    if (!hasTargetMatch && Math.abs(aDifference - bDifference) > 0.05) return aDifference - bDifference;
+    const aScore = maximumScore(a) * 0.52
+      + (1 - Math.min(1, aDifference / Math.max(1, timeWindow.requestedMinutes))) * 0.48;
+    const bScore = maximumScore(b) * 0.52
+      + (1 - Math.min(1, bDifference / Math.max(1, timeWindow.requestedMinutes))) * 0.48;
+    return bScore - aScore || aDifference - bDifference;
+  });
   const recommended = ordered[0];
   return {
     brief,
@@ -573,16 +826,73 @@ function wanderJourney(context: PlannerContext, brief: Extract<TripBrief, { jour
 }
 
 /**
+ * Rebuilds the currently selected path through one graph-snapped waypoint.
+ * This powers direct map steering without accepting unroutable freehand
+ * geometry. The returned route keeps the original endpoint and hard step
+ * requirement.
+ */
+export function rerouteJourneyThroughWaypoint(
+  graph: PilotGraph,
+  brief: TripBrief,
+  currentRoute: JourneyRoute,
+  waypointNodeId: string,
+  options: JourneyPlanningOptions = {},
+): JourneyRoute {
+  validateBrief(graph, brief);
+  const context = buildContext(graph, brief);
+  if (!context.nodeById.has(waypointNodeId)) {
+    throw new JourneyPlanningError("unknown-node", `Unknown waypoint node: ${waypointNodeId}`);
+  }
+  const preferenceStrength = context.preferences.length === 0 ? 0 : 0.82;
+  const cost = routingCost(context, preferenceStrength);
+  const first = shortestPath(context, brief.originNodeId, waypointNodeId, cost);
+  const second = shortestPath(context, waypointNodeId, currentRoute.endpointNodeId, cost);
+  if (!first || !second) {
+    throw new JourneyPlanningError("no-route", "That point does not connect to this walking route");
+  }
+  const combined: GraphPath = {
+    nodeIds: [...first.nodeIds, ...second.nodeIds.slice(1)],
+    edges: [...first.edges, ...second.edges],
+  };
+  const duration = pathDistance(combined) / WALKING_METERS_PER_MINUTE;
+  if (brief.journeyShape === "destination") {
+    const baselineDuration = Math.max(0, currentRoute.durationMinutes - (currentRoute.extraMinutesVsBaseline ?? 0));
+    if (duration > baselineDuration + brief.detourAllowanceMinutes + 0.0001) {
+      throw new JourneyPlanningError("no-route", "That point needs more time than this walk allows");
+    }
+    return toJourneyRoute(context, brief.journeyShape, combined, baselineDuration);
+  }
+  const window = walkingTimeWindow(brief, options);
+  if (duration > window.maximumMinutes + 0.0001) {
+    throw new JourneyPlanningError(
+      brief.journeyShape === "loop" ? "no-feasible-loop" : "no-feasible-wander",
+      "That point takes the walk beyond the requested time",
+    );
+  }
+  return toJourneyRoute(context, brief.journeyShape, combined, null);
+}
+
+/**
  * Plans one deterministic journey from a typed Trip Brief.
  *
  * All geometry, time arithmetic, hard constraints, and route metrics are
  * established here. A language model may construct the brief or explain the
  * returned values, but it must not modify a returned candidate.
  */
-export function planJourney(graph: PilotGraph, brief: TripBrief): JourneyResult {
+export function planJourney(
+  graph: PilotGraph,
+  brief: TripBrief,
+  options: JourneyPlanningOptions = {},
+): PlannedJourneyResult {
   validateBrief(graph, brief);
   const context = buildContext(graph, brief);
-  if (brief.journeyShape === "destination") return destinationJourney(context, brief);
-  if (brief.journeyShape === "loop") return loopJourney(context, brief);
-  return wanderJourney(context, brief);
+  const result = brief.journeyShape === "destination"
+    ? destinationJourney(context, brief)
+    : brief.journeyShape === "loop"
+      ? loopJourney(context, brief, options)
+      : wanderJourney(context, brief, options);
+  return {
+    ...result,
+    timing: timingMetadata(brief, result.recommended, options),
+  };
 }
