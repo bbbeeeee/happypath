@@ -281,13 +281,17 @@ function ResultSheet({ brief, route, result, assets, destinationText, setDestina
   const summary = [
     ...briefSummary(brief),
     `Leaving ${formatClock(brief.departureHour)}`,
-    ...(brief.avoidMappedSteps ? ["Fewer mapped steps"] : []),
   ];
+  const roundedExtraMinutes = Math.round(route.extraMinutesVsBaseline ?? 0);
+  const destinationTiming = roundedExtraMinutes > 0
+    ? `${Math.round(route.durationMinutes)} minutes · ${roundedExtraMinutes} min longer than fastest`
+    : `${Math.round(route.durationMinutes)} minutes · same walking time as fastest`;
+  const hasDistinctBaseline = Boolean(result.baseline && result.baseline.candidateId !== route.candidateId);
   return <section className="sheet result-sheet" aria-label="Your Happy Path">
     <div className="sheet-handle" />
     <div className="result-nav"><IconButton label="Plan a new walk" onClick={onBack}><BackIcon /></IconButton><span>Your Happy Path</span><span className="result-time">{formatMinutes(route.durationMinutes)}</span></div>
     {delta && <div className="route-delta"><SparkIcon />Route updated · {delta}</div>}
-    <div className="result-lead"><h1>{headline}</h1><p>{brief.shape === "loop" ? `${Math.round(route.durationMinutes)}-minute loop` : brief.shape === "wander" ? `${Math.round(route.durationMinutes)}-minute wander · within your ${brief.walkingMinutes}-minute limit` : `${Math.round(route.durationMinutes)} minutes · ${Math.round(route.extraMinutesVsBaseline ?? 0)} longer`}</p></div>
+    <div className="result-lead"><h1>{headline}</h1><p>{brief.shape === "loop" ? `${Math.round(route.durationMinutes)}-minute loop` : brief.shape === "wander" ? `${Math.round(route.durationMinutes)}-minute wander · within your ${brief.walkingMinutes}-minute limit` : destinationTiming}</p></div>
     <div className="intent-summary"><div><span className="eyebrow">What we planned</span><div className="brief-tags">{summary.map((item) => <span key={item}>{item}</span>)}</div></div><button type="button" onClick={() => setShowAdjustments((value) => !value)} aria-expanded={showAdjustments}>{showAdjustments ? "Done" : "Adjust"}</button></div>
     {showAdjustments && <div className="adjust-panel"><WalkControls brief={draftBrief} onChange={setDraftBrief} destinationText={destinationText} onDestinationTextChange={setDestinationText} /><button type="button" className="apply-adjustments" disabled={busy} onClick={applyAdjustments}>{busy ? "Updating your walk…" : "Update this walk"}</button></div>}
     <div className="benefit-list">
@@ -298,7 +302,7 @@ function ResultSheet({ brief, route, result, assets, destinationText, setDestina
     </div>
     {missingAmenities.length > 0 && <div className="coverage-note"><strong>Not found near this route</strong><span>{missingAmenities.map((kind) => ({ seating: "mapped seating", restroom: "a mapped restroom", drinking_fountain: "a mapped drinking fountain", transit: "a mapped subway entrance" })[kind]).join(" or ")} within 90 meters. Inventory coverage and current operation may vary.</span></div>}
     <div className="confidence-row"><span className="confidence-dot" /><p><strong>Built from mapped walking paths</strong><small>{brief.priorities.includes("shade") ? "Shade is estimated from building shapes and the sun’s position." : "Some street and place details may be incomplete."}</small></p></div>
-    {result.baseline && <button type="button" className="text-action" onClick={() => setShowBaseline(!showBaseline)}><span className="baseline-swatch" />{showBaseline ? "Hide" : "Compare with"} fastest · {formatMinutes(result.baseline.durationMinutes)}</button>}
+    {result.baseline && hasDistinctBaseline && <button type="button" className="text-action" onClick={() => setShowBaseline(!showBaseline)}><span className="baseline-swatch" />{showBaseline ? "Hide" : "Compare with"} fastest · {formatMinutes(result.baseline.durationMinutes)}</button>}
     {brief.unsupported.length > 0 && <div className="request-limit" role="status"><strong>Kept out of the route score</strong><span>{brief.unsupported.join(" · ")}. You can still use the mapped evidence above.</span></div>}
     <button type="button" className="data-action" onClick={onShowData}><LayersIcon /><span><strong>Built with city and street data</strong><small>{Object.keys(civicFixture.sources).length + 4} sources behind this walk</small></span><ChevronIcon /></button>
     {detourScenario && detourScenario.avoidedDirectSunMinutes >= 0.05 && <button type="button" className="detour-action" onClick={onShowDetour}><span className="detour-mark">D</span><span><strong>A city planning what-if</strong><small>What if one exposed block had more shade?</small></span><ChevronIcon /></button>}
