@@ -29,7 +29,7 @@ Start with the most validated and visually legible of:
 - [ ] Identify a repeated segment or asset gap and distinguish it from sparse source coverage.
 - [ ] Render affected and unaffected representative journeys on the map.
 - [ ] Explain which groups of modeled journeys are represented without claiming real population demand.
-- [ ] Keep individual Happy Path usage out of the proof.
+- [ ] Keep individual Footnote usage out of the proof.
 - [ ] End the gap view with the best next action: verify, operate, repair/remove, or build.
 
 ## Acceptance criteria

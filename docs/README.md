@@ -1,6 +1,6 @@
-# Happy Path documentation
+# Footnote documentation
 
-This folder contains the durable product and system documentation for Happy Path.
+This folder contains the durable product and system documentation for Footnote.
 
 The branch contains a working Lower Manhattan preview. The PRD and UX documents define intended behavior; [P1 implementation status](P1_IMPLEMENTATION_STATUS.md) records what the current worktree proves; and the [product and demo audit](PRODUCT_DEMO_AUDIT.md) identifies the highest-value path to a more cohesive resident-to-planner demonstration.
 

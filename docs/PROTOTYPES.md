@@ -1,4 +1,4 @@
-# Happy Path — Prototype Notes
+# Footnote — Prototype Notes
 
 > Existing prototype branches are historical references and evidence. They do not define product scope, architecture, implementation workflow, or the future build.
 
@@ -38,7 +38,7 @@ These experiments demonstrate that several core ideas are feasible. Future build
 
 This branch contains a vendored `isometric-nyc` rendering and tile-generation project.
 
-No Happy Path visual or architectural concepts from this branch are part of the current plan.
+No Footnote visual or architectural concepts from this branch are part of the current plan.
 
 Keep it as historical experimentation only unless a future product decision explicitly changes that.
 

@@ -12,7 +12,7 @@ last_updated: 2026-08-16
 
 ## Outcome
 
-Happy Path and Detour can represent individual public assets, their official and recently observed state, responsible entity, open issue, and safe authorized action—without rating neighborhoods or outsourcing City responsibilities.
+Footnote and Detour can represent individual public assets, their official and recently observed state, responsible entity, open issue, and safe authorized action—without rating neighborhoods or outsourcing City responsibilities.
 
 Residents may optionally help improve ground truth along a walk through a quick confirmation, structured observation, or purpose-limited photo.
 

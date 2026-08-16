@@ -17,7 +17,7 @@ function run(command, argumentsList) {
 
 const archive = process.argv[2];
 if (!archive) throw new Error("Pass the release archive path to smoke-release.mjs");
-const extracted = await mkdtemp(join(tmpdir(), "happy-path-release-"));
+const extracted = await mkdtemp(join(tmpdir(), "footnote-release-"));
 
 try {
   await run("tar", ["-xzf", resolve(archive), "-C", extracted, "--strip-components=1"]);

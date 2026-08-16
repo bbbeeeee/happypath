@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { defaultOrigin, pilotGraph } from "../data/cityGraph";
+import { pilotGraph } from "../data/cityGraph";
 import { listCivicTasks } from "../data/civicTasks";
 import { planJourney } from "../routing/journey";
 import type { TripBrief as RoutingTripBrief } from "../types";
@@ -8,7 +8,9 @@ import { selectRouteThroughOptionalCivicTask } from "./civicTaskRouting";
 function wanderBrief(minutes: number): RoutingTripBrief {
   return {
     journeyShape: "wander",
-    originNodeId: defaultOrigin,
+    // Keep the civic-check routing contract anchored near the published demo tasks.
+    // The product default can move independently as long as this fixture remains in the graph.
+    originNodeId: "42433587",
     walkingBudgetMinutes: minutes,
     departureHour: 14,
     preferences: [{ featureId: "shade", weight: 1 }],

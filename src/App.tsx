@@ -1,7 +1,7 @@
 import { FormEvent, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import * as maplibregl from "maplibre-gl";
 import type { GeoJSONSource, Map as MapLibreMap, MapLayerMouseEvent } from "maplibre-gl";
-import { defaultDestination, defaultOrigin, ensureGraphCoverage, graphNodeById, isInsidePilot, nearestGraphNode, nearestGraphNodeWithin, pilotGraph } from "./data/cityGraph";
+import { defaultDestination, defaultOrigin, defaultOriginLabel, ensureGraphCoverage, graphNodeById, isInsidePilot, nearestGraphNode, nearestGraphNodeWithin, pilotGraph } from "./data/cityGraph";
 import { shadowTilesIntersectingBounds, supportedArea } from "./data/supportedArea";
 import { findCivicAssetsNearRoute, loadCivicAssetFixture, type CivicAsset, type CivicAssetKind } from "./data/civicAssets";
 import { createSessionCivicObservation, findCivicTasksNearRoute, listCivicTasks, loadCivicTaskFixture, type CivicTask, type SessionCivicObservation } from "./data/civicTasks";
@@ -9,15 +9,17 @@ import { getMapLayerDefinition } from "./data/mapLayerCatalog";
 import { sourceRegistryPresentation, type SourceRegistryPresentation } from "./data/sourceRegistry";
 import { getPilotTransitEndpointCandidates } from "./data/transitEndpoints";
 import { amenitiesForViewport, amenitiesWithinViewport, amenityClusterCellMeters, amenityOverviewGeoJSON, amenityViewportSampleLimit, AMENITY_CLUSTER_COUNT_LAYOUT, type AmenityViewport } from "./amenityOverview";
-import { HERO_JOURNEYS, HERO_REQUESTS, type ExampleJourney } from "./exampleJourneys";
+import { examplePromptForSelectedDestination, HERO_JOURNEYS, HERO_REQUESTS, type ExampleJourney } from "./exampleJourneys";
 import { BUILDING_SHADOW_LAYER, buildingShadeDetailVisible } from "./shadeOverlay";
 import { rainPromptIntent, routeShadeSegmentsGeoJSON } from "./climatePresentation";
 import { buildShadeDetourScenario, evaluateShadeDetourScenario, type ShadeDetourScenario } from "./detour/shadeScenario";
 import type { RepresentativeShadeScenarioResult } from "./detour/representativeShadeScenario";
 import { coverContextVicinityGeoJSON, coverEvidenceMetadata, loadCoverContextGeoJSON, mappedCoverGeoJSON, mappedCoverShare, pickRainFriendlyRoute, routeCoverSegmentsGeoJSON, routeMappedCoverMeters, type CoverContextFeature } from "./coverEvidence";
 import { floodEvidenceMetadata, floodOverlapForRoute, loadFloodContextGeoJSON, type FloodContextCollection } from "./floodEvidence";
+import { EMPTY_ACCESS_CONTEXT, loadAccessContext, type AccessContextCollection } from "./data/accessContext";
+import { EMPTY_COOL_OPTIONS, loadCoolOptions, type CoolOptionsCollection } from "./data/coolOptions";
 import { ambientGreeneryGeoJSON, routeGreeneryGeoJSON } from "./greeneryPresentation";
-import { searchNycAddress } from "./geocoding";
+import { searchNycAddress, searchNycAddresses, type LocationSuggestion } from "./geocoding";
 import { briefSummary, DEFAULT_BRIEF, mergeTripBrief, metersToMiles, withDestinationOverride, type RoutePriority, type TripBrief as UiTripBrief } from "./planning/tripBrief";
 import { interpretTripBrief } from "./planning/interpretTripBrief";
 import { buildRouteCityInsightRequest, requestRouteCityInsight } from "./planning/cityInsight";
@@ -27,7 +29,7 @@ import { JourneyPlanningError, planJourney, rerouteJourneyThroughWaypoint, type 
 import { routeComparisonDeltaGeoJSON } from "./routing/routeComparisonPresentation";
 import type { Coordinate, JourneyRoute } from "./types";
 import type { RouteCityInsight } from "../server/insights";
-import { assetAvailabilityCopy, assetMarkerSvg, assetTransitLinesLabel, assetsGeoJSON, assetTypeLabel, civicTaskMarkerSvg, civicTasksGeoJSON, coverContextMarkerSvg, endpointsGeoJSON, routeGeoJSON } from "./mapPresentation";
+import { assetAvailabilityCopy, assetMarkerSvg, assetTransitLinesLabel, assetsGeoJSON, assetTypeLabel, civicTaskLayerVisible, civicTaskMarkerSvg, civicTasksGeoJSON, coverContextMarkerSvg, endpointsGeoJSON, routeGeoJSON } from "./mapPresentation";
 import { civicAssetEvidence } from "./presentationEvidence";
 import { DEFAULT_MAP_OVERLAYS, showRelevantRouteMapOverlays, toggledMapOverlay, type MapOverlays } from "./mapLayerState";
 import {
@@ -61,6 +63,7 @@ import { PreferencesPopover } from "./components/PreferencesPopover";
 import { RouteFeedbackCard } from "./components/RouteFeedbackCard";
 import { clearUserPreferences, loadUserPreferences, newTripBriefFromPreferences, saveUserPreferences, type UserPreferences } from "./preferences";
 import { humanReadableEndpointName } from "./placeLabels";
+import { loadWeatherContext, type WeatherContext } from "./weatherContext";
 import {
   ROUTE_FEEDBACK_CATEGORY_LABELS,
   addRouteFeedback,
@@ -105,8 +108,17 @@ const INITIAL_MAP_VIEWPORT: AmenityViewport = {
 };
 
 type AppMode = "walk" | "planner";
-type MapLens = "route" | "shade" | "greenery" | "cover" | "flood" | "amenities" | "tasks";
+type EndpointKind = "origin" | "destination";
+type MapLens = "route" | "shade" | "greenery" | "cover" | "flood" | "amenities" | "access" | "streetWork" | "cooling" | "tasks";
 type PlannerView = "routes" | "notes" | "what_if";
+
+interface HumanContextRecord {
+  label: string;
+  eyebrow: string;
+  location: string | null;
+  detail: string;
+  sourceId: string;
+}
 
 const PRIORITY_META: Record<RoutePriority, { label: string; icon: typeof SunIcon }> = {
   shade: { label: "Less direct sun", icon: SunIcon },
@@ -131,7 +143,66 @@ function formatClock(hour: number) {
   return `${display}:00 ${suffix}`;
 }
 
+function measurement(value: unknown, suffix: string) {
+  return typeof value === "number" && Number.isFinite(value) ? `${value}${suffix}` : null;
+}
+
+function accessContextRecord(properties: Record<string, unknown>): HumanContextRecord {
+  const kind = String(properties.kind ?? "");
+  const label = String(properties.label ?? "Mobility record");
+  if (kind === "ramp_survey") {
+    const survey = Number(properties.surveyedRamps ?? 0);
+    const measurements = [
+      measurement(properties.minimumRampWidthInches, " in min ramp width"),
+      measurement(properties.maximumRunningSlopePct, "% max running slope"),
+      measurement(properties.maximumRampCrossSlopePct, "% max cross-slope"),
+    ].filter(Boolean).join(" · ");
+    return {
+      label,
+      eyebrow: "Curb-ramp program corner",
+      location: properties.programStatus ? String(properties.programStatus) : null,
+      detail: survey > 0
+        ? `${survey} historical ramp survey ${survey === 1 ? "record" : "records"}${measurements ? ` · ${measurements}` : ""}. Measurements do not establish ADA compliance or current condition.`
+        : "Program-status record; no historical measurement was joined. It does not establish ADA compliance or current condition.",
+      sourceId: survey > 0 ? "nyc-pedestrian-ramps" : "nyc-ramp-program-progress",
+    };
+  }
+  if (kind === "accessible_signal") return {
+    label,
+    eyebrow: "Accessible pedestrian signal",
+    location: properties.installedAt ? `Installed ${new Date(String(properties.installedAt)).getUTCFullYear()}` : null,
+    detail: "An installed intersection-level asset record, not a live operation check or proof that every crossing arm is served.",
+    sourceId: "nyc-accessible-pedestrian-signals",
+  };
+  if (kind === "exclusive_signal") return {
+    label,
+    eyebrow: String(properties.treatment ?? "Exclusive pedestrian phase"),
+    location: properties.neighborhood ? String(properties.neighborhood) : null,
+    detail: "A published crossing treatment; it does not establish signal operation, a safe crossing, or a continuous accessible path.",
+    sourceId: "nyc-exclusive-pedestrian-signals",
+  };
+  return {
+    label,
+    eyebrow: "Subway elevator asset",
+    location: properties.routes ? String(properties.routes) : null,
+    detail: `${String(properties.serviceStatus ?? "Published asset status unavailable")}. This daily inventory is not a live outage feed and does not prove a continuous street-to-platform path.`,
+    sourceId: "mta-elevator-assets",
+  };
+}
+
+function coolOptionRecord(properties: Record<string, unknown>): HumanContextRecord {
+  const status = properties.finderStatus ? `Finder status: ${String(properties.finderStatus)}. ` : "";
+  return {
+    label: String(properties.label ?? "Cool option"),
+    eyebrow: String(properties.category ?? "NYC cool option"),
+    location: properties.address ? String(properties.address) : null,
+    detail: `${status}Activation, hours, access, and availability can change; verify in the official NYC finder.`,
+    sourceId: "nyc-cool-options",
+  };
+}
+
 function endpointName(nodeId: string | undefined) {
+  if (nodeId === defaultOrigin) return defaultOriginLabel;
   return humanReadableEndpointName(nodeId ? graphNodeById(nodeId) : undefined, pilotGraph.nodes, endpointLandmarks);
 }
 
@@ -382,7 +453,7 @@ function IconButton({ label, children, onClick, className = "" }: { label: strin
 }
 
 function Brand() {
-  return <div className="brand"><span className="brand-mark"><span /></span><span>Happy Path</span><small>Manhattan · Battery to 60th</small></div>;
+  return <div className="brand"><span>Footnote<sup>1</sup></span><small>Manhattan · Battery to 60th</small></div>;
 }
 
 function Segmented<T extends string>({ value, options, onChange, label }: { value: T; options: { value: T; label: string }[]; onChange: (value: T) => void; label: string }) {
@@ -434,6 +505,125 @@ function WalkControls({ brief, onChange, destinationText, onDestinationTextChang
   </div>;
 }
 
+interface LocationComboboxProps {
+  id: string;
+  label: string;
+  ariaLabel: string;
+  kind: EndpointKind;
+  value: string;
+  placeholder?: string;
+  disabled: boolean;
+  mapSelectionActive: boolean;
+  onFocus: () => void;
+  onEscape: () => void;
+  onChange: (value: string) => void;
+  onSelect: (suggestion: LocationSuggestion) => void | Promise<void>;
+}
+
+function LocationCombobox({ id, label, ariaLabel, kind, value, placeholder, disabled, mapSelectionActive, onFocus, onEscape, onChange, onSelect }: LocationComboboxProps) {
+  const [focused, setFocused] = useState(false);
+  const [suggestions, setSuggestions] = useState<LocationSuggestion[]>([]);
+  const [status, setStatus] = useState<"idle" | "loading" | "ready">("idle");
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const listboxId = `${id}-suggestions`;
+  const query = value.trim();
+
+  useEffect(() => {
+    if (!focused || disabled || query.length < 3) {
+      setSuggestions([]);
+      setStatus("idle");
+      setHighlightedIndex(-1);
+      return;
+    }
+    let cancelled = false;
+    setStatus("loading");
+    const timer = window.setTimeout(() => {
+      void searchNycAddresses(query, 5)
+        .then((results) => {
+          if (cancelled) return;
+          setSuggestions(results.filter((result) => isInsidePilot(result.coordinate)));
+          setHighlightedIndex(-1);
+          setStatus("ready");
+        })
+        .catch(() => {
+          if (cancelled) return;
+          setSuggestions([]);
+          setHighlightedIndex(-1);
+          setStatus("ready");
+        });
+    }, 275);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [disabled, focused, query]);
+
+  const expanded = focused && query.length >= 3 && (status === "loading" || suggestions.length > 0);
+  const chooseSuggestion = (suggestion: LocationSuggestion) => {
+    setFocused(false);
+    setSuggestions([]);
+    setStatus("idle");
+    setHighlightedIndex(-1);
+    void onSelect(suggestion);
+  };
+
+  return <div className={`location-input ${mapSelectionActive ? "map-selection-active" : ""}`} onBlur={(event) => {
+    if (!event.currentTarget.contains(event.relatedTarget)) setFocused(false);
+  }}>
+    <span className={`location-dot ${kind}-dot`} />
+    <label className="field-label" htmlFor={id}>{label}</label>
+    <input
+      id={id}
+      role="combobox"
+      aria-label={ariaLabel}
+      aria-autocomplete="list"
+      aria-expanded={expanded}
+      aria-controls={listboxId}
+      aria-activedescendant={highlightedIndex >= 0 ? `${listboxId}-${highlightedIndex}` : undefined}
+      autoComplete="off"
+      value={value}
+      placeholder={placeholder}
+      disabled={disabled}
+      onFocus={() => { setFocused(true); onFocus(); }}
+      onChange={(event) => { setFocused(true); setHighlightedIndex(-1); onChange(event.target.value); }}
+      onKeyDown={(event) => {
+        if (event.key === "ArrowDown" && suggestions.length) {
+          event.preventDefault();
+          setHighlightedIndex((current) => current < suggestions.length - 1 ? current + 1 : 0);
+        } else if (event.key === "ArrowUp" && suggestions.length) {
+          event.preventDefault();
+          setHighlightedIndex((current) => current > 0 ? current - 1 : suggestions.length - 1);
+        } else if (event.key === "Enter" && highlightedIndex >= 0) {
+          event.preventDefault();
+          chooseSuggestion(suggestions[highlightedIndex]);
+        } else if (event.key === "Escape") {
+          if (expanded) {
+            event.preventDefault();
+            setFocused(false);
+            setSuggestions([]);
+          }
+          onEscape();
+        }
+      }}
+    />
+    {expanded && <div id={listboxId} className="location-suggestions" role="listbox" aria-label={`${label} location suggestions`}>
+      {status === "loading"
+        ? <div className="location-suggestion-status" role="status">Finding nearby locations…</div>
+        : suggestions.map((suggestion, index) => <button
+          type="button"
+          id={`${listboxId}-${index}`}
+          key={`${suggestion.label}-${suggestion.coordinate.join(",")}`}
+          role="option"
+          aria-selected={index === highlightedIndex}
+          className={index === highlightedIndex ? "highlighted" : ""}
+          onMouseDown={(event) => event.preventDefault()}
+          onMouseEnter={() => setHighlightedIndex(index)}
+          onClick={() => chooseSuggestion(suggestion)}
+        ><span>{suggestion.label}</span><small>Manhattan</small></button>)}
+    </div>}
+  </div>;
+}
+
 interface ComposeSheetProps {
   brief: UiTripBrief;
   setBrief: (brief: UiTripBrief) => void;
@@ -450,9 +640,10 @@ interface ComposeSheetProps {
   error: string;
   onPlan: () => void;
   onSelectExample: (example: ExampleJourney) => void | Promise<void>;
+  onSelectLocation: (kind: EndpointKind, suggestion: LocationSuggestion) => void | Promise<void>;
 }
 
-function ComposeSheet({ brief, setBrief, prompt, setPrompt, originText, setOriginText, destinationText, setDestinationText, mapEndpointSelection, onMapEndpointSelectionChange, busy, busyMode, error, onPlan, onSelectExample }: ComposeSheetProps) {
+function ComposeSheet({ brief, setBrief, prompt, setPrompt, originText, setOriginText, destinationText, setDestinationText, mapEndpointSelection, onMapEndpointSelectionChange, busy, busyMode, error, onPlan, onSelectExample, onSelectLocation }: ComposeSheetProps) {
   const [manualChanged, setManualChanged] = useState(false);
   const animatedPlaceholder = useTypingPlaceholder(HERO_REQUESTS);
   const setManualBrief = (nextBrief: UiTripBrief) => { setManualChanged(true); setBrief(nextBrief); };
@@ -460,8 +651,8 @@ function ComposeSheet({ brief, setBrief, prompt, setPrompt, originText, setOrigi
     <div className="sheet-handle" />
     <div className="compose-heading"><span className="eyebrow">Plan a better walk</span><h1>Where and how would you like to walk?</h1></div>
     <div className={`location-stack ${mapEndpointSelection ? "selecting-on-map" : ""}`}>
-      <label className={`location-input ${mapEndpointSelection === "origin" ? "map-selection-active" : ""}`}><span className="location-dot origin-dot" /><span className="field-label">From</span><input aria-label="Starting point" value={originText} disabled={busy} onFocus={() => onMapEndpointSelectionChange("origin")} onKeyDown={(event) => { if (event.key === "Escape") onMapEndpointSelectionChange(null); }} onChange={(event) => { onMapEndpointSelectionChange(null); setOriginText(event.target.value); }} /></label>
-      <label className={`location-input ${mapEndpointSelection === "destination" ? "map-selection-active" : ""}`}><span className="location-dot destination-dot" /><span className="field-label">To</span><input aria-label="Destination" value={destinationText} disabled={busy} onFocus={() => onMapEndpointSelectionChange("destination")} onKeyDown={(event) => { if (event.key === "Escape") onMapEndpointSelectionChange(null); }} onChange={(event) => { onMapEndpointSelectionChange(null); setDestinationText(event.target.value); setManualChanged(true); }} placeholder="Optional — or ask for a loop or wander" /></label>
+      <LocationCombobox id="route-origin" label="From" ariaLabel="Starting point" kind="origin" value={originText} disabled={busy} mapSelectionActive={mapEndpointSelection === "origin"} onFocus={() => onMapEndpointSelectionChange("origin")} onEscape={() => onMapEndpointSelectionChange(null)} onChange={(value) => { onMapEndpointSelectionChange(null); setOriginText(value); }} onSelect={(suggestion) => onSelectLocation("origin", suggestion)} />
+      <LocationCombobox id="route-destination" label="To" ariaLabel="Destination" kind="destination" value={destinationText} disabled={busy} mapSelectionActive={mapEndpointSelection === "destination"} onFocus={() => onMapEndpointSelectionChange("destination")} onEscape={() => onMapEndpointSelectionChange(null)} onChange={(value) => { onMapEndpointSelectionChange(null); setDestinationText(value); setManualChanged(true); }} onSelect={(suggestion) => { setManualChanged(true); return onSelectLocation("destination", suggestion); }} placeholder="Optional — or ask for a loop or wander" />
     </div>
     <label className="prompt-box">
       <SparkIcon />
@@ -546,7 +737,7 @@ function registerFloodPatternImages(map: MapLibreMap) {
   }
 }
 
-function ResultSheet({ brief, route, result, assets, tasks, destinationText, setDestinationText, delta, error, feedback, activityPersisted, onBack, onRefine, onAdjust, onShowWhy, onShowAsset, onShowTask, onShowData, onOpenPlanner, onSaveFeedback, onRemoveFeedback, detourScenario, showBaseline, setShowBaseline, busy, busyMode, modelFallback, rainContext }: {
+function ResultSheet({ brief, route, result, assets, tasks, destinationText, setDestinationText, delta, error, feedback, activityPersisted, onBack, onRefine, onAdjust, onShowWhy, onShowAsset, onShowTask, onShowData, onSaveFeedback, onRemoveFeedback, showBaseline, setShowBaseline, busy, busyMode, modelFallback, rainContext }: {
   brief: UiTripBrief;
   route: JourneyRoute;
   result: PlannedJourneyResult;
@@ -565,10 +756,8 @@ function ResultSheet({ brief, route, result, assets, tasks, destinationText, set
   onShowAsset: (asset: CivicAsset) => void;
   onShowTask: (task: CivicTask) => void;
   onShowData: () => void;
-  onOpenPlanner: () => void;
   onSaveFeedback: (input: { sentiment: RouteFeedbackSentiment; category: RouteFeedbackCategory | null; body: string }) => void;
   onRemoveFeedback: (feedbackId: string) => void;
-  detourScenario: ShadeDetourScenario | null;
   showBaseline: boolean;
   setShowBaseline: (value: boolean) => void;
   busy: boolean;
@@ -625,14 +814,13 @@ function ResultSheet({ brief, route, result, assets, tasks, destinationText, set
       ? `${(frontierPoint?.benefit ?? 0).toFixed(0)} points greener`
       : `${Math.round((frontierPoint?.benefit ?? 0) * 100)}% better preference fit`;
   const timingDifference = Math.abs(Math.round(result.timing.differenceMinutes ?? 0));
-  const usedSourceCount = usedSourcePresentations(brief, assets, rainContext, tasks).length;
-  return <section className="sheet result-sheet" aria-label="Your Happy Path">
+  return <section className="sheet result-sheet" aria-label="Your Footnote">
     <div className="sheet-handle" />
-    <div className="result-nav"><IconButton label="Plan a new route" onClick={onBack}><BackIcon /></IconButton><span>Your Happy Path</span><span className="result-time">{brief.distanceMiles !== null ? `${formatMiles(routeMiles)} mi` : formatMinutes(route.durationMinutes)}</span></div>
+    <div className="result-nav"><IconButton label="Plan a new route" onClick={onBack}><BackIcon /></IconButton><span>Your Footnote</span><span className="result-time">{brief.distanceMiles !== null ? `${formatMiles(routeMiles)} mi` : formatMinutes(route.durationMinutes)}</span></div>
     {busy && <ThinkingStatus mode={busyMode ?? "refine"} />}
     {delta && <div className="route-delta"><SparkIcon />Route updated · {delta}</div>}
     <div className="result-lead"><h1>{headline}</h1><p>{routeTiming}</p></div>
-    {frontier && frontierPoint && result.baseline && <section className="route-value-summary" aria-label="What extra time buys"><span className="eyebrow">What extra time buys</span><strong>{frontierGain}</strong><p>for {frontierPoint.extraMinutes.toFixed(1)} extra minutes · captures {Math.round(frontierPoint.capturedBenefitRatio * 100)}% of the best measured gain</p><div><span><small>Fastest</small><strong>{formatMinutes(result.baseline.durationMinutes)}</strong></span><span><small>Happy Path</small><strong>{formatMinutes(route.durationMinutes)}</strong></span></div>{brief.avoidMappedSteps && <small className="retained-requirement">Still avoids mapped steps</small>}</section>}
+    {frontier && frontierPoint && result.baseline && <section className="route-value-summary" aria-label="What extra time buys"><span className="eyebrow">What extra time buys</span><strong>{frontierGain}</strong><p>for {frontierPoint.extraMinutes.toFixed(1)} extra minutes · captures {Math.round(frontierPoint.capturedBenefitRatio * 100)}% of the best measured gain</p><div><span><small>Fastest</small><strong>{formatMinutes(result.baseline.durationMinutes)}</strong></span><span><small>Footnote</small><strong>{formatMinutes(route.durationMinutes)}</strong></span></div>{brief.avoidMappedSteps && <small className="retained-requirement">Still avoids mapped steps</small>}</section>}
     {result.timing.status === "closest-feasible" && <div className="timing-note" role="status">{brief.distanceMiles !== null ? <RouteIcon /> : <ClockIcon />}<span><strong>Closest route we could make</strong><small>{brief.distanceMiles !== null && distanceDifferenceMiles !== null ? `${Math.abs(distanceDifferenceMiles).toFixed(1)} miles ${distanceDifferenceMiles < 0 ? "shorter" : "longer"} than requested.` : `${timingDifference} minutes ${route.durationMinutes < (result.timing.requestedMinutes ?? 0) ? "shorter" : "longer"} than requested.`}</small></span></div>}
     <div className="intent-summary"><div><span className="eyebrow">Your plan</span><strong className="brief-sentence">{summary[0]}</strong><small>{summary.slice(1).join(" · ")}</small></div><button type="button" onClick={() => setShowAdjustments((value) => !value)} aria-expanded={showAdjustments}>{showAdjustments ? "Close" : "Edit"}</button></div>
     {showAdjustments && <div className="adjust-panel"><WalkControls brief={draftBrief} onChange={setDraftBrief} destinationText={destinationText} onDestinationTextChange={(value) => { setDestinationText(value); setDraftBrief((current) => mergeTripBrief(current, { destinationQuery: value.trim() || null }, "controls")); }} /><button type="button" className="apply-adjustments" disabled={busy} onClick={applyAdjustments}>{busy ? "Updating your walk…" : "Update this walk"}</button></div>}
@@ -651,9 +839,7 @@ function ResultSheet({ brief, route, result, assets, tasks, destinationText, set
     {brief.unsupported.length > 0 && <details className="request-limit"><summary>{limitationHeading(brief.unsupported)}</summary><p>{brief.unsupported.map(friendlyLimitation).join(" ")}</p></details>}
     <div className="result-tools">
       <RouteFeedbackCard feedback={feedback} persisted={activityPersisted} onSave={onSaveFeedback} onRemove={onRemoveFeedback} />
-      <button type="button" className="result-tool sources-tool" onClick={onShowData}><LayersIcon /><span><strong>Sources &amp; methods</strong><small>{usedSourceCount} linked {usedSourceCount === 1 ? "source" : "sources"}</small></span><ChevronIcon /></button>
     </div>
-    {detourScenario && detourScenario.avoidedDirectSunMinutes >= 0.05 && <button type="button" className="detour-action" onClick={onOpenPlanner}><MapIcon /><span><strong>See this gap across more journeys</strong><small>Test whether one hypothetical change helps other representative walks too</small></span><ChevronIcon /></button>}
     <form className="refine-box" onSubmit={submit}><SparkIcon /><input value={refinement} disabled={busy} onChange={(event) => setRefinement(event.target.value)} placeholder="Shorter, but keep the bathroom…" aria-label="Refine this route" /><button disabled={busy || !refinement.trim()} aria-label="Update route"><ArrowIcon /></button></form>
     {error && <p className="status-message error" role="alert">{error}</p>}
     {modelFallback && <p className="status-message subtle">We used built-in trip understanding this time. You can adjust the details above.</p>}
@@ -899,11 +1085,12 @@ function RepresentativePlannerSheet({ scenario, showIntervention, onShowInterven
   </section>;
 }
 
-function MapLensControl({ overlays, onToggle, hour, onHourChange, planner, hasRoute, shadeDetailVisible, canEdit, editing, onEditingChange }: {
+function MapLensControl({ overlays, onToggle, hour, onHourChange, weather, planner, hasRoute, shadeDetailVisible, canEdit, editing, onEditingChange }: {
   overlays: MapOverlays;
   onToggle: (layer: keyof MapOverlays) => void;
   hour: number;
   onHourChange: (hour: number) => void;
+  weather: WeatherContext | null;
   planner: boolean;
   hasRoute: boolean;
   shadeDetailVisible: boolean;
@@ -919,7 +1106,7 @@ function MapLensControl({ overlays, onToggle, hour, onHourChange, planner, hasRo
     ? hasRoute || shadeDetailVisible ? formatClock(hour) : "Zoom in for shade"
     : hasRoute ? "Path stays visible" : "Nearby now";
   return <div className="map-lens-control" aria-label="Map view">
-    <div><span><LayersIcon />Map layers</span><output>{layerSummary}</output></div>
+    <div className="map-lens-header"><span><LayersIcon />Map layers</span><output>{weather ? <><strong>{weather.temperatureF}°</strong><small>{weather.feelsLikeF !== weather.temperatureF ? `feels ${weather.feelsLikeF}°` : weather.summary}</small></> : layerSummary}</output></div>
     <div className="map-lens-groups">
       <fieldset><legend>Street conditions</legend><div className="map-lens-options ambient-options">
         <button type="button" aria-pressed={overlays.shade} className={overlays.shade ? "active" : ""} onClick={() => onToggle("shade")}><SunIcon />Shade</button>
@@ -929,11 +1116,15 @@ function MapLensControl({ overlays, onToggle, hour, onHourChange, planner, hasRo
       <fieldset><legend>Along the way</legend><div className="map-lens-options context-options">
         <button type="button" aria-pressed={overlays.cover} className={overlays.cover ? "active" : ""} onClick={() => onToggle("cover")}><UmbrellaIcon />Cover</button>
         <button type="button" aria-pressed={overlays.amenities} className={overlays.amenities ? "active" : ""} onClick={() => onToggle("amenities")}><MapIcon />Places</button>
-        <button type="button" aria-pressed={overlays.tasks} className={overlays.tasks ? "active" : ""} onClick={() => onToggle("tasks")}><CheckCircleIcon />Checks</button>
+        <button type="button" aria-pressed={overlays.access} className={overlays.access ? "active" : ""} onClick={() => onToggle("access")}><StairsIcon />Access</button>
       </div></fieldset>
     </div>
+    <details className="map-lens-more"><summary>More city layers <ChevronIcon /></summary><div className="map-lens-options more-options">
+      <button type="button" aria-pressed={overlays.streetWork} className={overlays.streetWork ? "active" : ""} onClick={() => onToggle("streetWork")}><SparkIcon />Street work</button>
+      <button type="button" aria-pressed={overlays.cooling} className={overlays.cooling ? "active" : ""} onClick={() => onToggle("cooling")}><DropletIcon />Cool spots</button>
+      <button type="button" aria-pressed={overlays.tasks} className={overlays.tasks ? "active" : ""} onClick={() => onToggle("tasks")}><CheckCircleIcon />Checks</button>
+    </div>{weather && <p className="map-weather-detail">{weather.summary} · {weather.precipitationChance ?? 0}% rain · NWS representative Manhattan forecast</p>}{overlays.shade && <label className="shade-time-control"><span>7 AM</span><input type="range" min="7" max="19" step="1" value={hour} onChange={(event) => onHourChange(Number(event.target.value))} aria-label="Shade time" /><span>7 PM</span></label>}</details>
     {!planner && hasRoute && canEdit && <button type="button" className={`edit-path-control ${editing ? "active" : ""}`} onClick={() => onEditingChange(!editing)}><RouteIcon />{editing ? "Click the path to place a handle" : "Edit path on map"}</button>}
-    {overlays.shade && <label><span>7 AM</span><input type="range" min="7" max="19" step="1" value={hour} onChange={(event) => onHourChange(Number(event.target.value))} aria-label="Shade time" /><span>7 PM</span></label>}
   </div>;
 }
 
@@ -956,6 +1147,8 @@ export function App() {
   const [destinationNodeId, setDestinationNodeId] = useState(defaultDestination);
   const [originText, setOriginText] = useState(endpointName(defaultOrigin));
   const [destinationText, setDestinationText] = useState("");
+  const selectedEndpointRef = useRef<Record<EndpointKind, { nodeId: string; text: string } | null>>({ origin: null, destination: null });
+  const endpointEditVersionRef = useRef<Record<EndpointKind, number>>({ origin: 0, destination: 0 });
   const [mapEndpointSelection, setMapEndpointSelection] = useState<"origin" | "destination" | null>(null);
   mapEndpointSelectionRef.current = mapEndpointSelection;
   const [result, setResult] = useState<PlannedJourneyResult | null>(null);
@@ -984,6 +1177,8 @@ export function App() {
   const [activeCoverPoint, setActiveCoverPoint] = useState<{ x: number; y: number } | null>(null);
   const [activeFlood, setActiveFlood] = useState<{ label: string; depthBand: string; detail: string } | null>(null);
   const [activeFloodPoint, setActiveFloodPoint] = useState<{ x: number; y: number } | null>(null);
+  const [activeHumanContext, setActiveHumanContext] = useState<HumanContextRecord | null>(null);
+  const [activeHumanContextPoint, setActiveHumanContextPoint] = useState<{ x: number; y: number } | null>(null);
   const [mapReady, setMapReady] = useState(false);
   const [mapError, setMapError] = useState(false);
   const [appMode, setAppMode] = useState<AppMode>("walk");
@@ -991,6 +1186,9 @@ export function App() {
   const [mapOverlays, setMapOverlays] = useState<MapOverlays>(DEFAULT_MAP_OVERLAYS);
   const [coverContextLayer, setCoverContextLayer] = useState(EMPTY_COVER_CONTEXT);
   const [floodContextLayer, setFloodContextLayer] = useState<FloodContextCollection>(EMPTY_FLOOD_CONTEXT);
+  const [accessContextLayer, setAccessContextLayer] = useState<AccessContextCollection>(EMPTY_ACCESS_CONTEXT);
+  const [coolOptionsLayer, setCoolOptionsLayer] = useState<CoolOptionsCollection>(EMPTY_COOL_OPTIONS);
+  const [weather, setWeather] = useState<WeatherContext | null>(null);
   const [mapViewport, setMapViewport] = useState<AmenityViewport>(INITIAL_MAP_VIEWPORT);
   overlayVisibilityRef.current = mapOverlays;
   const [shadeHour, setShadeHour] = useState(Math.max(7, Math.min(19, new Date().getHours())));
@@ -1010,6 +1208,12 @@ export function App() {
   const activeRouteActivity = useMemo(() => routeActivity.find((item) => item.id === activeRouteLogId)
     ?? routeActivity.find((item) => item.candidateId === route?.candidateId)
     ?? null, [activeRouteLogId, route, routeActivity]);
+  useEffect(() => {
+    let cancelled = false;
+    void loadWeatherContext().then((context) => { if (!cancelled) setWeather(context); });
+    return () => { cancelled = true; };
+  }, []);
+
   useEffect(() => {
     if (!route || lastRecordedRouteRef.current === route) return;
     lastRecordedRouteRef.current = route;
@@ -1108,13 +1312,27 @@ export function App() {
   }, [appMode, mapLens, route?.candidateId]);
 
   useEffect(() => {
-    if (!mapOverlays.cover || coverContextLayer.features.length > 0) return;
+    if ((!mapOverlays.cover && !mapOverlays.streetWork) || coverContextLayer.features.length > 0) return;
     let cancelled = false;
     void loadCoverContextGeoJSON().then((context) => {
       if (!cancelled) setCoverContextLayer(context);
     });
     return () => { cancelled = true; };
-  }, [coverContextLayer.features.length, mapOverlays.cover]);
+  }, [coverContextLayer.features.length, mapOverlays.cover, mapOverlays.streetWork]);
+
+  useEffect(() => {
+    if (!mapOverlays.access || accessContextLayer.features.length > 0) return;
+    let cancelled = false;
+    void loadAccessContext().then((context) => { if (!cancelled) setAccessContextLayer(context); }).catch(() => undefined);
+    return () => { cancelled = true; };
+  }, [accessContextLayer.features.length, mapOverlays.access]);
+
+  useEffect(() => {
+    if (!mapOverlays.cooling || coolOptionsLayer.features.length > 0) return;
+    let cancelled = false;
+    void loadCoolOptions().then((context) => { if (!cancelled) setCoolOptionsLayer(context); }).catch(() => undefined);
+    return () => { cancelled = true; };
+  }, [coolOptionsLayer.features.length, mapOverlays.cooling]);
 
   useEffect(() => {
     if (!mapOverlays.flood || floodContextLayer.features.length > 0) return;
@@ -1134,12 +1352,46 @@ export function App() {
     return () => { cancelled = true; };
   }, [appMode, representativeScenario]);
 
-  async function resolveEndpoint(query: string, currentNodeId: string) {
+  function changeEndpointText(kind: EndpointKind, value: string) {
+    endpointEditVersionRef.current[kind] += 1;
+    selectedEndpointRef.current[kind] = null;
+    if (kind === "origin") setOriginText(value);
+    else setDestinationText(value);
+  }
+
+  async function selectLocationSuggestion(kind: EndpointKind, suggestion: LocationSuggestion) {
+    const editVersion = endpointEditVersionRef.current[kind] + 1;
+    endpointEditVersionRef.current[kind] = editVersion;
+    selectedEndpointRef.current[kind] = null;
+    setMapEndpointSelection(null);
+    setError("");
+    if (kind === "origin") setOriginText(suggestion.label);
+    else setDestinationText(suggestion.label);
+    try {
+      if (!isInsidePilot(suggestion.coordinate)) throw new Error(`Footnote is exploring ${supportedArea.label} for now.`);
+      await ensureGraphCoverage([suggestion.coordinate]);
+      if (endpointEditVersionRef.current[kind] !== editVersion) return;
+      const node = nearestGraphNodeWithin(suggestion.coordinate);
+      if (!node) throw new Error("That location is inside the preview area, but it is not close enough to the checked walking network yet.");
+      selectedEndpointRef.current[kind] = { nodeId: node.id, text: suggestion.label.trim() };
+      if (kind === "origin") setOriginNodeId(node.id);
+      else {
+        setDestinationNodeId(node.id);
+        setBrief((current) => withDestinationOverride(current, suggestion.label));
+      }
+    } catch (caught) {
+      if (endpointEditVersionRef.current[kind] === editVersion) setError(planningErrorMessage(caught));
+    }
+  }
+
+  async function resolveEndpoint(query: string, currentNodeId: string, kind: EndpointKind) {
+    const selected = selectedEndpointRef.current[kind];
+    if (selected && selected.nodeId === currentNodeId && selected.text === query.trim()) return selected.nodeId;
     const current = graphNodeById(currentNodeId);
     if (!query.trim() || query.trim() === current?.name || query.trim() === endpointName(currentNodeId)) return currentNodeId;
     const found = await searchNycAddress(query);
     if (!found) throw new Error(`We couldn’t find “${query}”. Try a nearby street or landmark.`);
-    if (!isInsidePilot(found.coordinate)) throw new Error(`Happy Path is exploring ${supportedArea.label} for now.`);
+    if (!isInsidePilot(found.coordinate)) throw new Error(`Footnote is exploring ${supportedArea.label} for now.`);
     await ensureGraphCoverage([found.coordinate]);
     const node = nearestGraphNodeWithin(found.coordinate);
     if (!node) throw new Error("That location is inside the preview area, but it is not close enough to the checked walking network yet.");
@@ -1147,6 +1399,8 @@ export function App() {
   }
 
   async function selectEndpointFromMap(kind: "origin" | "destination", coordinate: Coordinate) {
+    endpointEditVersionRef.current[kind] += 1;
+    selectedEndpointRef.current[kind] = null;
     setMapEndpointSelection(null);
     setError("");
     setDetail(null);
@@ -1159,11 +1413,12 @@ export function App() {
     setActiveFlood(null);
     setActiveFloodPoint(null);
     try {
-      if (!isInsidePilot(coordinate)) throw new Error(`Happy Path is exploring ${supportedArea.label} for now.`);
+      if (!isInsidePilot(coordinate)) throw new Error(`Footnote is exploring ${supportedArea.label} for now.`);
       await ensureGraphCoverage([coordinate]);
       const node = nearestGraphNodeWithin(coordinate);
       if (!node) throw new Error("Choose a place a little closer to a mapped walking street.");
       const label = endpointName(node.id);
+      selectedEndpointRef.current[kind] = { nodeId: node.id, text: label };
       if (kind === "origin") {
         setOriginNodeId(node.id);
         setOriginText(label);
@@ -1185,12 +1440,12 @@ export function App() {
         unsupported: [...nextBrief.unsupported, "Current construction evidence is unavailable in this preview"],
       }, nextBrief.interpretedBy)
       : nextBrief;
-    const resolvedOrigin = options.originId ?? await resolveEndpoint(options.originQuery ?? originText, originNodeId);
+    const resolvedOrigin = options.originId ?? await resolveEndpoint(options.originQuery ?? originText, originNodeId, "origin");
     let resolvedDestination = options.destinationId ?? destinationNodeId;
     if (plannedBrief.shape === "destination") {
       const query = plannedBrief.destinationQuery ?? options.destinationQuery ?? destinationText;
-      if (!options.destinationId && !query.trim()) throw new Error("Add a destination so Happy Path knows where you’re headed.");
-      if (!options.destinationId) resolvedDestination = await resolveEndpoint(query, destinationNodeId);
+      if (!options.destinationId && !query.trim()) throw new Error("Add a destination so Footnote knows where you’re headed.");
+      if (!options.destinationId) resolvedDestination = await resolveEndpoint(query, destinationNodeId, "destination");
       if (query.trim()) setDestinationText(query);
     }
     const coverageCoordinates = [resolvedOrigin, resolvedDestination]
@@ -1287,15 +1542,29 @@ export function App() {
   async function selectExample(example: ExampleJourney) {
     setMapEndpointSelection(null);
     try {
-      await ensureGraphCoverage([example.originCoordinate, ...(example.destinationCoordinate ? [example.destinationCoordinate] : [])]);
-      const origin = graphNodeById(example.originNodeId);
-      const destination = example.destinationNodeId ? graphNodeById(example.destinationNodeId) : null;
-      if (!origin || (example.destinationNodeId && !destination)) throw new Error("missing sample endpoint");
-      setOriginNodeId(origin.id);
-      setOriginText(endpointName(origin.id));
-      setDestinationNodeId(destination?.id ?? defaultDestination);
-      setDestinationText(destination ? endpointName(destination.id) : "");
-      setPrompt(example.prompt);
+      const preserveOrigin = Boolean(originText.trim());
+      const preserveDestination = Boolean(destinationText.trim());
+      const coverageCoordinates = [
+        ...(!preserveOrigin ? [example.originCoordinate] : []),
+        ...(!preserveDestination && example.destinationCoordinate ? [example.destinationCoordinate] : []),
+      ];
+      if (coverageCoordinates.length) await ensureGraphCoverage(coverageCoordinates);
+      const origin = preserveOrigin ? null : graphNodeById(example.originNodeId);
+      const destination = preserveDestination || !example.destinationNodeId ? null : graphNodeById(example.destinationNodeId);
+      if ((!preserveOrigin && !origin) || (!preserveDestination && example.destinationNodeId && !destination)) throw new Error("missing sample endpoint");
+      if (origin) {
+        endpointEditVersionRef.current.origin += 1;
+        selectedEndpointRef.current.origin = null;
+        setOriginNodeId(origin.id);
+        setOriginText(endpointName(origin.id));
+      }
+      if (!preserveDestination) {
+        endpointEditVersionRef.current.destination += 1;
+        selectedEndpointRef.current.destination = null;
+        setDestinationNodeId(destination?.id ?? defaultDestination);
+        setDestinationText(destination ? endpointName(destination.id) : "");
+      }
+      setPrompt(examplePromptForSelectedDestination(example, preserveDestination ? destinationText : ""));
       setBrief({ ...DEFAULT_BRIEF, priorities: [], departureHour: brief.departureHour });
       setError("");
       setModelFallback(false);
@@ -1325,6 +1594,8 @@ export function App() {
     setPrompt("");
     setBrief(newTripBriefFromPreferences(preferences));
     setDestinationNodeId(defaultDestination);
+    endpointEditVersionRef.current.destination += 1;
+    selectedEndpointRef.current.destination = null;
     setDestinationText("");
     setMapEndpointSelection(null);
     setRoute(null);
@@ -1411,21 +1682,24 @@ export function App() {
 
   dragEndpointRef.current = (kind, coordinate) => {
     const node = nearestGraphNode(coordinate);
+    endpointEditVersionRef.current[kind] += 1;
+    const endpointLabel = endpointName(node.id);
+    selectedEndpointRef.current[kind] = { nodeId: node.id, text: endpointLabel };
     if (kind === "origin") {
       setOriginNodeId(node.id);
-      setOriginText(endpointName(node.id));
+      setOriginText(endpointLabel);
       void compute(brief, true, { rainFriendly: rainContext, originId: node.id });
       return;
     }
     if (route?.journeyShape === "wander") {
       const nextBrief = mergeTripBrief(brief, { direction: null, endCondition: null }, "controls");
       setDestinationNodeId(node.id);
-      setDestinationText(endpointName(node.id));
+      setDestinationText(endpointLabel);
       void compute(nextBrief, true, { rainFriendly: rainContext, destinationId: node.id, wanderEndpointId: node.id });
       return;
     }
     setDestinationNodeId(node.id);
-    const destinationName = endpointName(node.id);
+    const destinationName = endpointLabel;
     setDestinationText(destinationName);
     void compute({ ...brief, destinationQuery: destinationName, interpretedBy: "controls" }, true, { rainFriendly: rainContext, destinationId: node.id });
   };
@@ -1493,9 +1767,13 @@ export function App() {
       }, layout: { visibility: "none", "line-cap": "round", "line-join": "round" } });
       map.addSource("cover-context", { type: "geojson", data: EMPTY_COVER_CONTEXT });
       map.addSource("cover-context-vicinities", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
-      map.addLayer({ id: "cover-context-vicinities", type: "fill", source: "cover-context-vicinities", minzoom: 14, paint: {
+      map.addLayer({ id: "cover-context-vicinities", type: "fill", source: "cover-context-vicinities", minzoom: 14, filter: ["==", ["get", "kind"], "pops_arcade"], paint: {
         "fill-color": ["match", ["get", "kind"], "pops_arcade", "#536A91", "#9B8051"],
         "fill-opacity": ["interpolate", ["linear"], ["zoom"], 14, 0.14, 17, 0.28],
+      }, layout: { visibility: "none" } });
+      map.addLayer({ id: "street-work-vicinities", type: "fill", source: "cover-context-vicinities", minzoom: 14, filter: ["==", ["get", "kind"], "sidewalk_shed_permit"], paint: {
+        "fill-color": "#9B8051",
+        "fill-opacity": ["interpolate", ["linear"], ["zoom"], 14, 0.11, 17, 0.24],
       }, layout: { visibility: "none" } });
       map.addLayer({ id: "cover-construction", type: "line", source: "cover-context", filter: ["==", ["get", "kind"], "construction_closure"], paint: { "line-color": "#C66A4B", "line-width": 3, "line-dasharray": [1, 1.5], "line-opacity": 0.72 }, layout: { visibility: "none" } });
       registerFloodPatternImages(map);
@@ -1517,6 +1795,54 @@ export function App() {
         "line-color": "#304860",
         "line-width": 1.5,
         "line-opacity": 0.78,
+      }, layout: { visibility: "none" } });
+      map.addSource("access-context", { type: "geojson", data: EMPTY_ACCESS_CONTEXT, cluster: true, clusterRadius: 38, clusterMaxZoom: 16 });
+      map.addLayer({ id: "access-clusters", type: "circle", source: "access-context", minzoom: 12.5, filter: ["has", "point_count"], paint: {
+        "circle-radius": ["step", ["get", "point_count"], 11, 30, 14, 150, 18],
+        "circle-color": ["step", ["get", "point_count"], "#F0EBF7", 30, "#D8CFEA", 150, "#B7A7D1"],
+        "circle-stroke-color": "#6D5F91",
+        "circle-stroke-width": 1.5,
+        "circle-opacity": 0.92,
+      }, layout: { visibility: "none" } });
+      map.addLayer({ id: "access-cluster-count", type: "symbol", source: "access-context", minzoom: 12.5, filter: ["has", "point_count"], layout: {
+        "text-field": ["get", "point_count_abbreviated"],
+        "text-size": 10,
+        "text-font": ["Open Sans Bold"],
+        visibility: "none",
+      }, paint: { "text-color": "#493F64" } });
+      map.addLayer({ id: "access-records", type: "circle", source: "access-context", minzoom: 14.2, filter: ["all", ["!", ["has", "point_count"]], ["!=", ["get", "kind"], "ramp_survey"]], paint: {
+        "circle-radius": ["interpolate", ["linear"], ["zoom"], 14.2, 4.5, 17, 7],
+        "circle-color": ["match", ["get", "kind"], "accessible_signal", "#6D5F91", "exclusive_signal", "#C17A55", "transit_elevator", "#4D7593", "#6D5F91"],
+        "circle-stroke-color": "#FFFDF8",
+        "circle-stroke-width": 2,
+        "circle-opacity": 0.94,
+      }, layout: { visibility: "none" } });
+      map.addLayer({ id: "access-ramps", type: "circle", source: "access-context", minzoom: 16.7, filter: ["all", ["!", ["has", "point_count"]], ["==", ["get", "kind"], "ramp_survey"]], paint: {
+        "circle-radius": ["interpolate", ["linear"], ["zoom"], 16.7, 3, 19, 6],
+        "circle-color": "#7D6D9D",
+        "circle-stroke-color": "#FFFDF8",
+        "circle-stroke-width": 1.5,
+        "circle-opacity": 0.86,
+      }, layout: { visibility: "none" } });
+      map.addSource("cool-options", { type: "geojson", data: EMPTY_COOL_OPTIONS, cluster: true, clusterRadius: 45, clusterMaxZoom: 14 });
+      map.addLayer({ id: "cool-clusters", type: "circle", source: "cool-options", filter: ["has", "point_count"], paint: {
+        "circle-radius": ["step", ["get", "point_count"], 12, 8, 16, 30, 20],
+        "circle-color": "#D8EFF1",
+        "circle-stroke-color": "#2E7182",
+        "circle-stroke-width": 1.5,
+      }, layout: { visibility: "none" } });
+      map.addLayer({ id: "cool-cluster-count", type: "symbol", source: "cool-options", filter: ["has", "point_count"], layout: {
+        "text-field": ["get", "point_count_abbreviated"],
+        "text-size": 10,
+        "text-font": ["Open Sans Bold"],
+        visibility: "none",
+      }, paint: { "text-color": "#245B68" } });
+      map.addLayer({ id: "cool-options", type: "circle", source: "cool-options", minzoom: 13.5, filter: ["!", ["has", "point_count"]], paint: {
+        "circle-radius": ["match", ["get", "kind"], "spray_shower", 5, "pool", 6, "cooling_center", 7, 5],
+        "circle-color": ["match", ["get", "kind"], "spray_shower", "#4BA9B3", "pool", "#337E9B", "cooling_center", "#2E7182", "#6BA7A0"],
+        "circle-stroke-color": "#FFFDF8",
+        "circle-stroke-width": 2,
+        "circle-opacity": 0.94,
       }, layout: { visibility: "none" } });
       map.addSource("baseline", { type: "geojson", data: routeGeoJSON() });
       map.addLayer({ id: "baseline", type: "line", source: "baseline", paint: { "line-color": "#6D716C", "line-width": 3, "line-dasharray": [2, 2], "line-opacity": 0.68 }, layout: { visibility: "none" } });
@@ -1639,6 +1965,24 @@ export function App() {
         } : null);
         setActiveFloodPoint({ x: event.point.x, y: event.point.y });
       };
+      const showHumanContextPopover = (event: MapLayerMouseEvent) => {
+        if (mapEndpointSelectionRef.current) return;
+        const properties = event.features?.[0]?.properties;
+        if (!properties) return;
+        setActiveAsset(null);
+        setActiveAssetPoint(null);
+        setActiveTask(null);
+        setActiveTaskPoint(null);
+        setActiveCover(null);
+        setActiveCoverPoint(null);
+        setActiveFlood(null);
+        setActiveFloodPoint(null);
+        setDetail(null);
+        setActiveHumanContext(properties.sourceId === "nyc-cool-options"
+          ? coolOptionRecord(properties)
+          : accessContextRecord(properties));
+        setActiveHumanContextPoint({ x: event.point.x, y: event.point.y });
+      };
       void registerCoverContextMarkerImages(map).then(() => {
         const symbolLayers = [
           { id: "cover-arcade-icons", kind: "pops_arcade", image: "cover-context-pops_arcade", minzoom: 15.6 },
@@ -1651,7 +1995,7 @@ export function App() {
             "icon-size": ["interpolate", ["linear"], ["zoom"], layer.minzoom, 0.62, 17, 0.9],
             "icon-allow-overlap": false,
             "icon-padding": 7,
-            visibility: overlayVisibilityRef.current.cover ? "visible" : "none",
+            visibility: (layer.kind === "sidewalk_shed_permit" ? overlayVisibilityRef.current.streetWork : overlayVisibilityRef.current.cover) ? "visible" : "none",
           } });
           map.on("mouseenter", layer.id, () => { map.getCanvas().style.cursor = "pointer"; });
           map.on("mouseleave", layer.id, () => { map.getCanvas().style.cursor = ""; });
@@ -1719,22 +2063,38 @@ export function App() {
         "circle-stroke-opacity": 0.22,
       }, layout: { visibility: "none" } });
       map.addLayer({ id: "civic-task-hit", type: "circle", source: "civic-tasks", paint: {
-        "circle-radius": ["case", ["get", "selected"], 19, 15],
-        "circle-color": "#FFFDF8",
-        "circle-opacity": 0.01,
+        "circle-radius": ["case", ["get", "selected"], 27, 15],
+        "circle-color": ["case", ["get", "selected"], "#F9DDD6", "#FFFDF8"],
+        "circle-opacity": ["case", ["get", "selected"], 0.78, 0.01],
         "circle-stroke-color": civicTaskLayer.color,
-        "circle-stroke-width": ["case", ["get", "selected"], 3, 0],
+        "circle-stroke-width": ["case", ["get", "selected"], 5, 0],
+        "circle-stroke-opacity": ["case", ["get", "selected"], 1, 0],
         "circle-translate": [0, -23],
       }, layout: { visibility: "none" } });
       void registerCivicTaskMarkerImages(map).then(() => {
         if (map.getLayer("civic-task-icons")) return;
         map.addLayer({ id: "civic-task-icons", type: "symbol", source: "civic-tasks", layout: {
           "icon-image": ["match", ["get", "action"], "photo", "civic-task-photo", "observe", "civic-task-observe", "civic-task-verify"],
-          "icon-size": ["case", ["get", "selected"], 1.3, 1.05],
+          "icon-size": ["case", ["get", "selected"], 1.45, 1.05],
           "icon-anchor": "bottom",
           "icon-allow-overlap": true,
           "icon-ignore-placement": true,
           visibility: overlayVisibilityRef.current.tasks ? "visible" : "none",
+        } });
+        map.addLayer({ id: "civic-task-focus-label", type: "symbol", source: "civic-tasks", filter: ["==", ["get", "selected"], true], layout: {
+          "text-field": ["get", "focusLabel"],
+          "text-size": 12,
+          "text-anchor": "bottom",
+          "text-offset": [0, -4.6],
+          "text-letter-spacing": 0.08,
+          "text-allow-overlap": true,
+          "text-ignore-placement": true,
+          visibility: "none",
+        }, paint: {
+          "text-color": "#8F3E33",
+          "text-halo-color": "#FFFDF8",
+          "text-halo-width": 3,
+          "text-halo-blur": 0.5,
         } });
         map.on("mouseenter", "civic-task-icons", () => { map.getCanvas().style.cursor = "pointer"; });
         map.on("mouseleave", "civic-task-icons", () => { map.getCanvas().style.cursor = ""; });
@@ -1758,7 +2118,7 @@ export function App() {
         map.on("mouseleave", layer, () => { map.getCanvas().style.cursor = ""; });
         map.on("click", layer, routeFeatureClick);
       });
-      ["mapped-cover", "cover-construction", "cover-context-vicinities"].forEach((layer) => {
+      ["mapped-cover", "cover-construction", "cover-context-vicinities", "street-work-vicinities"].forEach((layer) => {
         map.on("mouseenter", layer, () => { map.getCanvas().style.cursor = "pointer"; });
         map.on("mouseleave", layer, () => { map.getCanvas().style.cursor = ""; });
         map.on("click", layer, showCoverPopover);
@@ -1767,6 +2127,16 @@ export function App() {
         map.on("mouseenter", layer, () => { map.getCanvas().style.cursor = "pointer"; });
         map.on("mouseleave", layer, () => { map.getCanvas().style.cursor = ""; });
         map.on("click", layer, showFloodPopover);
+      });
+      ["access-records", "access-ramps", "cool-options"].forEach((layer) => {
+        map.on("mouseenter", layer, () => { map.getCanvas().style.cursor = "pointer"; });
+        map.on("mouseleave", layer, () => { map.getCanvas().style.cursor = ""; });
+        map.on("click", layer, showHumanContextPopover);
+      });
+      ["access-clusters", "access-cluster-count", "cool-clusters", "cool-cluster-count"].forEach((layer) => {
+        map.on("mouseenter", layer, () => { map.getCanvas().style.cursor = "zoom-in"; });
+        map.on("mouseleave", layer, () => { map.getCanvas().style.cursor = ""; });
+        map.on("click", layer, (event) => map.easeTo({ center: event.lngLat, zoom: Math.min(17, map.getZoom() + 1.8), duration: 380 }));
       });
       map.on("click", "assets", showAssetPopover);
     });
@@ -1844,6 +2214,8 @@ export function App() {
     (map.getSource("cover-context") as GeoJSONSource | undefined)?.setData(coverContextLayer);
     (map.getSource("cover-context-vicinities") as GeoJSONSource | undefined)?.setData(coverContextVicinities);
     (map.getSource("flood-context") as GeoJSONSource | undefined)?.setData(floodContextLayer);
+    (map.getSource("access-context") as GeoJSONSource | undefined)?.setData(accessContextLayer);
+    (map.getSource("cool-options") as GeoJSONSource | undefined)?.setData(coolOptionsLayer);
     (map.getSource("planner-selection") as GeoJSONSource | undefined)?.setData(appMode === "planner" ? representativeGap : plannerScenario?.selection.geojson ?? { type: "FeatureCollection", features: [] });
     (map.getSource("representative-routes") as GeoJSONSource | undefined)?.setData(representativeRoutes);
     (map.getSource("route-activity") as GeoJSONSource | undefined)?.setData(activityMapData);
@@ -1871,10 +2243,15 @@ export function App() {
     visibility("mapped-cover-casing", mapOverlays.cover);
     visibility("cover-context-vicinities", mapOverlays.cover);
     visibility("cover-arcade-icons", mapOverlays.cover);
-    visibility("cover-shed-icons", mapOverlays.cover);
-    visibility("cover-construction", appMode === "planner" && mapLens === "cover" && mapOverlays.cover);
+    visibility("street-work-vicinities", mapOverlays.streetWork);
+    visibility("cover-shed-icons", mapOverlays.streetWork);
+    visibility("cover-construction", mapOverlays.streetWork);
     ["flood-nuisance", "flood-deep", "flood-nuisance-outline", "flood-deep-outline"]
       .forEach((layer) => visibility(layer, mapOverlays.flood));
+    ["access-clusters", "access-cluster-count", "access-records", "access-ramps"]
+      .forEach((layer) => visibility(layer, mapOverlays.access));
+    ["cool-clusters", "cool-cluster-count", "cool-options"]
+      .forEach((layer) => visibility(layer, mapOverlays.cooling));
     const showLocalActivity = appMode === "planner" && plannerView !== "what_if" && activityMapData.features.length > 0;
     const showSelection = showWhatIf && representativeGap.features.length > 0;
     visibility("planner-selection", showSelection);
@@ -1885,8 +2262,10 @@ export function App() {
     visibility("route-activity-lines", showLocalActivity);
     visibility("route-activity-notes", showLocalActivity && plannerView === "notes");
     ["overview-clusters", "overview-cluster-count", "overview-icons", "assets", "asset-icons"].forEach((layer) => visibility(layer, mapOverlays.amenities));
-    ["civic-task-halo", "civic-task-hit", "civic-task-icons"].forEach((layer) => visibility(layer, mapOverlays.tasks));
-  }, [route, result, showBaseline, comparisonDelta, representativeGap, representativeRoutes, showRepresentativeIntervention, activityMapData, plannerView, activeAssets, activeAsset?.id, overviewAssets, taskFeatures, shadeSegments, ambientGreeneryLayer, greeneryRouteSegments, ambientCoverLayer, coverRouteSegments, coverContextLayer, coverContextVicinities, floodContextLayer, plannerScenario, mapLens, mapOverlays, appMode, mapReady]);
+    const showCivicTasks = civicTaskLayerVisible(mapOverlays.tasks, activeTask?.id);
+    ["civic-task-halo", "civic-task-hit", "civic-task-icons"].forEach((layer) => visibility(layer, showCivicTasks));
+    visibility("civic-task-focus-label", Boolean(activeTask));
+  }, [route, result, showBaseline, comparisonDelta, representativeGap, representativeRoutes, showRepresentativeIntervention, activityMapData, plannerView, activeAssets, activeAsset?.id, activeTask?.id, overviewAssets, taskFeatures, shadeSegments, ambientGreeneryLayer, greeneryRouteSegments, ambientCoverLayer, coverRouteSegments, coverContextLayer, coverContextVicinities, floodContextLayer, accessContextLayer, coolOptionsLayer, plannerScenario, mapLens, mapOverlays, appMode, mapReady]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -1959,6 +2338,11 @@ export function App() {
     "--asset-popover-top": `${Math.max(72, Math.min(window.innerHeight - 220, activeFloodPoint.y - 34))}px`,
   } as CSSProperties : undefined;
 
+  const humanContextPopoverStyle = activeHumanContextPoint ? {
+    "--asset-popover-left": `${Math.max(16, activeHumanContextPoint.x > window.innerWidth - 320 ? activeHumanContextPoint.x - 296 : activeHumanContextPoint.x + 18)}px`,
+    "--asset-popover-top": `${Math.max(72, Math.min(window.innerHeight - 220, activeHumanContextPoint.y - 34))}px`,
+  } as CSSProperties : undefined;
+
   const taskPopoverOpensLeft = Boolean(activeTaskPoint && activeTaskPoint.x > window.innerWidth - 320);
   const taskPopoverStyle = activeTaskPoint ? {
     "--asset-popover-left": `${Math.max(16, taskPopoverOpensLeft ? activeTaskPoint.x - 296 : activeTaskPoint.x + 18)}px`,
@@ -1977,6 +2361,8 @@ export function App() {
     setActiveCoverPoint(null);
     setActiveFlood(null);
     setActiveFloodPoint(null);
+    setActiveHumanContext(null);
+    setActiveHumanContextPoint(null);
     setEditRoute(false);
     if (mode === "planner") {
       setShowRepresentativeIntervention(false);
@@ -2059,19 +2445,20 @@ export function App() {
   };
 
   return <main className={`${route ? "has-result" : "is-compose"} mode-${appMode} ${mapEndpointSelection ? "map-picking" : ""}`}>
-    <div className="map-shell"><div className="map" ref={mapContainer} /><div className="map-wash" />{mapError && <FallbackMap graph={pilotGraph} route={route} baseline={showBaseline ? result?.baseline ?? null : null} comparisonDelta={comparisonDelta} representativeRoutes={representativeRoutes} activity={routeActivity} showActivity={appMode === "planner" && plannerView !== "what_if"} selectedActivityRouteId={selectedActivityRouteId} onActivityRouteClick={selectActivityRoute} lens={mapLens} overlays={mapOverlays} shadeSegments={shadeSegments} greenerySegments={greeneryRouteSegments} ambientGreenery={ambientGreeneryLayer} coverSegments={coverRouteSegments} ambientCover={ambientCoverLayer} coverContext={coverContextLayer} floodContext={floodContextLayer} selection={appMode === "planner" ? representativeGap : null} assets={viewportAssets} prominentAssetIds={activeAssets.map((asset) => asset.id)} selectedAssetId={activeAsset?.id} onMapClick={mapEndpointSelection && !route && appMode === "walk" ? (coordinate) => void selectEndpointFromMap(mapEndpointSelection, coordinate) : undefined} onAssetClick={(asset) => { setActiveTask(null); setActiveTaskPoint(null); setActiveFlood(null); setActiveFloodPoint(null); setActiveAsset(asset); setActiveAssetPoint({ x: Math.round(window.innerWidth * .68), y: 160 }); }} tasks={visibleTasks} selectedTaskId={activeTask?.id} completedTaskIds={Object.keys(taskObservations)} onTaskClick={(task) => { setActiveAsset(null); setActiveAssetPoint(null); setActiveFlood(null); setActiveFloodPoint(null); setActiveTask(task); setActiveTaskPoint({ x: Math.round(window.innerWidth * .68), y: 160 }); }} />}</div>
+    <div className="map-shell"><div className="map" ref={mapContainer} /><div className="map-wash" />{mapError && <FallbackMap graph={pilotGraph} route={route} baseline={showBaseline ? result?.baseline ?? null : null} comparisonDelta={comparisonDelta} representativeRoutes={representativeRoutes} activity={routeActivity} showActivity={appMode === "planner" && plannerView !== "what_if"} selectedActivityRouteId={selectedActivityRouteId} onActivityRouteClick={selectActivityRoute} lens={mapLens} overlays={mapOverlays} shadeSegments={shadeSegments} greenerySegments={greeneryRouteSegments} ambientGreenery={ambientGreeneryLayer} coverSegments={coverRouteSegments} ambientCover={ambientCoverLayer} coverContext={coverContextLayer} floodContext={floodContextLayer} accessContext={accessContextLayer} coolOptions={coolOptionsLayer} selection={appMode === "planner" ? representativeGap : null} assets={viewportAssets} prominentAssetIds={activeAssets.map((asset) => asset.id)} selectedAssetId={activeAsset?.id} onMapClick={mapEndpointSelection && !route && appMode === "walk" ? (coordinate) => void selectEndpointFromMap(mapEndpointSelection, coordinate) : undefined} onAssetClick={(asset) => { setActiveTask(null); setActiveTaskPoint(null); setActiveFlood(null); setActiveFloodPoint(null); setActiveAsset(asset); setActiveAssetPoint({ x: Math.round(window.innerWidth * .68), y: 160 }); }} tasks={visibleTasks} selectedTaskId={activeTask?.id} completedTaskIds={Object.keys(taskObservations)} onTaskClick={(task) => { setActiveAsset(null); setActiveAssetPoint(null); setActiveFlood(null); setActiveFloodPoint(null); setActiveTask(task); setActiveTaskPoint({ x: Math.round(window.innerWidth * .68), y: 160 }); }} />}</div>
     <div className="top-bar"><div className="brand-cluster"><Brand /><PreferencesPopover preferences={preferences} onSave={savePreferences} onReset={resetPreferences} appliesNow={!route} /><div className="mode-switch" aria-label="Product view"><button type="button" className={appMode === "walk" ? "active" : ""} aria-pressed={appMode === "walk"} onClick={() => switchMode("walk")}>Walk</button><button type="button" className={appMode === "planner" ? "active" : ""} aria-pressed={appMode === "planner"} onClick={() => switchMode("planner")}>City view</button></div><a className="data-sources-nav-link" href="/datasources"><LayersIcon /><span>Data</span></a></div><div className="map-actions">{!mapError && <IconButton label="Center map" onClick={() => mapRef.current?.easeTo({ center: graphNodeById(originNodeId)?.coordinate, zoom: 14.5 })}><LocateIcon /></IconButton>}{route && appMode === "walk" && <IconButton label="Map details" onClick={() => { setActiveAsset(null); setActiveAssetPoint(null); setActiveTask(null); setActiveTaskPoint(null); setDetail("data"); }}><LayersIcon /></IconButton>}</div></div>
     {appMode === "planner"
       ? <RepresentativePlannerSheet scenario={representativeScenario} showIntervention={showRepresentativeIntervention} onShowIntervention={() => setShowRepresentativeIntervention(true)} onBack={() => switchMode("walk")} activity={routeActivity} activityPersisted={activityPersisted} view={plannerView} onViewChange={setPlannerView} selectedActivityRouteId={selectedActivityRouteId} onSelectActivityRoute={selectActivityRoute} onClearActivity={clearLocalRouteActivity} />
       : !route
-        ? <ComposeSheet brief={brief} setBrief={setBrief} prompt={prompt} setPrompt={setPrompt} originText={originText} setOriginText={setOriginText} destinationText={destinationText} setDestinationText={setDestinationText} mapEndpointSelection={mapEndpointSelection} onMapEndpointSelectionChange={setMapEndpointSelection} busy={busy} busyMode={busyMode} error={error} onPlan={() => void plan()} onSelectExample={selectExample} />
-        : result && <ResultSheet brief={brief} route={route} result={result} assets={activeAssets} tasks={routeTasks} destinationText={destinationText} setDestinationText={setDestinationText} delta={delta} error={error} feedback={activeRouteActivity?.feedback ?? []} activityPersisted={activityPersisted} onBack={startNewWalk} onRefine={(value) => plan(value, true)} onAdjust={adjust} onShowWhy={() => { setActiveAsset(null); setActiveAssetPoint(null); setActiveTask(null); setActiveTaskPoint(null); setDetail("why"); }} onShowAsset={(asset) => { setActiveTask(null); setActiveTaskPoint(null); setActiveAsset(asset); setActiveAssetPoint(null); setDetail("asset"); }} onShowTask={(task) => { setActiveAsset(null); setActiveAssetPoint(null); setActiveTask(task); setActiveTaskPoint(null); setDetail("task"); }} onShowData={() => { setActiveAsset(null); setActiveAssetPoint(null); setActiveTask(null); setActiveTaskPoint(null); setDetail("data"); }} onOpenPlanner={() => { setPlannerView("what_if"); switchMode("planner"); }} onSaveFeedback={saveActiveRouteFeedback} onRemoveFeedback={removeActiveRouteFeedback} detourScenario={detourScenario} showBaseline={showBaseline} setShowBaseline={setShowBaseline} busy={busy} busyMode={busyMode} modelFallback={modelFallback} rainContext={rainContext} />}
+        ? <ComposeSheet brief={brief} setBrief={setBrief} prompt={prompt} setPrompt={setPrompt} originText={originText} setOriginText={(value) => changeEndpointText("origin", value)} destinationText={destinationText} setDestinationText={(value) => changeEndpointText("destination", value)} mapEndpointSelection={mapEndpointSelection} onMapEndpointSelectionChange={setMapEndpointSelection} busy={busy} busyMode={busyMode} error={error} onPlan={() => void plan()} onSelectExample={selectExample} onSelectLocation={selectLocationSuggestion} />
+        : result && <ResultSheet brief={brief} route={route} result={result} assets={activeAssets} tasks={routeTasks} destinationText={destinationText} setDestinationText={(value) => changeEndpointText("destination", value)} delta={delta} error={error} feedback={activeRouteActivity?.feedback ?? []} activityPersisted={activityPersisted} onBack={startNewWalk} onRefine={(value) => plan(value, true)} onAdjust={adjust} onShowWhy={() => { setActiveAsset(null); setActiveAssetPoint(null); setActiveTask(null); setActiveTaskPoint(null); setDetail("why"); }} onShowAsset={(asset) => { setActiveTask(null); setActiveTaskPoint(null); setActiveAsset(asset); setActiveAssetPoint(null); setDetail("asset"); }} onShowTask={(task) => { setActiveAsset(null); setActiveAssetPoint(null); setActiveTask(task); setActiveTaskPoint(null); setDetail("task"); }} onShowData={() => { setActiveAsset(null); setActiveAssetPoint(null); setActiveTask(null); setActiveTaskPoint(null); setDetail("data"); }} onSaveFeedback={saveActiveRouteFeedback} onRemoveFeedback={removeActiveRouteFeedback} showBaseline={showBaseline} setShowBaseline={setShowBaseline} busy={busy} busyMode={busyMode} modelFallback={modelFallback} rainContext={rainContext} />}
     {appMode === "walk" && detail && route && <DetailPanel mode={detail} brief={brief} route={route} assets={activeAssets} tasks={routeTasks} activeAsset={activeAsset} activeTask={activeTask} taskObservation={activeTask ? taskObservations[activeTask.id] ?? null : null} detourScenario={detourScenario} rainContext={rainContext} onCompleteTask={(response) => { if (!activeTask) return; setTaskObservations((current) => ({ ...current, [activeTask.id]: createSessionCivicObservation(activeTask, response) })); }} onRemoveTaskObservation={() => { if (!activeTask) return; setTaskObservations((current) => { const next = { ...current }; delete next[activeTask.id]; return next; }); }} onClose={() => { setDetail(null); if (detail === "asset") { setActiveAsset(null); setActiveAssetPoint(null); } if (detail === "task") { setActiveTask(null); setActiveTaskPoint(null); } }} />}
     {activeAsset && detail !== "asset" && <aside className={`asset-popover ${assetPopoverOpensLeft ? "opens-left" : ""}`} style={assetPopoverStyle} role="dialog" aria-label={assetTypeLabel(activeAsset)}><div><AssetIcon kind={activeAsset.kind} /><IconButton label="Close" onClick={() => { setActiveAsset(null); setActiveAssetPoint(null); }}><CloseIcon /></IconButton></div><span className="eyebrow">{appMode === "planner" ? "Place on the map" : "Near your walk"}</span><h3>{activeAsset.kind === "transit" ? activeAsset.details.stopName : assetTypeLabel(activeAsset)}</h3>{assetTransitLinesLabel(activeAsset) && <strong className="asset-transit-lines">{assetTransitLinesLabel(activeAsset)}</strong>}<p>{activeAsset.kind === "transit" ? activeAsset.details.entranceType ?? "Mapped subway entrance" : activeAsset.locationLabel}</p><small>{assetAvailabilityCopy(activeAsset)}</small><small className="source-freshness">{civicAssetEvidence(activeAsset).freshnessLabel}</small>{appMode === "walk" && <button type="button" className="asset-more" onClick={() => setDetail("asset")}>See details</button>}</aside>}
     {activeTask && detail !== "task" && <aside className={`asset-popover civic-task-popover ${taskPopoverOpensLeft ? "opens-left" : ""}`} style={taskPopoverStyle} role="dialog" aria-label={activeTask.title}><div><CivicTaskIcon task={activeTask} /><IconButton label="Close" onClick={() => { setActiveTask(null); setActiveTaskPoint(null); }}><CloseIcon /></IconButton></div><span className="eyebrow">Optional · {activeTask.estimatedMinutes} min</span><h3>{activeTask.title}</h3><p>{activeTask.locationLabel}</p><small>A quick check that can help keep the map useful.</small>{taskObservations[activeTask.id] && <small className="task-complete-label"><CheckCircleIcon />Checked in this session</small>}{appMode === "walk" && <button type="button" className="asset-more" onClick={() => setDetail("task")}>{taskObservations[activeTask.id] ? "See observation" : "View check"}</button>}</aside>}
     {activeCover && <aside className="asset-popover cover-popover" style={coverPopoverStyle} role="dialog" aria-label="Cover evidence"><div><UmbrellaIcon /><IconButton label="Close" onClick={() => { setActiveCover(null); setActiveCoverPoint(null); }}><CloseIcon /></IconButton></div><span className="eyebrow">Cover evidence</span><h3>{activeCover.label}</h3><p>{activeCover.locationLabel}</p><small>{activeCover.detail}</small>{activeCover.taskId && <button type="button" className="asset-more" onClick={() => { const task = allCivicTasks.find((candidate) => candidate.id === activeCover.taskId); if (!task) return; setAppMode("walk"); setActiveCover(null); setActiveCoverPoint(null); setActiveTask(task); setActiveTaskPoint(null); setDetail("task"); }}>Help verify this</button>}{activeCover.sourceId && sourceRegistryPresentation(activeCover.sourceId) && <a className="asset-more" href={sourceRegistryPresentation(activeCover.sourceId)!.officialUrl} target="_blank" rel="noreferrer">Open source</a>}</aside>}
     {activeFlood && <aside className="asset-popover flood-popover" style={floodPopoverStyle} role="dialog" aria-label="Modeled flood potential"><div><CloudRainIcon /><IconButton label="Close" onClick={() => { setActiveFlood(null); setActiveFloodPoint(null); }}><CloseIcon /></IconButton></div><span className="eyebrow">2050 model · not live</span><h3>{activeFlood.label}</h3><p>{activeFlood.depthBand}</p><small>{activeFlood.detail}</small><a className="asset-more" href={floodEvidenceMetadata.source.datasetUrl} target="_blank" rel="noreferrer">Open DEP model source</a></aside>}
-    <MapLensControl overlays={mapOverlays} onToggle={toggleMapOverlay} hour={shadeHour} onHourChange={setShadeHour} planner={appMode === "planner"} hasRoute={Boolean(route)} shadeDetailVisible={buildingShadeDetailVisible(mapViewport.zoom)} canEdit={!mapError} editing={editRoute} onEditingChange={(editing) => { setEditRoute(editing); if (editing) setMapLens("route"); }} />
-    <div className="map-key" role="list" aria-label="Visible map layers">{appMode === "planner" && plannerView !== "what_if" && routeActivity.length > 0 && <><span role="listitem"><i className="activity-route-key" />Mapped routes</span>{routeActivity.some((item) => item.feedback.length) && <span role="listitem"><i className="activity-note-key" />Route notes</span>}</>}{route && !(appMode === "planner" && plannerView !== "what_if") && <span role="listitem"><i className="route-key" />Happy Path</span>}{showBaseline && result?.baseline && !(appMode === "planner" && plannerView !== "what_if") && <span role="listitem"><i className="baseline-key" />Fastest route</span>}{mapOverlays.shade && ((appMode === "planner" && plannerView === "what_if") || detail === "data") && <span role="listitem"><i className="shade-deep-key" />{route || buildingShadeDetailVisible(mapViewport.zoom) ? `Shade at ${formatClock(shadeHour)}` : "Zoom in for shade"}</span>}{mapOverlays.greenery && ((appMode === "planner" && plannerView === "what_if") || detail === "data") && <span role="listitem"><i className="greenery-key" />Trees &amp; parks nearby</span>}{mapOverlays.cover && ((appMode === "planner" && plannerView === "what_if") || detail === "data") && <><span role="listitem"><i className="cover-key" />Mapped cover</span><span role="listitem"><i className="cover-context-key" />Approx. cover-record vicinity</span></>}{mapOverlays.flood && ((appMode === "planner" && plannerView === "what_if") || detail === "data") && <span role="listitem"><i className="flood-key" />Flood potential · 2050 model</span>}{mapOverlays.amenities && ((appMode === "planner" && plannerView === "what_if") || detail === "data") && <span role="listitem"><i className="amenity-key" />Nearby places</span>}{mapOverlays.tasks && ((appMode === "planner" && plannerView === "what_if") || detail === "data") && <span role="listitem"><i className="task-key" />Optional check</span>}</div>
+    {activeHumanContext && <aside className="asset-popover human-context-popover" style={humanContextPopoverStyle} role="dialog" aria-label={activeHumanContext.label}><div>{activeHumanContext.sourceId === "nyc-cool-options" ? <DropletIcon /> : <StairsIcon />}<IconButton label="Close" onClick={() => { setActiveHumanContext(null); setActiveHumanContextPoint(null); }}><CloseIcon /></IconButton></div><span className="eyebrow">{activeHumanContext.eyebrow}</span><h3>{activeHumanContext.label}</h3>{activeHumanContext.location && <p>{activeHumanContext.location}</p>}<small>{activeHumanContext.detail}</small><a className="asset-more" href={sourceRegistryPresentation(activeHumanContext.sourceId)?.officialUrl} target="_blank" rel="noreferrer">Open official source</a></aside>}
+    <MapLensControl overlays={mapOverlays} onToggle={toggleMapOverlay} hour={shadeHour} onHourChange={setShadeHour} weather={weather} planner={appMode === "planner"} hasRoute={Boolean(route)} shadeDetailVisible={buildingShadeDetailVisible(mapViewport.zoom)} canEdit={!mapError} editing={editRoute} onEditingChange={(editing) => { setEditRoute(editing); if (editing) setMapLens("route"); }} />
+    <div className="map-key" role="list" aria-label="Visible map layers">{appMode === "planner" && plannerView !== "what_if" && routeActivity.length > 0 && <><span role="listitem"><i className="activity-route-key" />Mapped routes</span>{routeActivity.some((item) => item.feedback.length) && <span role="listitem"><i className="activity-note-key" />Route notes</span>}</>}{route && !(appMode === "planner" && plannerView !== "what_if") && <span role="listitem"><i className="route-key" />Footnote</span>}{showBaseline && result?.baseline && !(appMode === "planner" && plannerView !== "what_if") && <span role="listitem"><i className="baseline-key" />Fastest route</span>}{mapOverlays.shade && ((appMode === "planner" && plannerView === "what_if") || detail === "data") && <span role="listitem"><i className="shade-deep-key" />{route || buildingShadeDetailVisible(mapViewport.zoom) ? `Shade at ${formatClock(shadeHour)}` : "Zoom in for shade"}</span>}{mapOverlays.greenery && ((appMode === "planner" && plannerView === "what_if") || detail === "data") && <span role="listitem"><i className="greenery-key" />Trees &amp; parks nearby</span>}{mapOverlays.cover && ((appMode === "planner" && plannerView === "what_if") || detail === "data") && <><span role="listitem"><i className="cover-key" />Mapped cover</span><span role="listitem"><i className="cover-context-key" />Arcade record vicinity</span></>}{mapOverlays.streetWork && <span role="listitem"><i className="street-work-key" />Street work · possible disruption</span>}{mapOverlays.access && <span role="listitem"><i className="access-key" />Access records · incomplete</span>}{mapOverlays.cooling && <span role="listitem"><i className="cooling-key" />Cool options · verify status</span>}{mapOverlays.flood && ((appMode === "planner" && plannerView === "what_if") || detail === "data") && <span role="listitem"><i className="flood-key" />Flood potential · 2050 model</span>}{mapOverlays.amenities && ((appMode === "planner" && plannerView === "what_if") || detail === "data") && <span role="listitem"><i className="amenity-key" />Nearby places</span>}{mapOverlays.tasks && ((appMode === "planner" && plannerView === "what_if") || detail === "data") && <span role="listitem"><i className="task-key" />Optional check</span>}</div>
   </main>;
 }

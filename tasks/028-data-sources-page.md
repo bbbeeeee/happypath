@@ -13,11 +13,11 @@ last_updated: 2026-08-16
 
 ## Outcome
 
-People can visit `/datasources` to understand, at a glance, which evidence shapes Happy Path routes, which sources provide map context, how derived signals are made, and what integrations are still missing.
+People can visit `/datasources` to understand, at a glance, which evidence shapes Footnote routes, which sources provide map context, how derived signals are made, and what integrations are still missing.
 
 ## Why this package exists
 
-Happy Path already combines many civic, open, and derived datasets, but that breadth is visible only in route-level detail panels and implementation documents. A public source page should make the system legible without overstating current routing capability.
+Footnote already combines many civic, open, and derived datasets, but that breadth is visible only in route-level detail panels and implementation documents. A public source page should make the system legible without overstating current routing capability.
 
 ## Deliverables
 

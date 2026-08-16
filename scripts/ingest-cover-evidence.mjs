@@ -35,7 +35,7 @@ function sha256(value) {
 async function fetchText(url, init = {}) {
   const response = await fetch(url, {
     ...init,
-    headers: { "User-Agent": "HappyPathPrototype/0.1", ...(init.headers ?? {}) },
+    headers: { "User-Agent": "FootnotePrototype/0.1", ...(init.headers ?? {}) },
   });
   if (!response.ok) throw new Error(`${url} failed: ${response.status} ${await response.text()}`);
   return response.text();
@@ -156,7 +156,7 @@ for (const edge of graph.edges) {
 }
 let osmCoverText = graphCoverWays.size > 0 ? JSON.stringify({
   version: 0.6,
-  generator: "Happy Path checked-in OSM graph",
+  generator: "Footnote checked-in OSM graph",
   elements: [...graphCoverWays.values()],
 }) : undefined;
 let osmCoverUrl = graphCoverWays.size > 0 ? "https://www.openstreetmap.org/copyright" : undefined;

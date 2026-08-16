@@ -118,7 +118,7 @@ export const tripBriefJsonSchema = {
   additionalProperties: false,
 } as const;
 
-const systemPrompt = `You convert a resident's walking request into a Happy Path Trip Brief for a deterministic pedestrian routing engine.
+const systemPrompt = `You convert a resident's walking request into a Footnote Trip Brief for a deterministic pedestrian routing engine.
 
 Return only the structured fields required by the schema. Treat the current brief as retained state during a refinement: keep a value unless the new request explicitly changes or removes it. The new request always wins when it is explicit. The initial current brief may be an empty destination draft; never return shape "destination" with destinationQuery null. A timed walk without a named destination is a wander.
 

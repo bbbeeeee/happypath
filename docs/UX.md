@@ -1,14 +1,14 @@
-# Happy Path — Core UX and Product Language
+# Footnote — Core UX and Product Language
 
-> Companion to the [PRD](PRD.md). This document defines how Happy Path should feel, speak, and behave for residents.
+> Companion to the [PRD](PRD.md). This document defines how Footnote should feel, speak, and behave for residents.
 
 ## 1. Experience standard
 
-Happy Path should feel like a thoughtful consumer product, not a technical demonstration, GIS dashboard, or chatbot with a map attached.
+Footnote should feel like a thoughtful consumer product, not a technical demonstration, GIS dashboard, or chatbot with a map attached.
 
 The visible experience is simple:
 
-> **Say what kind of walk you want → check what Happy Path understood → get one considered route → see why it fits → refine it naturally.**
+> **Say what kind of walk you want → check what Footnote understood → get one considered route → see why it fits → refine it naturally.**
 
 The complexity may be substantial underneath. The user should experience that complexity as care:
 
@@ -39,7 +39,7 @@ Synthetic or manually configured information may be used only for a clearly labe
 
 The experience should create five clear moments.
 
-### 2.1 Happy Path understands me
+### 2.1 Footnote understands me
 
 A short request becomes a useful Trip Brief without a long interview.
 
@@ -62,7 +62,7 @@ The user should be able to see and understand the difference within a few second
 
 ### 2.3 The extra time feels worth it
 
-Happy Path should answer:
+Footnote should answer:
 
 > **What did the detour buy me?**
 
@@ -88,7 +88,7 @@ The route updates and explains the delta without asking the user to rebuild the 
 
 ### 2.6 One resident insight opens the planning story
 
-Detour should not compete with route planning on the first screen. It becomes relevant after Happy Path has identified a concrete route burden.
+Detour should not compete with route planning on the first screen. It becomes relevant after Footnote has identified a concrete route burden.
 
 Preferred transition:
 
@@ -176,7 +176,7 @@ When a layer is unavailable, continue with supported evidence when possible and 
 
 The default result contains:
 
-- one visually dominant Happy Path;
+- one visually dominant Footnote;
 - origin and destination, loop, or end condition;
 - total time and relevant baseline;
 - two to four meaningful benefits;
@@ -188,7 +188,7 @@ The default result contains:
 Example:
 
 ```text
-YOUR HAPPY PATH
+YOUR FOOTNOTE
 
 22 min · 4 min longer
 
@@ -310,7 +310,7 @@ A time-boxed walk returning near the start.
 
 ### Wander
 
-A direction, area, end condition, or walking-time budget where Happy Path chooses the endpoint and route.
+A direction, area, end condition, or walking-time budget where Footnote chooses the endpoint and route.
 
 All three should share the same visual language and Trip Brief. The user should not feel that they entered a separate feature.
 
@@ -318,7 +318,7 @@ All three should share the same visual language and Trip Brief. The user should 
 
 ### 5.1 Default hierarchy
 
-1. Happy Path route
+1. Footnote route
 2. Origin, destination, or loop state
 3. Required waypoint or amenity
 4. Evidence supporting the primary benefit
@@ -401,7 +401,7 @@ Avoid decorative animation that delays the answer.
 
 ### 6.1 Voice
 
-Happy Path should sound:
+Footnote should sound:
 
 - thoughtful;
 - friendly;
@@ -480,7 +480,7 @@ It is not acceptable to:
 
 Inside the supported Manhattan area, the product should feel complete. Outside it, use friendly language:
 
-> **Happy Path is exploring Manhattan below Central Park for now.**
+> **Footnote is exploring Manhattan below Central Park for now.**
 
 Do not expose an arbitrary bounding box or developer error.
 

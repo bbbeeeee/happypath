@@ -1,11 +1,11 @@
-# Happy Path product and demo audit
+# Footnote product and demo audit
 
 Updated: 2026-08-16
 Audited worktree: `codex/happy-path-p1-mvp`, Full MVP preview candidate
 
 ## Executive diagnosis
 
-Happy Path already proves substantially more than its first impression communicates. The implementation has real route computation, a useful Trip Brief, destination/loop/wander behavior, time- and distance-shaped routes, route refinement, mapped-step exclusion, time-aware shade, greenery, amenities, sparse real cover evidence, civic checks, bounded model interpretation, and a City what-if surface.
+Footnote already proves substantially more than its first impression communicates. The implementation has real route computation, a useful Trip Brief, destination/loop/wander behavior, time- and distance-shaped routes, route refinement, mapped-step exclusion, time-aware shade, greenery, amenities, sparse real cover evidence, civic checks, bounded model interpretation, and a City what-if surface.
 
 The problem is not missing breadth. It is hierarchy.
 
@@ -13,7 +13,7 @@ Resident planning, map layers, running, civic checks, route editing, source deta
 
 The product should make one idea unmistakable:
 
-> **Happy Path turns a human need into a better path, shows what changed and why, then uses the same journey evidence to reveal and test a city-scale gap.**
+> **Footnote turns a human need into a better path, shows what changed and why, then uses the same journey evidence to reveal and test a city-scale gap.**
 
 The highest-value work is therefore to tighten the resident query loop and make Detour a direct continuation of it. New data layers are secondary until that story is obvious.
 

@@ -23,7 +23,7 @@ interface SupportedAreaConfig {
   envelope: GeographicBounds;
   polygon: Coordinate[];
   defaultView: { center: Coordinate; zoom: number };
-  defaultJourney: { origin: Coordinate; destination: Coordinate };
+  defaultJourney: { origin: Coordinate; originLabel: string; destination: Coordinate };
   bootstrapBbox: GeographicBounds;
   shadowTileLongitudeCuts: number[];
   partitions: SupportedAreaPartition[];

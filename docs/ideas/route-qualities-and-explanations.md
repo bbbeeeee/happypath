@@ -11,7 +11,7 @@ last_updated: 2026-08-15
 
 The core idea has been promoted into:
 
-- [Happy Path PRD](../PRD.md)
+- [Footnote PRD](../PRD.md)
 - [Core UX specification](../UX.md)
 - [Data and inference specification](../data-and-inference.md)
 

@@ -1,5 +1,5 @@
-export type MapLayerId = "shade" | "greenery" | "mapped_cover" | "flood_context" | "civic_assets" | "civic_tasks";
-export type MapLayerIconToken = "sun" | "leaf" | "umbrella" | "flood" | "place" | "check";
+export type MapLayerId = "shade" | "greenery" | "mapped_cover" | "flood_context" | "civic_assets" | "access_context" | "street_work" | "cool_options" | "civic_tasks";
+export type MapLayerIconToken = "sun" | "leaf" | "umbrella" | "flood" | "place" | "access" | "work" | "cooling" | "check";
 export type LayerSourceRole = "route_affecting" | "display_only" | "reference_only" | "simulated_publisher" | "fixed_route_planner";
 
 export interface RouteValidationException {
@@ -74,13 +74,11 @@ const definitions = [
   {
     id: "mapped_cover",
     label: "Cover evidence",
-    description: "Mapped passages plus nearby shed, arcade, and construction records",
-    sourceIds: ["openstreetmap", "nyc-sidewalk-shed-permits", "nyc-pops", "nyc-street-construction-closures"],
+    description: "Mapped passages plus nearby arcade records",
+    sourceIds: ["openstreetmap", "nyc-pops"],
     sourceRoles: {
       openstreetmap: ["route_affecting"],
-      "nyc-sidewalk-shed-permits": ["display_only", "reference_only"],
       "nyc-pops": ["display_only", "reference_only"],
-      "nyc-street-construction-closures": ["display_only", "reference_only"],
     },
     routeValidationExceptions: {
       openstreetmap: { boundary: "Only explicit path-aligned covered and building-passage tags affect the experimental preference.", resolution: "Expand exact-geometry review and keep missing tags unassessed." },
@@ -90,7 +88,7 @@ const definitions = [
     defaultVisibility: "contextual",
     routingActivation: "contextual",
     capabilities: { visualize: true, routePreference: true, routeEndCondition: false, plannerEvidence: true, selectableFeatures: true },
-    evidenceBoundary: "Only explicit path-aligned map tags affect routing; nearby City records remain context, and awnings are not inferred.",
+    evidenceBoundary: "Only explicit path-aligned map tags affect routing; nearby arcade records remain context, and awnings are not inferred.",
   },
   {
     id: "flood_context",
@@ -131,13 +129,64 @@ const definitions = [
     evidenceBoundary: "Official inventory does not prove current presence, operation, or access.",
   },
   {
+    id: "access_context",
+    label: "Access records",
+    description: "Curb-ramp, pedestrian-signal, crossing-phase, and subway-elevator evidence",
+    sourceIds: ["nyc-ramp-program-progress", "nyc-pedestrian-ramps", "nyc-accessible-pedestrian-signals", "nyc-exclusive-pedestrian-signals", "mta-elevator-assets"],
+    sourceRoles: {
+      "nyc-ramp-program-progress": ["display_only", "reference_only"],
+      "nyc-pedestrian-ramps": ["display_only", "reference_only"],
+      "nyc-accessible-pedestrian-signals": ["display_only", "reference_only"],
+      "nyc-exclusive-pedestrian-signals": ["display_only", "reference_only"],
+      "mta-elevator-assets": ["display_only", "reference_only"],
+    },
+    routeValidationExceptions: {},
+    iconToken: "access",
+    color: "#6D5F91",
+    defaultVisibility: "planner_only",
+    routingActivation: "explicit_request_only",
+    capabilities: { visualize: true, routePreference: false, routeEndCondition: false, plannerEvidence: true, selectableFeatures: true },
+    evidenceBoundary: "Disconnected records expose known evidence and unknown gaps; they do not establish a continuous accessible or step-free route.",
+  },
+  {
+    id: "street_work",
+    label: "Street work",
+    description: "Dated construction lines and sidewalk-shed permit locations",
+    sourceIds: ["nyc-sidewalk-shed-permits", "nyc-street-construction-closures"],
+    sourceRoles: {
+      "nyc-sidewalk-shed-permits": ["display_only", "reference_only"],
+      "nyc-street-construction-closures": ["display_only", "reference_only"],
+    },
+    routeValidationExceptions: {},
+    iconToken: "work",
+    color: "#A15F43",
+    defaultVisibility: "planner_only",
+    routingActivation: "explicit_request_only",
+    capabilities: { visualize: true, routePreference: false, routeEndCondition: false, plannerEvidence: true, selectableFeatures: true },
+    evidenceBoundary: "Permits and closure windows indicate possible disruption, not a live blocked or impassable sidewalk.",
+  },
+  {
+    id: "cool_options",
+    label: "Cool options",
+    description: "Cooling centers, pools, spray showers, and other official cool options",
+    sourceIds: ["nyc-cool-options"],
+    sourceRoles: { "nyc-cool-options": ["display_only", "reference_only"] },
+    routeValidationExceptions: {},
+    iconToken: "cooling",
+    color: "#2E7182",
+    defaultVisibility: "planner_only",
+    routingActivation: "explicit_request_only",
+    capabilities: { visualize: true, routePreference: false, routeEndCondition: false, plannerEvidence: true, selectableFeatures: true },
+    evidenceBoundary: "Finder records are live context; activation, hours, access, and availability must still be checked in the official finder.",
+  },
+  {
     id: "civic_tasks",
     label: "Data checks",
     description: "Optional partner-authored checks that can refresh city data",
-    sourceIds: ["happy-path-civic-checks-demo"],
-    sourceRoles: { "happy-path-civic-checks-demo": ["route_affecting", "simulated_publisher"] },
+    sourceIds: ["footnote-civic-checks-demo"],
+    sourceRoles: { "footnote-civic-checks-demo": ["route_affecting", "simulated_publisher"] },
     routeValidationExceptions: {
-      "happy-path-civic-checks-demo": { boundary: "A check affects routing only after an explicit help request and is never official evidence.", resolution: "Replace the demo publisher only after a trusted publishing and moderation workflow exists." },
+      "footnote-civic-checks-demo": { boundary: "A check affects routing only after an explicit help request and is never official evidence.", resolution: "Replace the demo publisher only after a trusted publishing and moderation workflow exists." },
     },
     iconToken: "check",
     color: "#C65343",

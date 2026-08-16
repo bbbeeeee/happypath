@@ -21,7 +21,7 @@ for (let offset = 0; ; offset += pageSize) {
   api.searchParams.set("$order", "bin");
   api.searchParams.set("$select", "the_geom,bin,height_roof,last_edited_date,geom_source");
   api.searchParams.set("$where", socrataWithinBox("the_geom", BBOX));
-  const response = await fetch(api, { headers: { "User-Agent": "HappyPathPrototype/0.1" } });
+  const response = await fetch(api, { headers: { "User-Agent": "FootnotePrototype/0.1" } });
   if (!response.ok) throw new Error(`NYC OpenData request failed: ${response.status} ${await response.text()}`);
   const pageText = await response.text();
   const page = JSON.parse(pageText);

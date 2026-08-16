@@ -17,7 +17,7 @@ The system generates credible destination routes, time-boxed loops, and directio
 
 ## Why this package exists
 
-The route must feel thoughtfully composed rather than arbitrarily different. Happy Path needs plausible alternatives, good continuity, useful endpoints, honest amenity handling, and metrics that explain why a journey fits.
+The route must feel thoughtfully composed rather than arbitrarily different. Footnote needs plausible alternatives, good continuity, useful endpoints, honest amenity handling, and metrics that explain why a journey fits.
 
 ## Inputs and dependencies
 

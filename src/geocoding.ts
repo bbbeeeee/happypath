@@ -6,6 +6,11 @@ interface GeoSearchFeature {
   properties: { label?: string; name?: string };
 }
 
+export interface LocationSuggestion {
+  coordinate: Coordinate;
+  label: string;
+}
+
 export class GeocodingUnavailableError extends Error {
   readonly kind = "temporary-unavailable";
 
@@ -15,10 +20,10 @@ export class GeocodingUnavailableError extends Error {
   }
 }
 
-export async function searchNycAddress(query: string): Promise<{ coordinate: Coordinate; label: string } | null> {
+export async function searchNycAddresses(query: string, limit = 5): Promise<LocationSuggestion[]> {
   const url = new URL("https://geosearch.planninglabs.nyc/v2/search");
   url.searchParams.set("text", `${query}, New York, NY`);
-  url.searchParams.set("size", "5");
+  url.searchParams.set("size", String(Math.max(limit, 5)));
   let data: { features?: GeoSearchFeature[] };
   try {
     const response = await fetch(url);
@@ -28,11 +33,26 @@ export async function searchNycAddress(query: string): Promise<{ coordinate: Coo
     if (error instanceof GeocodingUnavailableError) throw error;
     throw new GeocodingUnavailableError();
   }
-  const points = data.features?.filter((candidate) => candidate.geometry?.type === "Point") ?? [];
-  const feature = points.find((candidate) => isInsideSupportedArea(candidate.geometry.coordinates)) ?? points[0];
-  if (!feature) return null;
-  return {
-    coordinate: feature.geometry.coordinates,
-    label: feature.properties.label ?? feature.properties.name ?? query,
-  };
+  const seen = new Set<string>();
+  return (data.features ?? [])
+    .filter((candidate) => candidate.geometry?.type === "Point")
+    .map((feature, index) => ({
+      coordinate: feature.geometry.coordinates,
+      label: feature.properties.label ?? feature.properties.name ?? query,
+      supported: isInsideSupportedArea(feature.geometry.coordinates),
+      index,
+    }))
+    .sort((a, b) => Number(b.supported) - Number(a.supported) || a.index - b.index)
+    .filter((suggestion) => {
+      const key = `${suggestion.label.toLowerCase()}|${suggestion.coordinate.join(",")}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .slice(0, limit)
+    .map(({ coordinate, label }) => ({ coordinate, label }));
+}
+
+export async function searchNycAddress(query: string): Promise<LocationSuggestion | null> {
+  return (await searchNycAddresses(query, 5))[0] ?? null;
 }

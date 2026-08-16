@@ -402,7 +402,7 @@ function bboxWhere(geometryField, [south, west, north, east]) {
 
 async function fetchDataset(dataset, bbox) {
   const metadataUrl = new URL(`/api/views/${dataset.datasetId}`, dataset.apiRoot);
-  const headers = { "User-Agent": "HappyPathPrototype/0.1 civic-assets" };
+  const headers = { "User-Agent": "FootnotePrototype/0.1 civic-assets" };
   const metadataResponse = await fetch(metadataUrl, { headers });
   if (!metadataResponse.ok) throw new Error(`${dataset.datasetId} metadata request failed: ${metadataResponse.status} ${await metadataResponse.text()}`);
 

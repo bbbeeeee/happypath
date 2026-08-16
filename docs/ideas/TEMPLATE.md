@@ -15,7 +15,7 @@ Who would want this, in what situation, and why?
 
 What would the user see and do?
 
-## Why it might belong in Happy Path
+## Why it might belong in Footnote
 
 How does this strengthen the core product rather than distract from it?
 

@@ -1,4 +1,4 @@
-# Happy Path — Build Plan
+# Footnote — Build Plan
 
 > Detailed work packages live in [`tasks/`](../tasks/README.md). This document defines the delivery sequence, shared contracts, and quality gates without prescribing a particular engineering workflow.
 

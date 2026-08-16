@@ -1,6 +1,6 @@
-# Happy Path task board
+# Footnote task board
 
-This folder is the execution plan for Happy Path. Work is organized by **product work package**, not permanent team. Packages may be owned by people or agents and are designed to proceed in parallel through shared contracts.
+This folder is the execution plan for Footnote. Work is organized by **product work package**, not permanent team. Packages may be owned by people or agents and are designed to proceed in parallel through shared contracts.
 
 The task plan defines outcomes, dependencies, and verification. It intentionally does not prescribe a branching strategy, issue structure, or development workflow for the future implementation team.
 
@@ -47,6 +47,8 @@ Slices record independently verified progress or tightly scoped next outcomes. `
 | [018](018-cover-data-checks.md) | Cover evidence data checks | M1–M3 | Review | 012, 017 |
 | [026](026-modeled-flood-context.md) | Modeled flood context | M1–M3 | Review | 002, 004, 017 |
 | [027](027-route-notes-and-local-planner-signals.md) | Route notes and local planner signals | M4 | Done | 009, 016 |
+| [028](028-data-sources-page.md) | Data sources audit and public page | M4 | Done | 002, 011, 017, 026 |
+| [029](029-weather-mobility-context.md) | Live weather and mobility context | M4 | Done | 019, 025, 028 |
 | [025](025-expanded-area-integration-gate.md) | Expanded-area integration gate | P0 | Done | 002, 007, 017, 018 |
 | [019](019-query-truth-and-evidence-reconciliation.md) | Query truth and evidence reconciliation | P0 | Review | 002, 003, 005, 017, 018, 025 |
 | [020](020-simplify-resident-demo.md) | Simplify the resident demo | P0 | Review | 004, 016, 019 |

@@ -4,6 +4,9 @@ export type MapOverlays = {
   cover: boolean;
   flood: boolean;
   amenities: boolean;
+  access: boolean;
+  streetWork: boolean;
+  cooling: boolean;
   tasks: boolean;
 };
 
@@ -13,6 +16,9 @@ export const DEFAULT_MAP_OVERLAYS: MapOverlays = {
   cover: false,
   flood: true,
   amenities: true,
+  access: false,
+  streetWork: false,
+  cooling: false,
   tasks: false,
 };
 
@@ -32,6 +38,9 @@ export function showRelevantRouteMapOverlays(
     cover: relevant.cover === true,
     flood: DEFAULT_MAP_OVERLAYS.flood,
     amenities: DEFAULT_MAP_OVERLAYS.amenities || relevant.amenities === true,
+    access: false,
+    streetWork: false,
+    cooling: false,
     tasks: relevant.tasks === true,
   };
 }

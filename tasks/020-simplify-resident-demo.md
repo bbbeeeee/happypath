@@ -12,7 +12,7 @@ last_updated: 2026-08-16
 
 ## Outcome
 
-A first-time viewer understands Happy Path after one screen and reaches one considered route without choosing among product modes, overlapping layer controls, or secondary proofs.
+A first-time viewer understands Footnote after one screen and reaches one considered route without choosing among product modes, overlapping layer controls, or secondary proofs.
 
 ## Product edit
 
@@ -29,7 +29,7 @@ A first-time viewer understands Happy Path after one screen and reaches one cons
 
 ## Acceptance criteria
 
-- [ ] Five first-time evaluators can state what Happy Path does after the opening interaction without explanation.
+- [ ] Five first-time evaluators can state what Footnote does after the opening interaction without explanation.
 - [ ] One clear action leads from request to route.
 - [ ] The default map never accumulates unrelated planner and resident layers.
 - [ ] Starting over restores a clean, human-labeled state.

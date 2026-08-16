@@ -41,7 +41,7 @@ function sha256(value) {
 }
 
 async function fetchText(url) {
-  const response = await fetch(url, { headers: { "User-Agent": "HappyPathPrototype/0.1" } });
+  const response = await fetch(url, { headers: { "User-Agent": "FootnotePrototype/0.1" } });
   if (!response.ok) throw new Error(`${url} failed: ${response.status} ${await response.text()}`);
   return response.text();
 }

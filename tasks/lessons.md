@@ -52,10 +52,10 @@
 ## 2026-08-16 — Product cohesion and planning insight
 
 - More proof points do not create a more magical demo when they compete on the opening screen. Make one query-to-path loop unmistakable and reveal secondary capabilities only when the story calls for them.
-- Happy Path and Detour should feel causal: a resident route reveals a burden, then the same segment, need, evidence, and route metric become a question across representative journeys.
+- Footnote and Detour should feel causal: a resident route reveals a burden, then the same segment, need, evidence, and route metric become a question across representative journeys.
 - A planner needs journey consequences, not asset counts. Lead with exposed minutes, longest continuity gaps, deviation, affected journeys, and remaining burden; keep inventory density as supporting context.
 - Every visible example prompt is an executable product promise. Each meaningful phrase must control a typed field or deterministic behavior, or appear as an explicit limitation.
-- One route and its alternatives do not establish population need. Use transparent public-anchor cohorts for the planning proof and keep individual Happy Path usage out of it.
+- One route and its alternatives do not establish population need. Use transparent public-anchor cohorts for the planning proof and keep individual Footnote usage out of it.
 
 ## 2026-08-16 — Curated examples are complete journeys
 
@@ -80,3 +80,26 @@
 ## 2026-08-16 — Defaults should demonstrate the map's value
 
 - When the product's value comes from comparing environmental context, enable the restrained continuous layers by default and keep the amenity layer discoverable. Use scale-aware detail and clustering to control density instead of hiding the useful data at first load.
+
+## 2026-08-16 — Layer breadth needs progressive disclosure
+
+- When adding more human-context signals, keep them in the established bottom-right layer control, group related choices, and reveal secondary toggles on demand. Do not answer a broader data model with more permanent panels or a taller always-open menu.
+
+## 2026-08-16 — Data copy should lead with resident utility
+
+- On public data pages, name the human need first—accessibility, safety context, shade and comfort, greenery and enjoyment, amenities, or transit—then explain the source or method. Keep audit vocabulary in expandable provenance instead of primary headings and descriptions.
+
+## 2026-08-16 — Endpoint fields are user authority
+
+- Defaults must be real, connected routing anchors while retaining the canonical place name people recognize; bootstrap enough local graph data for the first render and load the broader route network on demand.
+- Demo shortcuts add route intent, but they must preserve populated **From** and **To** fields. When a prompt names a curated destination, reflect the selected destination in that prompt instead of displaying conflicting instructions.
+- Autocomplete is an optional aid, not a gate. Keep free-text submission working, debounce lookups, support keyboard selection, and retain the chosen result’s snapped node so planning does not geocode it a second time.
+
+## 2026-08-16 — Logo sketches should stay literal
+
+- When the requested brand mark is a simple geometric sketch, preserve its primitive silhouette first. Do not add extra footprint pads, decorative geometry, or visual metaphors before the basic shape has been accepted.
+- When the user chooses a typographic wordmark instead, remove the rejected mark and its assets completely. Use native text semantics—such as a real superscript—rather than recreating typography as SVG.
+
+## 2026-08-16 — Treat an active rename as the working baseline
+
+- Before isolating or reverting concurrent copy and asset changes, check whether they represent an approved product rename. New pages, API identifiers, accessibility labels, generated-data user agents, and documentation should use the active brand consistently while repository URLs may remain unchanged.

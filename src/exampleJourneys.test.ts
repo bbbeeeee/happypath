@@ -4,7 +4,7 @@ import { findCivicAssetsNearRoute } from "./data/civicAssets";
 import { listCivicTasks } from "./data/civicTasks";
 import { ensureGraphCoverage, pilotGraph } from "./data/cityGraph";
 import { getPilotTransitEndpointCandidates } from "./data/transitEndpoints";
-import { EXAMPLE_JOURNEYS, HERO_JOURNEYS, HERO_PROMPT_CONTRACTS } from "./exampleJourneys";
+import { examplePromptForSelectedDestination, EXAMPLE_JOURNEYS, HERO_JOURNEYS, HERO_PROMPT_CONTRACTS } from "./exampleJourneys";
 import { getSourceRegistryEntry } from "./data/sourceRegistry";
 import { selectRouteThroughOptionalCivicTask } from "./planning/civicTaskRouting";
 import { compileTripBrief, DEFAULT_BRIEF, distanceMilesToRoutingMinutes, metersToMiles, withDestinationOverride } from "./planning/tripBrief";
@@ -43,6 +43,13 @@ describe("curated Try examples", () => {
     expect(briefs["civic-check-loop"]).toMatchObject({ shape: "wander", walkingMinutes: 25, civicTaskIntent: "photo", priorities: ["water"] });
     expect(briefs["shaded-run"]).toMatchObject({ shape: "loop", activity: "run", distanceMiles: 2, priorities: ["shade", "greenery"] });
   }, 30_000);
+
+  it("uses an already selected destination in destination-based Try prompts", () => {
+    const example = EXAMPLE_JOURNEYS.find((candidate) => candidate.id === "destination-shade")!;
+    expect(examplePromptForSelectedDestination(example, "Bryant Park")).toContain("Bryant Park");
+    expect(examplePromptForSelectedDestination(example, "Bryant Park")).not.toContain("Union Square");
+    expect(examplePromptForSelectedDestination(example, "")).toBe(example.prompt);
+  });
 
   it("keeps four typed opening prompts with visible phrase consequences and source evidence", () => {
     expect(HERO_JOURNEYS).toHaveLength(4);

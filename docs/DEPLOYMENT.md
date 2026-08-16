@@ -1,13 +1,13 @@
-# Deploying Happy Path on one VM
+# Deploying Footnote on one VM
 
-Happy Path ships as a static Vite client plus a small Node server. The server owns the optional OpenRouter calls, serves the built client, exposes health checks, and has no runtime package dependencies. A small Linux VM with Node.js 22.12 or newer is enough for the preview.
+Footnote ships as a static Vite client plus a small Node server. The server owns the optional OpenRouter calls, serves the built client, exposes health checks, and has no runtime package dependencies. A small Linux VM with Node.js 22.12 or newer is enough for the preview.
 
 This runbook prepares a deployment; it does not create infrastructure or change a live environment.
 
 ## Recommended shape
 
 ```text
-Browser → HTTPS reverse proxy → Happy Path Node server → OpenRouter (optional)
+Browser → HTTPS reverse proxy → Footnote Node server → OpenRouter (optional)
                                   ├─ static client and map snapshots
                                   ├─ /api/interpret
                                   ├─ /api/insights
@@ -35,14 +35,14 @@ Create the portable release archive:
 npm run deploy:package
 ```
 
-The resulting `release/happy-path-mvp-0.1.0.tgz` contains `dist/`, `dist-server/`, `package.json`, and the deployment documentation. It does not need `node_modules` at runtime.
+The resulting `release/footnote-mvp-0.1.0.tgz` contains `dist/`, `dist-server/`, `package.json`, and the deployment documentation. It does not need `node_modules` at runtime.
 
 To inspect it locally:
 
 ```bash
-mkdir -p /tmp/happy-path-release
-tar -xzf release/happy-path-mvp-0.1.0.tgz -C /tmp/happy-path-release --strip-components=1
-cd /tmp/happy-path-release
+mkdir -p /tmp/footnote-release
+tar -xzf release/footnote-mvp-0.1.0.tgz -C /tmp/footnote-release --strip-components=1
+cd /tmp/footnote-release
 HOST=127.0.0.1 PORT=3000 npm start
 ```
 
@@ -63,20 +63,20 @@ Invalid ports and rate limits stop startup with a readable error. `/healthz` rep
 
 ## Install the release on Ubuntu
 
-These commands assume a dedicated `happypath` system user and a release uploaded to `/tmp`. Keep releases in versioned directories so rollback is a symlink change rather than an in-place overwrite.
+These commands assume a dedicated `footnote` system user and a release uploaded to `/tmp`. Keep releases in versioned directories so rollback is a symlink change rather than an in-place overwrite.
 
 ```bash
-sudo install -d -o happypath -g happypath /opt/happy-path/releases/0.1.0
-sudo tar -xzf /tmp/happy-path-mvp-0.1.0.tgz -C /opt/happy-path/releases/0.1.0 --strip-components=1
-sudo chown -R happypath:happypath /opt/happy-path/releases/0.1.0
-sudo ln -sfn /opt/happy-path/releases/0.1.0 /opt/happy-path/current
+sudo install -d -o footnote -g footnote /opt/footnote/releases/0.1.0
+sudo tar -xzf /tmp/footnote-mvp-0.1.0.tgz -C /opt/footnote/releases/0.1.0 --strip-components=1
+sudo chown -R footnote:footnote /opt/footnote/releases/0.1.0
+sudo ln -sfn /opt/footnote/releases/0.1.0 /opt/footnote/current
 ```
 
 Confirm that `command -v node` points to Node.js 22.12 or newer. Keep that exact absolute path for `ExecStart` below. Then create the secret file so root can edit it and the service group can read it:
 
 ```bash
-sudo install -o root -g happypath -m 0640 /dev/null /etc/happy-path.env
-sudoedit /etc/happy-path.env
+sudo install -o root -g footnote -m 0640 /dev/null /etc/footnote.env
+sudoedit /etc/footnote.env
 ```
 
 ```dotenv
@@ -88,25 +88,25 @@ BUILD_SHA=replace-with-the-release-commit
 
 Restrict that file to root and the service group. Do not put the key in the archive, repository, client build, or systemd unit.
 
-Create `/etc/systemd/system/happy-path.service`:
+Create `/etc/systemd/system/footnote.service`:
 
 ```ini
 [Unit]
-Description=Happy Path preview
+Description=Footnote preview
 After=network-online.target
 Wants=network-online.target
 
 [Service]
 Type=simple
-User=happypath
-Group=happypath
-WorkingDirectory=/opt/happy-path/current
+User=footnote
+Group=footnote
+WorkingDirectory=/opt/footnote/current
 Environment=NODE_ENV=production
 Environment=HOST=127.0.0.1
 Environment=PORT=3000
 Environment=TRUST_PROXY=true
 Environment=API_RATE_LIMIT_PER_MINUTE=30
-EnvironmentFile=-/etc/happy-path.env
+EnvironmentFile=-/etc/footnote.env
 # Replace this path with the exact output of: command -v node
 ExecStart=/absolute/path/to/node dist-server/server/production.js
 Restart=on-failure
@@ -125,9 +125,9 @@ Start and inspect it:
 
 ```bash
 sudo systemctl daemon-reload
-sudo systemctl enable --now happy-path
+sudo systemctl enable --now footnote
 curl -fsS http://127.0.0.1:3000/healthz
-sudo journalctl -u happy-path -n 100 --no-pager
+sudo journalctl -u footnote -n 100 --no-pager
 ```
 
 The process handles `SIGTERM`, stops accepting new requests, and gives active requests up to ten seconds to finish.
@@ -137,7 +137,7 @@ The process handles `SIGTERM`, stops accepting new requests, and gives active re
 A minimal Caddy site is enough:
 
 ```caddyfile
-happy-path.example.com {
+footnote.example.com {
   encode zstd gzip
   reverse_proxy 127.0.0.1:3000
 }
@@ -147,12 +147,12 @@ Point DNS at the VM before starting Caddy so it can provision TLS. If an externa
 
 ## Update and roll back
 
-For an update, build a new archive from the reviewed commit, extract it into a new `/opt/happy-path/releases/<release>` directory, repoint `/opt/happy-path/current`, and restart the service. Verify both the build identifier and the home page:
+For an update, build a new archive from the reviewed commit, extract it into a new `/opt/footnote/releases/<release>` directory, repoint `/opt/footnote/current`, and restart the service. Verify both the build identifier and the home page:
 
 ```bash
-sudo systemctl restart happy-path
+sudo systemctl restart footnote
 curl -fsS http://127.0.0.1:3000/readyz
-curl -fsS https://happy-path.example.com/healthz
+curl -fsS https://footnote.example.com/healthz
 ```
 
 To roll back, point `current` at the previous release and restart. Keep at least one known-good directory until the new build has passed the resident route and City what-if smoke flows.

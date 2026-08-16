@@ -58,7 +58,7 @@ export interface RouteActivitySummary {
   categories: { category: RouteFeedbackCategory; count: number; share: number }[];
 }
 
-export const ROUTE_ACTIVITY_STORAGE_KEY = "happy-path:route-activity";
+export const ROUTE_ACTIVITY_STORAGE_KEY = "footnote:route-activity";
 export const MAX_ROUTE_ACTIVITY = 60;
 export const MAX_ROUTE_COORDINATES = 120;
 export const MAX_ROUTE_FEEDBACK_CHARACTERS = 500;

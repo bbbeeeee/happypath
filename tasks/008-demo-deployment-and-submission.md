@@ -13,7 +13,7 @@ last_updated: 2026-08-15
 
 ## Outcome
 
-Happy Path is deployed and presented as a polished, believable product. The audience sees a simple resident interaction, real NYC data doing meaningful work, several delightful journeys, and a clear bridge to Detour.
+Footnote is deployed and presented as a polished, believable product. The audience sees a simple resident interaction, real NYC data doing meaningful work, several delightful journeys, and a clear bridge to Detour.
 
 ## Why this package exists
 
@@ -109,7 +109,7 @@ The 2026-08-16 product audit narrows the primary story: one hero resident query,
 - [ ] Copy is friendly, concise, and consistent throughout.
 - [ ] The map stays clean while still revealing meaningful data.
 - [ ] The demo survives an inference outage or network slowdown.
-- [ ] The pitch makes clear why Happy Path is more than a shade map, chatbot, or open-data dashboard.
+- [ ] The pitch makes clear why Footnote is more than a shade map, chatbot, or open-data dashboard.
 - [ ] Detour reuses the same route and data model.
 - [ ] Hypothetical planning changes are clearly labeled.
 - [ ] Submission credits publishers and third-party sources.

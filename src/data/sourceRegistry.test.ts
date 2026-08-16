@@ -6,7 +6,6 @@ import {
 } from "./sourceRegistry";
 
 const addedSources = [
-  ["nyc-pedestrian-ramps", "ufzp-rrqu", "https://data.cityofnewyork.us/resource/ufzp-rrqu.geojson"],
   ["nyc-dot-pedestrian-plazas", "k5k6-6jex", "https://data.cityofnewyork.us/resource/k5k6-6jex.geojson"],
   ["nyc-parks-spray-showers", "ckaz-6gaa", "https://data.cityofnewyork.us/resource/ckaz-6gaa.geojson"],
   ["nyc-facilities-database", "ji82-xba5", "https://data.cityofnewyork.us/resource/ji82-xba5.json"],
@@ -37,13 +36,26 @@ describe("source registry presentation", () => {
     expect(source?.prohibited_claims.length).toBeGreaterThan(0);
   });
 
-  it("keeps the event-driven cooling finder separate from bundled map data", () => {
+  it("loads the event-driven cooling finder as live context", () => {
     expect(sourceRegistryPresentation("nyc-cool-options")).toMatchObject({
       officialUrl: "https://finder.nyc.gov/coolingcenters/",
-      downloadUrl: null,
-      capabilityStatus: "live_reference",
-      availabilityLabel: "Live city link · opens separately",
+      capabilityStatus: "live_service",
+      availabilityLabel: "Live context in this preview",
     });
+  });
+
+  it("ingests official mobility records without converting them into accessibility claims", () => {
+    for (const sourceId of ["nyc-ramp-program-progress", "nyc-pedestrian-ramps", "nyc-accessible-pedestrian-signals", "nyc-exclusive-pedestrian-signals", "mta-elevator-assets"]) {
+      const source = getSourceRegistryEntry(sourceId);
+      expect(source).toMatchObject({ authority: "official", capability_status: "ingested", validation_status: "pilot_context_only" });
+      expect(source?.pilot_record_count).toBeGreaterThan(0);
+      expect(source?.prohibited_claims.join(" ")).toMatch(/accessible|step-free|working|safe|ADA/i);
+    }
+  });
+
+  it("labels NWS weather as representative live context", () => {
+    expect(sourceRegistryPresentation("nws-manhattan-weather")).toMatchObject({ capabilityStatus: "live_service", availabilityLabel: "Live context in this preview" });
+    expect(getSourceRegistryEntry("nws-manhattan-weather")?.prohibited_claims.join(" ")).toMatch(/block-level|cooler/i);
   });
 
   it("labels submitted address lookup as an active live service", () => {
@@ -91,11 +103,11 @@ describe("source registry presentation", () => {
   });
 
   it("labels civic checks as simulated partner prompts rather than official requests", () => {
-    expect(sourceRegistryPresentation("happy-path-civic-checks-demo")).toMatchObject({
+    expect(sourceRegistryPresentation("footnote-civic-checks-demo")).toMatchObject({
       capabilityStatus: "derived",
       availabilityLabel: "Estimated for this preview",
     });
-    const source = getSourceRegistryEntry("happy-path-civic-checks-demo");
+    const source = getSourceRegistryEntry("footnote-civic-checks-demo");
     expect(source?.known_limitations.join(" ")).toMatch(/simulated/i);
     expect(source?.prohibited_claims.join(" ")).toMatch(/Official NYC task|Verified current condition/);
   });

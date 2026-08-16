@@ -25,7 +25,7 @@ interface PreferenceStorage {
 type StoredUserPreferences = (Omit<UserPreferences, "walkingNote"> & { version: 1 })
   | (UserPreferences & { version: 2 });
 
-export const USER_PREFERENCES_STORAGE_KEY = "happy-path:user-preferences";
+export const USER_PREFERENCES_STORAGE_KEY = "footnote:user-preferences";
 export const DEFAULT_USER_PREFERENCES: UserPreferences = {
   preferredPriorities: [],
   detourMinutes: 5,

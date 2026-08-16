@@ -1,12 +1,12 @@
 # Detour — City Planning Intelligence PRD
 
-> Detour is the planning side of Happy Path. It uses the same Manhattan street graph, city layers, route metrics, and evidence model.
+> Detour is the planning side of Footnote. It uses the same Manhattan street graph, city layers, route metrics, and evidence model.
 
 ## 1. Product definition
 
 **Detour helps people understand where the city makes everyday journeys harder—and which changes could improve them.**
 
-Happy Path asks:
+Footnote asks:
 
 > What route or walk best fits this person and moment?
 
@@ -18,7 +18,7 @@ A conventional asset map shows where trees, benches, bathrooms, ramps, or sheds 
 
 ## 2. Role in P1
 
-P1 includes one credible Detour planning proof using a feature already validated for Happy Path.
+P1 includes one credible Detour planning proof using a feature already validated for Footnote.
 
 ### Current implemented slice
 
@@ -76,7 +76,7 @@ Measure specific burdens such as:
 - deviation to a restroom or fountain;
 - route distance affected by shed or construction records.
 
-### 5.2 Use the same facts as Happy Path
+### 5.2 Use the same facts as Footnote
 
 Detour must reuse:
 
@@ -243,7 +243,7 @@ Choose the first P1 lens based on validation quality, not ambition.
 
 ## 9. Representative demand
 
-Detour should not depend only on Happy Path users.
+Detour should not depend only on Footnote users.
 
 P1 may build a transparent sample from:
 
@@ -350,7 +350,7 @@ A future high-impact uncertainty may create a verification request:
 - Is the reported obstruction still present?
 - Does the mapped bench exist?
 
-Happy Path could optionally invite a nearby person to confirm the condition or submit a photo. Such evidence must be purpose-limited, privacy-aware, time-limited, and clearly distinct from official state.
+Footnote could optionally invite a nearby person to confirm the condition or submit a photo. Such evidence must be purpose-limited, privacy-aware, time-limited, and clearly distinct from official state.
 
 ## 15. Fairness and privacy
 
@@ -358,7 +358,7 @@ Happy Path could optionally invite a nearby person to confirm the condition or s
 - Do not treat complaint volume as objective condition data.
 - Show where source coverage is weaker.
 - Keep demographic context separate from street-quality scoring.
-- Do not expose individual Happy Path routes.
+- Do not expose individual Footnote routes.
 - Use coarse aggregation and minimum-count thresholds for any future demand data.
 - Do not label neighborhoods good, bad, safe, unsafe, healthy, or unhealthy.
 
@@ -368,7 +368,7 @@ The current slice satisfies shared-model reuse, deterministic fixed-route compar
 
 The planning proof succeeds when:
 
-1. one validated Happy Path feature becomes a planning lens;
+1. one validated Footnote feature becomes a planning lens;
 2. the representative journey set is visible and reproducible;
 3. every burden derives from route results;
 4. one specific gap or high-impact uncertainty is identified;
@@ -393,4 +393,4 @@ Detour is not:
 
 ## 18. Product definition
 
-> **Detour turns the same public data and route features used by Happy Path into planning insight. It shows which journeys are burdened by missing shade, access, amenities, or infrastructure, then tests how one hypothetical change would alter those journeys. P1 proves the method; later versions can connect the analysis to real City planning, asset, and verification workflows.**
+> **Detour turns the same public data and route features used by Footnote into planning insight. It shows which journeys are burdened by missing shade, access, amenities, or infrastructure, then tests how one hypothetical change would alter those journeys. P1 proves the method; later versions can connect the analysis to real City planning, asset, and verification workflows.**

@@ -63,7 +63,7 @@ export function assetsGeoJSON(assets: readonly CivicAsset[], selectedAssetId?: s
         name: asset.name,
         selected: asset.id === selectedAssetId,
       },
-      geometry: { type: "Point" as const, coordinates: asset.coordinate },
+      geometry: { type: "Point" as const, coordinates: [...asset.coordinate] as [number, number] },
     })),
   };
 }
@@ -75,18 +75,26 @@ export function civicTasksGeoJSON(
   const completed = new Set(options.completedTaskIds ?? []);
   return {
     type: "FeatureCollection" as const,
-    features: tasks.map((task) => ({
-      type: "Feature" as const,
-      properties: {
-        id: task.id,
-        action: task.action,
-        title: task.title,
-        selected: task.id === options.selectedTaskId,
-        completed: completed.has(task.id),
-      },
-      geometry: { type: "Point" as const, coordinates: task.coordinate },
-    })),
+    features: tasks.map((task) => {
+      const selected = task.id === options.selectedTaskId;
+      return {
+        type: "Feature" as const,
+        properties: {
+          id: task.id,
+          action: task.action,
+          title: task.title,
+          selected,
+          focusLabel: selected ? "Open check" : "",
+          completed: completed.has(task.id),
+        },
+        geometry: { type: "Point" as const, coordinates: [...task.coordinate] as [number, number] },
+      };
+    }),
   };
+}
+
+export function civicTaskLayerVisible(layerEnabled: boolean, selectedTaskId?: string | null): boolean {
+  return layerEnabled || Boolean(selectedTaskId);
 }
 
 const taskMarkerArt: Record<CivicTaskAction, { title: string; art: string }> = {

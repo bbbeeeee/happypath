@@ -17,7 +17,7 @@ The same route and city-layer system produces one credible planning analysis tha
 
 ## Why this package exists
 
-Detour completes the civic story. Happy Path helps one person find a better journey; Detour uses the same evidence to show where many journeys are difficult and where a specific City or public-realm intervention might help.
+Detour completes the civic story. Footnote helps one person find a better journey; Detour uses the same evidence to show where many journeys are difficult and where a specific City or public-realm intervention might help.
 
 The P1 goal is one polished proof, not a complete planner platform.
 
@@ -76,7 +76,7 @@ It does not complete this package. The sample is not representative demand, the 
 - [ ] `009-M` — Build a clean burden, route, and before-and-after visualization.
 - [ ] `009-N` — Write an intervention card in plain planning language.
 - [ ] `009-O` — Show source data, confidence, and limitations without dominating the visual.
-- [ ] `009-P` — Create the transition from a resident Happy Path route to the repeated planning gap.
+- [ ] `009-P` — Create the transition from a resident Footnote route to the repeated planning gap.
 - [ ] `009-Q` — Make clear that the intervention is hypothetical and not an official City recommendation.
 
 ## Acceptance criteria
@@ -88,9 +88,9 @@ It does not complete this package. The sample is not representative demand, the 
 - [ ] The audience can understand the gap and intervention quickly.
 - [ ] Intervention value is separated from feasibility and policy priority.
 - [ ] Demand assumptions and uncertainty are explicit.
-- [ ] Happy Path usage is not the sole demand signal.
+- [ ] Footnote usage is not the sole demand signal.
 - [ ] No neighborhood receives a universal quality score.
-- [ ] The proof reuses the Happy Path source, layer, route, and evidence contracts.
+- [ ] The proof reuses the Footnote source, layer, route, and evidence contracts.
 - [ ] Hypothetical conditions are not presented as observed City facts.
 - [ ] The result can be reproduced from stored source and scenario versions.
 - [ ] The proof is polished enough to appear in the hackathon demo without weakening the resident product.
@@ -108,7 +108,7 @@ It does not complete this package. The sample is not representative demand, the 
 
 - The strongest validated and most legible scenario should win, not the most ambitious policy idea.
 - A map of missing assets is insufficient; the proof must show journey consequences.
-- The planning view should feel related to Happy Path without copying the resident mobile UI.
+- The planning view should feel related to Footnote without copying the resident mobile UI.
 - Detour must not endanger the quality or reliability of the resident demo.
 
 ## Verification

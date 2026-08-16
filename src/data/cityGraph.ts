@@ -16,6 +16,7 @@ export function graphCoordinateDistanceMeters(a: Coordinate, b: Coordinate) {
 
 const selectableNodes = pilotGraph.nodes.filter((node) => node.name.includes(" & "));
 export const defaultOrigin = nearestGraphNode(supportedArea.defaultJourney.origin).id;
+export const defaultOriginLabel = supportedArea.defaultJourney.originLabel;
 export const defaultDestination = nearestGraphNode(supportedArea.defaultJourney.destination).id;
 
 export const endpointNodes = selectableNodes.length > 10 ? selectableNodes : pilotGraph.nodes;

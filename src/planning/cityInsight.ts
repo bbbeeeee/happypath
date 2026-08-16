@@ -37,7 +37,7 @@ function source(sourceId: string): InsightSource {
   const presentation = sourceRegistryPresentation(sourceId);
   return {
     sourceId,
-    label: presentation?.title ?? "Happy Path planning preview",
+    label: presentation?.title ?? "Footnote planning preview",
     kind: sourceKind(sourceId),
   };
 }

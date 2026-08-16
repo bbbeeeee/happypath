@@ -6,6 +6,7 @@ import {
   assetTransitLinesLabel,
   assetTypeLabel,
   assetsGeoJSON,
+  civicTaskLayerVisible,
   civicTaskMarkerSvg,
   civicTasksGeoJSON,
   coverContextMarkerSvg,
@@ -127,9 +128,15 @@ describe("civic task presentation", () => {
     const tasks = listCivicTasks({ activeAt: new Date("2026-08-17T00:00:00Z") }).slice(0, 2);
     const presentation = civicTasksGeoJSON(tasks, { selectedTaskId: tasks[0].id, completedTaskIds: [tasks[1].id] });
     expect(presentation.features.map((feature) => feature.properties)).toEqual([
-      expect.objectContaining({ id: tasks[0].id, selected: true, completed: false }),
-      expect.objectContaining({ id: tasks[1].id, selected: false, completed: true }),
+      expect.objectContaining({ id: tasks[0].id, selected: true, focusLabel: "Open check", completed: false }),
+      expect.objectContaining({ id: tasks[1].id, selected: false, focusLabel: "", completed: true }),
     ]);
+  });
+
+  it("keeps an open check visible independently of the general checks layer", () => {
+    expect(civicTaskLayerVisible(false, "task-1")).toBe(true);
+    expect(civicTaskLayerVisible(false, null)).toBe(false);
+    expect(civicTaskLayerVisible(true, null)).toBe(true);
   });
 
   it("uses distinct, decodable action icons instead of one generic marker", () => {

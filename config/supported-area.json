@@ -29,11 +29,12 @@
     [-74.0145, 40.699]
   ],
   "defaultView": {
-    "center": [-73.9925, 40.7355],
+    "center": [-73.9817, 40.7519],
     "zoom": 12.4
   },
   "defaultJourney": {
-    "origin": [-73.9965723, 40.7295644],
+    "origin": [-73.9817, 40.7519],
+    "originLabel": "Stavros Niarchos Foundation Library (SNFL)",
     "destination": [-73.9904, 40.7359]
   },
   "bootstrapBbox": {

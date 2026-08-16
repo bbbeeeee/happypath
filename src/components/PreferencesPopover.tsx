@@ -97,7 +97,7 @@ export function PreferencesPopover({ preferences, onSave, onReset, appliesNow }:
           </div>
         </fieldset>
         <label className="walking-note">
-          <span><strong>A note for Happy Path</strong><small>{draft.walkingNote.length} / {MAX_WALKING_NOTE_CHARACTERS}</small></span>
+          <span><strong>A note for Footnote</strong><small>{draft.walkingNote.length} / {MAX_WALKING_NOTE_CHARACTERS}</small></span>
           <textarea
             value={draft.walkingNote}
             maxLength={MAX_WALKING_NOTE_CHARACTERS}

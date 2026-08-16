@@ -1,10 +1,13 @@
 import type { CivicAsset } from "../data/civicAssets";
 import type { CivicTask } from "../data/civicTasks";
+import type { AccessContextCollection } from "../data/accessContext";
+import type { CoolOptionsCollection } from "../data/coolOptions";
 import type { FloodContextCollection } from "../floodEvidence";
+import { civicTaskLayerVisible } from "../mapPresentation";
 import type { RouteActivityLog } from "../routeActivity";
 import type { Coordinate, JourneyRoute, PilotGraph } from "../types";
 
-type FallbackLens = "route" | "shade" | "greenery" | "cover" | "flood" | "amenities" | "tasks";
+type FallbackLens = "route" | "shade" | "greenery" | "cover" | "flood" | "amenities" | "access" | "streetWork" | "cooling" | "tasks";
 
 interface LineFeature {
   properties: Record<string, unknown>;
@@ -44,7 +47,7 @@ export function fallbackMapCoordinate([x, y]: readonly [number, number], [south,
   return [west + x / 1200 * (east - west), south + (820 - y) / 820 * (north - south)];
 }
 
-export function FallbackMap({ graph, route, baseline, comparisonDelta, representativeRoutes, activity = [], showActivity = false, selectedActivityRouteId, lens, overlays, shadeSegments, greenerySegments, ambientGreenery, coverSegments, ambientCover, coverContext, floodContext, selection, assets, prominentAssetIds, selectedAssetId, onMapClick, onAssetClick, tasks, selectedTaskId, completedTaskIds, onTaskClick, onActivityRouteClick }: {
+export function FallbackMap({ graph, route, baseline, comparisonDelta, representativeRoutes, activity = [], showActivity = false, selectedActivityRouteId, lens, overlays, shadeSegments, greenerySegments, ambientGreenery, coverSegments, ambientCover, coverContext, floodContext, accessContext, coolOptions, selection, assets, prominentAssetIds, selectedAssetId, onMapClick, onAssetClick, tasks, selectedTaskId, completedTaskIds, onTaskClick, onActivityRouteClick }: {
   graph: PilotGraph;
   route: JourneyRoute | null;
   baseline?: JourneyRoute | null;
@@ -54,7 +57,7 @@ export function FallbackMap({ graph, route, baseline, comparisonDelta, represent
   showActivity?: boolean;
   selectedActivityRouteId?: string | null;
   lens: FallbackLens;
-  overlays: { shade: boolean; greenery: boolean; cover: boolean; flood: boolean; amenities: boolean; tasks: boolean };
+  overlays: { shade: boolean; greenery: boolean; cover: boolean; flood: boolean; amenities: boolean; access: boolean; streetWork: boolean; cooling: boolean; tasks: boolean };
   shadeSegments: LineCollection;
   greenerySegments: LineCollection;
   ambientGreenery: LineCollection;
@@ -62,6 +65,8 @@ export function FallbackMap({ graph, route, baseline, comparisonDelta, represent
   ambientCover: LineCollection;
   coverContext: CoverContextCollection;
   floodContext: FloodContextCollection;
+  accessContext: AccessContextCollection;
+  coolOptions: CoolOptionsCollection;
   selection?: LineCollection | null;
   assets: readonly CivicAsset[];
   prominentAssetIds: readonly string[];
@@ -108,10 +113,17 @@ export function FallbackMap({ graph, route, baseline, comparisonDelta, represent
   const visibleAssets = assets
     .filter((asset) => overlays.amenities && (asset.id === selectedAssetId || prominent.has(asset.id) || stableNumber(asset.id) % 5 === 0))
     .slice(0, 28);
+  const visibleAccess = accessContext.features
+    .filter((feature) => coordinateInView(feature.geometry.coordinates as Coordinate))
+    .filter((feature) => feature.properties.kind !== "ramp_survey" || stableNumber(feature.properties.id) % 31 === 0)
+    .slice(0, 180);
+  const visibleCoolOptions = coolOptions.features
+    .filter((feature) => coordinateInView(feature.geometry.coordinates as Coordinate))
+    .slice(0, 100);
   const completedTasks = new Set(completedTaskIds);
 
   return <div className="fallback-map" aria-label="Street map preview">
-    <svg viewBox={`${viewX} 0 ${viewWidth} ${height}`} preserveAspectRatio="xMidYMid slice" role="img" aria-label="Happy Path route and neighborhood amenities" onClick={onMapClick ? (event) => {
+    <svg viewBox={`${viewX} 0 ${viewWidth} ${height}`} preserveAspectRatio="xMidYMid slice" role="img" aria-label="Footnote route and neighborhood amenities" onClick={onMapClick ? (event) => {
       const svg = event.currentTarget;
       const matrix = svg.getScreenCTM();
       if (!matrix) return;
@@ -145,11 +157,20 @@ export function FallbackMap({ graph, route, baseline, comparisonDelta, represent
       {!showActivity && overlays.greenery && <g className="fallback-evidence-lines greenery-lines">{greenerySegments.features.map((feature, index) => <polyline key={`${String(feature.properties.edgeId)}-${index}`} className={String(feature.properties.greeneryBand)} points={points(feature.geometry.coordinates)}><title>{String(feature.properties.label)}</title></polyline>)}</g>}
       {!showActivity && overlays.cover && <g className="ambient-cover-lines">{ambientCover.features.map((feature, index) => <polyline key={`${String(feature.properties.edgeId)}-${index}`} className={Number(feature.properties.coverShare) >= .7 ? "more" : "some"} points={points(feature.geometry.coordinates)}><title>{String(feature.properties.label)}</title></polyline>)}</g>}
       {!showActivity && overlays.cover && <g className="fallback-evidence-lines cover-lines">{coverSegments.features.map((feature, index) => <polyline key={`${String(feature.properties.edgeId)}-${index}`} className={String(feature.properties.coverBand)} points={points(feature.geometry.coordinates)}><title>{String(feature.properties.label)}</title></polyline>)}</g>}
-      {!showActivity && overlays.cover && lens === "cover" && <g className="fallback-construction-lines">{coverContext.features.flatMap((feature, index) => feature.geometry.type === "MultiLineString" ? feature.geometry.coordinates.map((line, lineIndex) => <polyline key={`construction-${index}-${lineIndex}`} points={points(line)}><title>{String(feature.properties.label)}</title></polyline>) : [])}</g>}
-      {!showActivity && overlays.cover && <g className="fallback-cover-context">{coverContext.features.flatMap((feature, index) => {
+      {!showActivity && overlays.streetWork && <g className="fallback-construction-lines">{coverContext.features.flatMap((feature, index) => feature.geometry.type === "MultiLineString" ? feature.geometry.coordinates.map((line, lineIndex) => <polyline key={`construction-${index}-${lineIndex}`} points={points(line)}><title>{String(feature.properties.label)}</title></polyline>) : [])}</g>}
+      {!showActivity && (overlays.cover || overlays.streetWork) && <g className="fallback-cover-context">{coverContext.features.flatMap((feature, index) => {
         if (feature.geometry.type !== "Point") return [];
+        if (feature.properties.kind === "pops_arcade" ? !overlays.cover : !overlays.streetWork) return [];
         const [x, y] = point(feature.geometry.coordinates);
         return [<g key={`cover-context-${index}`} className={String(feature.properties.kind)} transform={`translate(${x} ${y})`}><rect x="-10" y="-10" width="20" height="20" rx="5" /><CoverContextGlyph kind={feature.properties.kind} /><title>{String(feature.properties.label)}</title></g>];
+      })}</g>}
+      {!showActivity && overlays.access && <g className="fallback-access-context" aria-label="Access records, incomplete">{visibleAccess.map((feature) => {
+        const [x, y] = point(feature.geometry.coordinates as Coordinate);
+        return <circle key={feature.properties.id} className={feature.properties.kind} cx={x} cy={y} r={feature.properties.kind === "ramp_survey" ? 4 : 7}><title>{feature.properties.label} · record only, not an accessible-route guarantee</title></circle>;
+      })}</g>}
+      {!showActivity && overlays.cooling && <g className="fallback-cool-options" aria-label="NYC cool options">{visibleCoolOptions.map((feature) => {
+        const [x, y] = point(feature.geometry.coordinates as Coordinate);
+        return <circle key={feature.properties.id} className={feature.properties.kind} cx={x} cy={y} r={feature.properties.kind === "cooling_center" ? 8 : 6}><title>{feature.properties.label} · verify activation and hours</title></circle>;
       })}</g>}
       {!showActivity && selection && lens === "shade" && overlays.shade && <g className="fallback-selection">{selection.features.map((feature, index) => <polyline key={`${String(feature.properties.edgeId)}-${index}`} points={points(feature.geometry.coordinates)} />)}</g>}
       {!showActivity && baseline && <polyline className="fallback-baseline" points={points(baseline.coordinates)} />}
@@ -177,12 +198,13 @@ export function FallbackMap({ graph, route, baseline, comparisonDelta, represent
           <title>{asset.name}</title>
         </g>;
       })}</g>}
-      {!showActivity && overlays.tasks && <g className="fallback-tasks">{tasks.map((task) => {
+      {!showActivity && civicTaskLayerVisible(overlays.tasks, selectedTaskId) && <g className="fallback-tasks">{tasks.map((task) => {
         const [x, y] = point(task.coordinate as Coordinate);
         const selected = task.id === selectedTaskId;
         const completed = completedTasks.has(task.id);
         return <g key={task.id} className={`${selected ? "selected" : ""} ${completed ? "completed" : ""}`} transform={`translate(${x} ${y})`} role="button" tabIndex={0} aria-label={task.title} onClick={(event) => { event.stopPropagation(); if (onMapClick) onMapClick(task.coordinate as Coordinate); else onTaskClick(task); }} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") onTaskClick(task); }}>
-          <circle r={selected ? 15 : 12} />
+          {selected && <><circle className="task-focus-ring" r="27" /><text className="task-focus-label" y="-33" textAnchor="middle">Open check</text></>}
+          <circle className="task-marker" r={selected ? 17 : 12} />
           <TaskGlyph action={task.action} />
           <title>{task.title}</title>
         </g>;

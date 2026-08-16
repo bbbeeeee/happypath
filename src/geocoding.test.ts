@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { GeocodingUnavailableError, searchNycAddress } from "./geocoding";
+import { GeocodingUnavailableError, searchNycAddress, searchNycAddresses } from "./geocoding";
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -21,6 +21,25 @@ describe("searchNycAddress", () => {
       ] }),
     }));
     await expect(searchNycAddress("Example")).resolves.toEqual({ coordinate: [-74.006, 40.7128], label: "Manhattan" });
+  });
+
+  it("returns supported, deduplicated autocomplete suggestions in stable order", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ features: [
+        { geometry: { type: "Point", coordinates: [-73.9969, 40.7033] }, properties: { label: "Brooklyn" } },
+        { geometry: { type: "Point", coordinates: [-73.9817, 40.7519] }, properties: { label: "SNFL" } },
+        { geometry: { type: "Point", coordinates: [-73.9817, 40.7519] }, properties: { label: "SNFL" } },
+        { geometry: { type: "LineString", coordinates: [] }, properties: { label: "Not a point" } },
+        { geometry: { type: "Point", coordinates: [-74.006, 40.7128] }, properties: { label: "FiDi" } },
+      ] }),
+    }));
+
+    await expect(searchNycAddresses("library", 3)).resolves.toEqual([
+      { coordinate: [-73.9817, 40.7519], label: "SNFL" },
+      { coordinate: [-74.006, 40.7128], label: "FiDi" },
+      { coordinate: [-73.9969, 40.7033], label: "Brooklyn" },
+    ]);
   });
 
   it("keeps an empty successful result distinct from service failure", async () => {

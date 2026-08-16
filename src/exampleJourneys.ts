@@ -9,6 +9,7 @@ export interface ExampleJourney {
   originCoordinate: Coordinate;
   destinationNodeId: string | null;
   destinationCoordinate: Coordinate | null;
+  destinationName: string | null;
 }
 
 /**
@@ -24,6 +25,7 @@ export const EXAMPLE_JOURNEYS: readonly ExampleJourney[] = [
     originCoordinate: [-74.0052872, 40.7288513],
     destinationNodeId: "42440710", // East 14th Street & 5th Avenue
     destinationCoordinate: [-73.9936325, 40.7360074],
+    destinationName: "Union Square",
   },
   {
     id: "green-loop",
@@ -33,6 +35,7 @@ export const EXAMPLE_JOURNEYS: readonly ExampleJourney[] = [
     originCoordinate: [-73.9936231, 40.7272894],
     destinationNodeId: null,
     destinationCoordinate: null,
+    destinationName: null,
   },
   {
     id: "transit-wander",
@@ -42,6 +45,7 @@ export const EXAMPLE_JOURNEYS: readonly ExampleJourney[] = [
     originCoordinate: [-74.0052872, 40.7288513],
     destinationNodeId: null,
     destinationCoordinate: null,
+    destinationName: null,
   },
   {
     id: "rain-cover-loop",
@@ -51,6 +55,7 @@ export const EXAMPLE_JOURNEYS: readonly ExampleJourney[] = [
     originCoordinate: [-73.9936325, 40.7360074],
     destinationNodeId: "4389441146", // Waterside Plaza building passage
     destinationCoordinate: [-73.973618, 40.7378624],
+    destinationName: "Waterside Plaza",
   },
   {
     id: "civic-check-loop",
@@ -60,6 +65,7 @@ export const EXAMPLE_JOURNEYS: readonly ExampleJourney[] = [
     originCoordinate: [-73.9998695, 40.7270026],
     destinationNodeId: null,
     destinationCoordinate: null,
+    destinationName: null,
   },
   {
     id: "shaded-run",
@@ -69,8 +75,15 @@ export const EXAMPLE_JOURNEYS: readonly ExampleJourney[] = [
     originCoordinate: [-73.994118, 40.735313],
     destinationNodeId: null,
     destinationCoordinate: null,
+    destinationName: null,
   },
 ] as const;
+
+export function examplePromptForSelectedDestination(example: ExampleJourney, destinationText: string): string {
+  const selectedDestination = destinationText.trim();
+  if (!selectedDestination || !example.destinationName) return example.prompt;
+  return example.prompt.replace(example.destinationName, selectedDestination);
+}
 
 export const EXAMPLE_REQUESTS = EXAMPLE_JOURNEYS.map((example) => example.prompt);
 

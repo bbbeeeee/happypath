@@ -12,7 +12,7 @@ last_updated: 2026-08-16
 
 ## Outcome
 
-Happy Path produces clearly different, credible destination, loop, wander, rainy-day, and mapped-step-free walks; explains them from deterministic evidence; links every dataset to its official source; and presents the experience with a compact, geometric, friendly interface.
+Footnote produces clearly different, credible destination, loop, wander, rainy-day, and mapped-step-free walks; explains them from deterministic evidence; links every dataset to its official source; and presents the experience with a compact, geometric, friendly interface.
 
 > Historical note: this task records the simulated-cover proof that existed when the slice closed. Task 017 superseded that implementation with sparse explicit mapped-cover geometry and reference-only shed, POPS, and construction context. The verification numbers below remain historical evidence rather than current status.
 

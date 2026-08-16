@@ -125,7 +125,7 @@ export class RouteCityInsightError extends Error {
   }
 }
 
-const systemPrompt = `You are the evidence ranker for Happy Path, a resident walking and city planning tool.
+const systemPrompt = `You are the evidence ranker for Footnote, a resident walking and city planning tool.
 
 The user message contains deterministic route facts and a bounded list of hypothetical city intervention candidates. Select the route facts that best explain the route, then select two or three intervention candidates and the facts that best support each one. Candidate order is the recommended display order.
 

@@ -22,7 +22,7 @@ async function fetchOverpass() {
     try {
       const response = await fetch(OVERPASS_URL, {
         method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded", "User-Agent": "HappyPathPrototype/0.1" },
+        headers: { "Content-Type": "application/x-www-form-urlencoded", "User-Agent": "FootnotePrototype/0.1" },
         body: new URLSearchParams({ data: query }),
         signal: AbortSignal.timeout(210_000),
       });

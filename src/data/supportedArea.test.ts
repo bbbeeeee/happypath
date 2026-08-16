@@ -50,4 +50,11 @@ describe("Manhattan supported area", () => {
     ]);
     expect(supportedArea.polygon[0]).toEqual(supportedArea.polygon.at(-1));
   });
+
+  it("uses SNFL as the configured default starting place", () => {
+    expect(supportedArea.defaultJourney).toMatchObject({
+      origin: [-73.9817, 40.7519],
+      originLabel: "Stavros Niarchos Foundation Library (SNFL)",
+    });
+  });
 });

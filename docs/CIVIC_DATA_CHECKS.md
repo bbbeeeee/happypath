@@ -1,6 +1,6 @@
 # Civic data checks proof of concept
 
-Happy Path can now treat a small, safe data contribution as part of a walk. The resident may explicitly ask for a route where they can help, or notice one nearby after an ordinary route is complete. Participation is always optional.
+Footnote can now treat a small, safe data contribution as part of a walk. The resident may explicitly ask for a route where they can help, or notice one nearby after an ordinary route is complete. Participation is always optional.
 
 ## What the demo proves
 
@@ -29,7 +29,7 @@ Responses use fixed options. A session observation stores only a task ID, select
 
 The cover checks always include “I couldn’t confirm safely.” They ask only about a visible structure, entrance, or signed detour from an ordinary public walking path. A response can identify a record for later steward review, but it cannot create route-cover geometry or establish dryness, access, usable width, structural condition, or continuous coverage. Temporary shed and construction observations expire after 24 hours.
 
-The flood model deliberately creates no resident data check. Happy Path must not invite someone toward standing water or ask them to verify flooding during hazardous conditions. Future flood-data partnerships need a remote, agency-directed workflow with explicit safety rules rather than an opportunistic walking task.
+The flood model deliberately creates no resident data check. Footnote must not invite someone toward standing water or ask them to verify flooding during hazardous conditions. Future flood-data partnerships need a remote, agency-directed workflow with explicit safety rules rather than an opportunistic walking task.
 
 Production photo collection would require explicit partner authorization plus consent, EXIF removal, redaction, moderation, retention, deletion, correction, and abuse-handling policies. Production task publishing would also require authenticated publishers and a real City or partner workflow.
 

@@ -1,6 +1,6 @@
-# Happy Path — Data and Inference Specification
+# Footnote — Data and Inference Specification
 
-> Companion to the [Happy Path PRD](PRD.md). The PRD owns product scope; this document owns source, feature, evidence, inference, validation, and data-delivery contracts.
+> Companion to the [Footnote PRD](PRD.md). The PRD owns product scope; this document owns source, feature, evidence, inference, validation, and data-delivery contracts.
 
 | Field | Decision |
 | --- | --- |
@@ -28,7 +28,7 @@ This document defines:
 6. how data is cleaned and packaged for a polished mobile demo;
 7. how future live inputs can enrich the product without redesigning it.
 
-The goal is not to expose every dataset as a filter. Happy Path should intelligently assemble the small set of evidence that matters for the current walk while maintaining a much broader city model underneath.
+The goal is not to expose every dataset as a filter. Footnote should intelligently assemble the small set of evidence that matters for the current walk while maintaining a much broader city model underneath.
 
 ## 2. Core rule
 

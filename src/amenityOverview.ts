@@ -190,7 +190,7 @@ type AmenityOverviewFeature = {
   properties: AssetPointProperties | ClusterPointProperties;
   geometry: {
     type: "Point";
-    coordinates: readonly [number, number];
+    coordinates: [number, number];
   };
 };
 
@@ -203,7 +203,7 @@ function projectedCell(asset: CivicAsset, cellMeters: number, latitudeReference:
   return `${clusterAcrossCategories ? "mixed" : asset.kind}:${x}:${y}`;
 }
 
-function averageCoordinate(assets: readonly CivicAsset[]): readonly [number, number] {
+function averageCoordinate(assets: readonly CivicAsset[]): [number, number] {
   const [longitude, latitude] = assets.reduce(
     ([lng, lat], asset) => [lng + asset.coordinate[0], lat + asset.coordinate[1]],
     [0, 0],
@@ -240,7 +240,7 @@ function assetFeature(
       evidenceStatus: "mapped_not_live",
       sourceId: asset.sourceId,
     },
-    geometry: { type: "Point", coordinates: asset.coordinate },
+    geometry: { type: "Point", coordinates: [...asset.coordinate] as [number, number] },
   };
 }
 

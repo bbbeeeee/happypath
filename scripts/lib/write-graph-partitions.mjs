@@ -32,13 +32,22 @@ export async function writeGraphPartitions(graph, directory = new URL("../../src
     await writeFile(new URL(`${partition.id}.json`, directory), `${JSON.stringify(data)}\n`);
     manifestPartitions.push({ id: partition.id, label: partition.label, nodes: nodes.length, edges: partitionEdges.length });
   }
+  const bootstrapCorridorRadiusMeters = 120;
+  const distanceToSegmentMeters = (coordinate, start, end) => {
+    const point = [(coordinate[0] - start[0]) * 84_200, (coordinate[1] - start[1]) * 111_111];
+    const segment = [(end[0] - start[0]) * 84_200, (end[1] - start[1]) * 111_111];
+    const lengthSquared = segment[0] ** 2 + segment[1] ** 2;
+    const progress = lengthSquared ? Math.max(0, Math.min(1, (point[0] * segment[0] + point[1] * segment[1]) / lengthSquared)) : 0;
+    return Math.hypot(point[0] - progress * segment[0], point[1] - progress * segment[1]);
+  };
   const bootstrapEdges = graph.edges.filter((edge) => {
     const geometry = edge.geometry ?? [];
     const center = geometry.length
       ? geometry.reduce((sum, coordinate) => [sum[0] + coordinate[0], sum[1] + coordinate[1]], [0, 0]).map((value) => value / geometry.length)
       : nodeById.get(edge.from).coordinate;
     const bounds = supportedArea.bootstrapBbox;
-    return center[0] >= bounds.west && center[0] <= bounds.east && center[1] >= bounds.south && center[1] <= bounds.north;
+    return (center[0] >= bounds.west && center[0] <= bounds.east && center[1] >= bounds.south && center[1] <= bounds.north)
+      || distanceToSegmentMeters(center, supportedArea.defaultJourney.origin, supportedArea.defaultJourney.destination) <= bootstrapCorridorRadiusMeters;
   });
   const bootstrapNodeIds = new Set(bootstrapEdges.flatMap((edge) => [edge.from, edge.to]));
   const bootstrapNodes = graph.nodes.filter((node) => bootstrapNodeIds.has(node.id));
@@ -48,7 +57,7 @@ export async function writeGraphPartitions(graph, directory = new URL("../../src
     metadata: {
       ...graph.metadata,
       partitionId: "bootstrap",
-      partitionLabel: "Initial Washington Square map",
+      partitionLabel: "Initial default journey map",
       pilotBbox: [supportedArea.bootstrapBbox.south, supportedArea.bootstrapBbox.west, supportedArea.bootstrapBbox.north, supportedArea.bootstrapBbox.east],
       audit: { ...graph.metadata.audit, nodes: bootstrapNodes.length, edges: bootstrapEdges.length },
     },

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { defaultOrigin, ensureGraphCoverage, graphNodeById, pilotGraph } from "./data/cityGraph";
+import { defaultOrigin, defaultOriginLabel, ensureGraphCoverage, graphCoordinateDistanceMeters, graphNodeById, pilotGraph } from "./data/cityGraph";
+import { supportedArea } from "./data/supportedArea";
 import { EXAMPLE_JOURNEYS } from "./exampleJourneys";
 import { cleanPlaceName, humanReadableEndpointName, isHumanReadablePlaceName } from "./placeLabels";
 import type { GraphNode } from "./types";
@@ -63,4 +64,11 @@ describe("human-readable endpoint names", () => {
       expect(label).not.toMatch(/^\d{6,}$/);
     }
   }, 15_000);
+
+  it("boots at the named SNFL entrance rather than snapping to the old neighborhood", () => {
+    const node = graphNodeById(defaultOrigin);
+    expect(node).toBeDefined();
+    expect(defaultOriginLabel).toBe("Stavros Niarchos Foundation Library (SNFL)");
+    expect(graphCoordinateDistanceMeters(supportedArea.defaultJourney.origin, node!.coordinate)).toBeLessThan(30);
+  });
 });

@@ -19,10 +19,10 @@ afterEach(async () => {
 });
 
 async function fixtureServer(overrides: Partial<ProductionServerOptions> = {}) {
-  const staticDir = await mkdtemp(join(tmpdir(), "happy-path-production-"));
+  const staticDir = await mkdtemp(join(tmpdir(), "footnote-production-"));
   temporaryDirectories.push(staticDir);
   await mkdir(join(staticDir, "assets"));
-  await writeFile(join(staticDir, "index.html"), "<!doctype html><main>Happy Path</main>");
+  await writeFile(join(staticDir, "index.html"), "<!doctype html><main>Footnote</main>");
   await writeFile(join(staticDir, "assets", "app-testhash.js"), "console.log('ready');".repeat(100));
   const server = createProductionServer({
     host: "127.0.0.1",
@@ -43,11 +43,11 @@ async function fixtureServer(overrides: Partial<ProductionServerOptions> = {}) {
 
 describe("production configuration", () => {
   it("loads safe VM defaults and keeps the model key server-only", () => {
-    const config = loadProductionConfig({ OPENROUTER_API_KEY: " secret ", BUILD_SHA: "abc123" }, "/srv/happy-path");
+    const config = loadProductionConfig({ OPENROUTER_API_KEY: " secret ", BUILD_SHA: "abc123" }, "/srv/footnote");
     expect(config).toMatchObject({
       host: "0.0.0.0",
       port: 3000,
-      staticDir: "/srv/happy-path/dist",
+      staticDir: "/srv/footnote/dist",
       buildSha: "abc123",
       apiRateLimitPerMinute: 30,
       trustProxy: false,
@@ -67,7 +67,7 @@ describe("production server", () => {
     const health = await fetch(`${origin}/healthz`);
     expect(await health.json()).toEqual({
       status: "ok",
-      service: "happy-path",
+      service: "footnote",
       build: "test-sha",
       model: { configured: false, name: "openai/gpt-5.6-luna" },
     });
@@ -82,12 +82,12 @@ describe("production server", () => {
     expect(uncompressedAsset.headers.get("vary")).toBe("Accept-Encoding");
 
     const spaRoute = await fetch(`${origin}/a/future/client-route`);
-    expect(await spaRoute.text()).toContain("Happy Path");
+    expect(await spaRoute.text()).toContain("Footnote");
     expect(spaRoute.headers.get("cache-control")).toBe("no-cache");
 
     const dataSourcesRoute = await fetch(`${origin}/datasources`);
     expect(dataSourcesRoute.status).toBe(200);
-    expect(await dataSourcesRoute.text()).toContain("Happy Path");
+    expect(await dataSourcesRoute.text()).toContain("Footnote");
     expect(dataSourcesRoute.headers.get("cache-control")).toBe("no-cache");
   });
 
@@ -106,7 +106,7 @@ describe("production server", () => {
   });
 
   it("fails readiness before startup when the static build is absent", async () => {
-    const staticDir = await mkdtemp(join(tmpdir(), "happy-path-missing-build-"));
+    const staticDir = await mkdtemp(join(tmpdir(), "footnote-missing-build-"));
     temporaryDirectories.push(staticDir);
     await expect(assertStaticBuild(staticDir)).rejects.toThrow(/npm run build/);
   });

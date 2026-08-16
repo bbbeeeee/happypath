@@ -78,10 +78,10 @@ function capabilityStatus(source: SourceRegistryEntry): SourceCapabilityStatus {
   return source.last_successful_ingest ? "ingested" : "reference_only";
 }
 
-function availabilityLabel(status: SourceCapabilityStatus): string {
+function availabilityLabel(source: SourceRegistryEntry, status: SourceCapabilityStatus): string {
   if (status === "ingested") return "Included in this preview";
   if (status === "derived") return "Estimated for this preview";
-  if (status === "live_service") return "Used when you submit an address";
+  if (status === "live_service") return source.asset_type === "live_context" ? "Live context in this preview" : "Used when you submit an address";
   if (status === "live_reference") return "Live city link · opens separately";
   return "City source · not used in this path";
 }
@@ -126,7 +126,7 @@ export function sourceRegistryPresentation(sourceId: string): SourceRegistryPres
     officialUrl: source.canonical_url || source.dataset_url,
     downloadUrl: source.download_url || null,
     capabilityStatus: status,
-    availabilityLabel: availabilityLabel(status),
+    availabilityLabel: availabilityLabel(source, status),
     freshnessLabel: freshnessLabel(source),
     coverageLabel: coverageLabel(source),
     geometryLabel: source.geometry_type,

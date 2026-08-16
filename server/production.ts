@@ -10,6 +10,7 @@ import {
   DEFAULT_OPENROUTER_MODEL,
   type OpenRouterConfig,
 } from "./interpret.ts";
+import { createWeatherMiddleware } from "./weather.ts";
 
 const DEFAULT_PORT = 3000;
 const DEFAULT_RATE_LIMIT = 30;
@@ -214,6 +215,7 @@ async function serveStatic(request: IncomingMessage, response: ServerResponse, s
 export function createProductionServer(options: ProductionServerOptions): Server {
   const interpret = createInterpretMiddleware(options.openRouter);
   const insights = createRouteCityInsightMiddleware(options.openRouter);
+  const weather = createWeatherMiddleware({ now: options.now });
   const rateLimit = createRateLimiter(
     options.apiRateLimitPerMinute,
     options.trustProxy,
@@ -239,13 +241,18 @@ export function createProductionServer(options: ProductionServerOptions): Server
         }
         sendJson(request, response, 200, {
           status: pathname === "/readyz" ? "ready" : "ok",
-          service: "happy-path",
+          service: "footnote",
           build: options.buildSha,
           model: {
             configured: Boolean(options.openRouter.apiKey),
             name: options.openRouter.model || DEFAULT_OPENROUTER_MODEL,
           },
         });
+        return;
+      }
+
+      if (pathname === "/api/weather") {
+        await weather(request, response);
         return;
       }
 
@@ -270,7 +277,7 @@ export function createProductionServer(options: ProductionServerOptions): Server
       await serveStatic(request, response, options.staticDir, pathname);
     } catch {
       if (!response.headersSent) {
-        sendJson(request, response, 500, { error: { code: "INTERNAL_ERROR", message: "Happy Path could not complete this request." } });
+        sendJson(request, response, 500, { error: { code: "INTERNAL_ERROR", message: "Footnote could not complete this request." } });
       } else {
         response.destroy();
       }
@@ -298,7 +305,7 @@ export async function startProductionServer(config = loadProductionConfig()) {
   });
   const address = server.address();
   const boundPort = typeof address === "object" && address ? address.port : config.port;
-  console.log(`Happy Path listening on http://${config.host}:${boundPort}`);
+  console.log(`Footnote listening on http://${config.host}:${boundPort}`);
 
   const close = (signal: NodeJS.Signals) => {
     console.log(`${signal} received; finishing active requests.`);
@@ -314,7 +321,7 @@ export async function startProductionServer(config = loadProductionConfig()) {
 const entryPath = process.argv[1] ? pathToFileURL(resolve(process.argv[1])).href : "";
 if (entryPath === import.meta.url) {
   startProductionServer().catch((error) => {
-    console.error(error instanceof Error ? error.message : "Happy Path could not start.");
+    console.error(error instanceof Error ? error.message : "Footnote could not start.");
     process.exitCode = 1;
   });
 }

@@ -17,7 +17,7 @@ People can leave lightweight feedback on a mapped route, and the City what-if vi
 
 ## Why this package exists
 
-Happy Path currently connects one resident route to planning evidence, but it does not retain the route or the resident's lived observation. This package closes that loop while keeping the prototype private, reversible, and simple enough to replace with account-backed storage later.
+Footnote currently connects one resident route to planning evidence, but it does not retain the route or the resident's lived observation. This package closes that loop while keeping the prototype private, reversible, and simple enough to replace with account-backed storage later.
 
 ## Inputs and dependencies
 

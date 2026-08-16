@@ -35,15 +35,21 @@ describe("map layer catalog", () => {
   it("keeps exact mapped cover separate from nearby contextual records", () => {
     expect(getMapLayerDefinition("mapped_cover")).toMatchObject({
       label: "Cover evidence",
-      sourceIds: ["openstreetmap", "nyc-sidewalk-shed-permits", "nyc-pops", "nyc-street-construction-closures"],
+      sourceIds: ["openstreetmap", "nyc-pops"],
       capabilities: { routePreference: true, plannerEvidence: true, selectableFeatures: true },
     });
     expect(getMapLayerDefinition("mapped_cover").evidenceBoundary).toMatch(/only explicit path-aligned map tags affect routing/i);
     expect(getMapLayerDefinition("mapped_cover").evidenceBoundary).toMatch(/awnings are not inferred/i);
     expect(sourceCanAffectRoutes("mapped_cover", "openstreetmap")).toBe(true);
-    expect(sourceCanAffectRoutes("mapped_cover", "nyc-sidewalk-shed-permits")).toBe(false);
     expect(sourceCanAffectRoutes("mapped_cover", "nyc-pops")).toBe(false);
-    expect(sourceCanAffectRoutes("mapped_cover", "nyc-street-construction-closures")).toBe(false);
+  });
+
+  it("keeps access, street work, and cool options display-only", () => {
+    expect(getMapLayerDefinition("access_context").capabilities.routePreference).toBe(false);
+    expect(getMapLayerDefinition("access_context").evidenceBoundary).toMatch(/do not establish.*accessible/i);
+    expect(getMapLayerDefinition("street_work").evidenceBoundary).toMatch(/possible disruption/i);
+    expect(getMapLayerDefinition("cool_options").capabilities.routeEndCondition).toBe(false);
+    expect(sourceCanAffectRoutes("cool_options", "nyc-cool-options")).toBe(false);
   });
 
   it("exposes route-affecting greenery as continuous map evidence", () => {

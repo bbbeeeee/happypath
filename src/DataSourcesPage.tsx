@@ -28,35 +28,37 @@ const humanNeeds: readonly {
   role: DataSourceProductRole;
   icon: IconComponent;
 }[] = [
-  { label: "Move through the city", evidence: "Pedestrian streets, distance, and time", boundary: "The base for every route", role: "route", icon: RouteIcon },
-  { label: "Avoid mapped stairs", evidence: "Community-mapped step segments", boundary: "Not a verified step-free journey", role: "route", icon: StairsIcon },
-  { label: "Find shade, reduce sun", evidence: "Buildings + hourly shadow model", boundary: "Sun exposure, not temperature", role: "route", icon: SunIcon },
-  { label: "Choose greener streets", evidence: "Trees + park-edge proximity", boundary: "A proximity signal, not measured canopy", role: "route", icon: LeafIcon },
-  { label: "Rest, refill, or find a restroom", evidence: "Official amenity inventories", boundary: "Current operation may differ", role: "route", icon: BenchIcon },
-  { label: "Finish near transportation", evidence: "Mapped subway entrances and exits", boundary: "No live service or elevator state", role: "route", icon: TrainIcon },
-  { label: "Find cover from rain", evidence: "Explicit covered paths + nearby records", boundary: "Only mapped path geometry shapes routes", role: "route", icon: UmbrellaIcon },
-  { label: "Understand flood potential", evidence: "DEP 2050 stormwater scenario", boundary: "Planning context, never live route safety", role: "context", icon: CloudRainIcon },
-  { label: "Understand heat & temperature", evidence: "Shade is the proxy available today", boundary: "Weather and thermal data are still a gap", role: "future", icon: SunIcon },
+  { label: "Get where you’re going", evidence: "Walkable streets, distance, and travel time", boundary: "Used for every route", role: "route", icon: RouteIcon },
+  { label: "Avoid mapped stairs", evidence: "Stairs marked in OpenStreetMap", boundary: "Other barriers may not be mapped", role: "route", icon: StairsIcon },
+  { label: "Stay out of direct sun", evidence: "Buildings and estimated shade by hour", boundary: "Shows sun exposure, not heat", role: "route", icon: SunIcon },
+  { label: "Walk on greener streets", evidence: "Nearby trees and park edges", boundary: "Shows what is nearby, not canopy coverage", role: "route", icon: LeafIcon },
+  { label: "Plan for seating, water, or restrooms", evidence: "City listings for public amenities", boundary: "Some may be closed or unavailable", role: "route", icon: BenchIcon },
+  { label: "Connect to the subway", evidence: "Mapped subway entrances and exits", boundary: "Check live service and elevator status", role: "route", icon: TrainIcon },
+  { label: "Look for rain cover", evidence: "Covered walkways mapped in OpenStreetMap", boundary: "Unmapped cover may exist", role: "route", icon: UmbrellaIcon },
+  { label: "Check long-term flood risk", evidence: "DEP’s 2050 stormwater model", boundary: "Planning context only—not current flooding", role: "context", icon: CloudRainIcon },
+  { label: "Plan for heat and weather", evidence: "NWS forecast and hourly shade estimates", boundary: "Representative weather—not block temperature", role: "context", icon: SunIcon },
+  { label: "See mobility evidence", evidence: "Ramp corners, crossing signals, phases, and elevators", boundary: "Records do not certify a continuous path", role: "context", icon: StairsIcon },
+  { label: "Find a place to cool down", evidence: "NYC Cool Options finder feed", boundary: "Verify activation, hours, and access", role: "context", icon: DropletIcon },
 ];
 
 const gaps = [
-  { title: "Verified step-free movement", copy: "Connect audited curb ramps, crossing signals, sidewalk slope and width, elevators, and temporary obstructions into a continuous network." },
-  { title: "Heat and weather now", copy: "Add temperature, humidity, heat index, cloud, and street-level thermal observations. Shade should stay distinct from measured heat." },
-  { title: "Live rain and flooding", copy: "Pair forecasts and official alerts with trusted current-condition reporting while keeping the 2050 planning model separate." },
-  { title: "Live transportation", copy: "Bring in service changes, elevator and escalator outages, entrance state, and verified accessibility—not just static entrance points." },
-  { title: "Real entrances and operating state", copy: "Resolve walking-network access to parks, POPS, amenities, and transit, then verify hours, closures, and current operation." },
-  { title: "More of what people feel", copy: "Explore air quality, noise, crowding, lighting, sidewalk condition, cooling infrastructure, waterfront access, and time-bounded public life." },
+  { title: "Continuous step-free routes", copy: "The map now connects ramp, signal, crossing-phase, elevator, and obstruction records as visible evidence. Sidewalk-side and crossing-arm topology are still needed to expose unknown gaps without certifying accessibility." },
+  { title: "Street-level heat", copy: "The NWS forecast adds current representative weather while shade stays separate. Hyperlocal thermal observations and heat-vulnerability context still need careful spatial joins." },
+  { title: "Rain and flooding", copy: "Add forecasts and official alerts alongside the long-term flood map, so people can check conditions before leaving." },
+  { title: "Live transit access", copy: "Join the mapped elevator inventory to minute-level outage and service feeds, then resolve the ordered street-to-platform path." },
+  { title: "Clear width and grade", copy: "Sidewalk polygons do not provide unobstructed clear width, and terrain elevation cannot establish cross-slope. Both need a sidewalk-side network and defensible field evidence." },
+  { title: "Street safety and comfort", copy: "Add lighting, crash risk, sidewalk conditions, air quality, noise, crowds, cooling spots, and waterfront access." },
 ] as const;
 
 const roleLabels: Record<DataSourceProductRole, string> = {
-  route: "Shapes routes",
-  context: "Context only",
-  lookup: "Finds places",
-  future: "On our radar",
+  route: "Can shape routes",
+  context: "For context",
+  lookup: "Finds locations",
+  future: "Future addition",
 };
 
 function BrandLink() {
-  return <a className="datasources-brand" href="/" aria-label="Happy Path home"><span className="brand-mark"><span /></span><span><strong>Happy Path</strong><small>Data sources</small></span></a>;
+  return <a className="datasources-brand" href="/" aria-label="Footnote home"><span><strong>Footnote<sup>1</sup></strong><small>Data sources</small></span></a>;
 }
 
 function RolePill({ role }: { role: DataSourceProductRole }) {
@@ -77,7 +79,7 @@ function SourceLedger({ title, description, sources }: { title: string; descript
         <div className="source-ledger-detail">
           <p><strong>Coverage</strong>{source.presentation.coverageLabel}</p>
           <p><strong>Freshness</strong>{source.presentation.freshnessLabel}</p>
-          <p><strong>Boundary</strong>{source.presentation.claimBoundary}</p>
+          <p><strong>What to know</strong>{source.presentation.claimBoundary}</p>
           <a href={source.presentation.officialUrl} target="_blank" rel="noreferrer">Open source <ExternalLinkIcon /></a>
         </div>
       </details>)}
@@ -100,33 +102,33 @@ export function DataSourcesPage() {
 
     <section className="datasources-hero">
       <div className="datasources-hero-copy">
-        <span className="eyebrow">The evidence behind Happy Path</span>
-        <h1>A city, read in layers.</h1>
-        <p>Happy Path combines streets, buildings, trees, public amenities, transit, and climate context to route around what matters to a person—not just what is shortest.</p>
-        <div className="datasources-scope"><span>Current pilot</span><strong>Manhattan · Battery to 60th Street</strong></div>
+        <span className="eyebrow">Why these data sources matter</span>
+        <h1>Plan around more than distance.</h1>
+        <p>Footnote uses city and map data to help people avoid mapped stairs, find shade and greener streets, plan for restrooms or seating, connect to transit, and check rain or flood context—not just take the shortest path.</p>
+        <div className="datasources-scope"><span>Available now</span><strong>Manhattan · Battery to 60th Street</strong></div>
       </div>
 
-      <div className="source-stack-visual" aria-label={`${summary.total} registered sources and methods`}>
+      <div className="source-stack-visual" aria-label={`${summary.total} data sources and methods`}>
         <div className="source-stack-route"><span className="route-node" /><i /><i /><i /><i /><span className="route-node route-node-end" /></div>
-        <div className="source-stack-layer layer-streets"><span>Streets</span><small>walk · stairs · cover</small></div>
-        <div className="source-stack-layer layer-climate"><span>Climate</span><small>shade · flood context</small></div>
-        <div className="source-stack-layer layer-nature"><span>Nature</span><small>trees · parks</small></div>
-        <div className="source-stack-layer layer-people"><span>Human needs</span><small>rest · water · transit</small></div>
+        <div className="source-stack-layer layer-streets"><span>Access</span><small>ramps · signals · lifts</small></div>
+        <div className="source-stack-layer layer-climate"><span>Comfort</span><small>weather · shade · flood</small></div>
+        <div className="source-stack-layer layer-nature"><span>Enjoyment</span><small>trees · parks</small></div>
+        <div className="source-stack-layer layer-people"><span>Daily needs</span><small>rest · water · transit · cooling</small></div>
       </div>
 
       <div className="source-counts" aria-label="Source audit summary">
-        <div><strong>{summary.total}</strong><span>registered sources<br />and methods</span></div>
-        <div><strong>{summary.current}</strong><span>active upstream<br />inputs</span></div>
-        <div><strong>{summary.derived}</strong><span>derived by<br />Happy Path</span></div>
-        <div><strong>{summary.future}</strong><span>cataloged next<br />integrations</span></div>
+        <div><strong>{summary.total}</strong><span>data sources<br />and methods</span></div>
+        <div><strong>{summary.current}</strong><span>sources used<br />now</span></div>
+        <div><strong>{summary.derived}</strong><span>Footnote<br />estimates</span></div>
+        <div><strong>{summary.future}</strong><span>sources for<br />later</span></div>
       </div>
       <div className="source-count-bar" aria-hidden="true"><span className="count-current" /><span className="count-derived" /><span className="count-future" /></div>
     </section>
 
     <section className="datasources-section human-evidence-section">
-      <header className="section-heading"><span className="eyebrow">Human-scale routing</span><h2>What the data helps us see</h2><p>Each layer answers a different human question. The label at right shows whether it can change a route today.</p></header>
+      <header className="section-heading"><span className="eyebrow">What Footnote helps with</span><h2>Choose a walk that works better for you</h2><p>Each source supports a real need. The label shows whether it can change your route today or only add context.</p></header>
       <div className="human-evidence-matrix" role="table" aria-label="Human needs and available evidence">
-        <div className="matrix-head" role="row"><span role="columnheader">Human need</span><span role="columnheader">Evidence today</span><span role="columnheader">Role</span></div>
+        <div className="matrix-head" role="row"><span role="columnheader">What you need</span><span role="columnheader">What we use</span><span role="columnheader">How it helps</span></div>
         {humanNeeds.map((need) => {
           const NeedIcon = need.icon;
           return <div className="matrix-row" role="row" key={need.label}>
@@ -139,36 +141,36 @@ export function DataSourcesPage() {
     </section>
 
     <section className="datasources-section method-section">
-      <header className="section-heading"><span className="eyebrow">From record to route</span><h2>Public data in. Inspectable choices out.</h2><p>Only bounded, route-ready evidence is allowed to influence the path. Missing data stays unknown—it never becomes a favorable score.</p></header>
+      <header className="section-heading"><span className="eyebrow">How it works</span><h2>From city data to a route</h2><p>We only use data that can support a route choice. When the data does not tell us something, we say so.</p></header>
       <div className="method-flow" aria-label="Data processing flow">
-        <article><span>01</span><strong>Collect</strong><p>Official City and MTA records, OpenStreetMap, and explicit address lookup.</p></article>
+        <article><span>01</span><strong>Collect</strong><p>Gather City and MTA data, OpenStreetMap, and the address you enter.</p></article>
         <i aria-hidden="true" />
-        <article><span>02</span><strong>Connect</strong><p>Normalize geometry, attach evidence to walkable edges, and derive shade or greenery.</p></article>
+        <article><span>02</span><strong>Connect</strong><p>Match shade, greenery, amenities, and other useful information to walkable streets.</p></article>
         <i aria-hidden="true" />
-        <article><span>03</span><strong>Route &amp; explain</strong><p>Honor hard constraints, rank valid choices, and keep source boundaries visible.</p></article>
+        <article><span>03</span><strong>Plan &amp; explain</strong><p>Compare valid routes, follow your preferences, and show what shaped the result.</p></article>
       </div>
-      <aside className="method-note"><strong>AI interprets the request. Deterministic code computes the path.</strong><span>The language layer cannot invent geometry, city facts, route distance, or accessibility evidence.</span></aside>
+      <aside className="method-note"><strong>AI helps understand what you ask for. The route itself is calculated from the map and source data.</strong><span>It cannot make up streets, distances, accessibility details, or other city facts.</span></aside>
     </section>
 
     <section className="datasources-section all-sources-section">
-      <header className="section-heading"><span className="eyebrow">Full audit</span><h2>Every source we use today</h2><p>The ledger distinguishes upstream evidence from Happy Path’s own derived signals. Open any row for coverage, freshness, and the most important claim boundary.</p></header>
-      <SourceLedger title="Active upstream inputs" description="Official or open records used in the walking experience—some shape routes; others remain map context or address lookup." sources={currentSources} />
-      <SourceLedger title="Derived by Happy Path" description="Transparent calculations and demo fixtures built from upstream evidence. These are methods, not independent observations of the street." sources={derivedSources} />
+      <header className="section-heading"><span className="eyebrow">Sources in use</span><h2>Where the route data comes from</h2><p>Open any source to see where it covers, when it was updated, and what it cannot tell us.</p></header>
+      <SourceLedger title="City and open data" description="Public sources we use to plan routes, find places, or add helpful map context." sources={currentSources} />
+      <SourceLedger title="Footnote calculations" description="Estimates we calculate from source data, such as shade and greenery. They describe the map, not current street conditions." sources={derivedSources} />
 
       <div className="supporting-services">
-        <header><span className="eyebrow">Not counted as route evidence</span><h3>Supporting services</h3></header>
-        <a href="https://carto.com/basemaps" target="_blank" rel="noreferrer"><span><strong>CARTO Positron</strong><small>Visual basemap tiles only. It does not determine the route.</small></span><ExternalLinkIcon /></a>
-        <a href="https://openrouter.ai/" target="_blank" rel="noreferrer"><span><strong>OpenRouter</strong><small>Optional request interpretation. It cannot create geometry or route facts.</small></span><ExternalLinkIcon /></a>
+        <header><span className="eyebrow">Supporting services</span><h3>Other tools we use</h3></header>
+        <a href="https://carto.com/basemaps" target="_blank" rel="noreferrer"><span><strong>CARTO Positron</strong><small>Provides the background map. It does not choose the route.</small></span><ExternalLinkIcon /></a>
+        <a href="https://openrouter.ai/" target="_blank" rel="noreferrer"><span><strong>OpenRouter</strong><small>Helps understand a written request. It does not create the route or city facts.</small></span><ExternalLinkIcon /></a>
       </div>
     </section>
 
     <section className="datasources-future">
-      <div className="future-intro"><span className="eyebrow">Where the map grows next</span><h2>Useful gaps, honestly named.</h2><p>The breadth is real, but so are the limits. The next integrations focus on continuity, freshness, and conditions that people actually feel.</p></div>
+      <div className="future-intro"><span className="eyebrow">Future additions</span><h2>More needs Footnote could plan for</h2><p>There are many useful city datasets we have not added yet. Adding them could help more people plan around accessibility, safety, comfort, and enjoyment as conditions change.</p></div>
       <div className="future-gaps">
         {gaps.map((gap, index) => <article key={gap.title}><span>{String(index + 1).padStart(2, "0")}</span><div><h3>{gap.title}</h3><p>{gap.copy}</p></div></article>)}
       </div>
-      <SourceLedger title="Already cataloged for next" description="These official sources are registered and researched, but they do not calculate today’s routes." sources={futureSources} />
-      <footer className="datasources-footer"><span><DropletIcon />Evidence is refreshed deliberately, not continuously.</span><p>An inventory or model can guide a route without guaranteeing current street conditions, access, comfort, or safety.</p><a href="/">Return to Happy Path <RouteIcon /></a></footer>
+      <SourceLedger title="Datasets we’re considering" description="We have reviewed these City sources, but they do not affect routes yet." sources={futureSources} />
+      <footer className="datasources-footer"><span><DropletIcon />Data does not update in real time.</span><p>Check current conditions before you go. A dataset or model cannot guarantee that a place is open, comfortable, accessible, or safe.</p><a href="/">Plan another walk <RouteIcon /></a></footer>
     </section>
   </main>;
 }

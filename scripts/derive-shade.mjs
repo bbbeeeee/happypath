@@ -167,7 +167,7 @@ const registry = JSON.parse(await readFile(registryUrl, "utf8"));
 const otherSources = registry.sources.filter((source) => source.source_id !== "building-shadow-model");
 otherSources.push({
   source_id: "building-shadow-model",
-  publisher: "Happy Path",
+  publisher: "Footnote",
   dataset_name: "Pilot projected building shadows",
   dataset_url: "https://data.cityofnewyork.us/d/5zhs-2jue",
   canonical_url: "https://data.cityofnewyork.us/d/5zhs-2jue",

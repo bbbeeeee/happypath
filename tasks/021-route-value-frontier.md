@@ -20,7 +20,7 @@ The route result immediately answers **“What did the extra time buy?”** and 
 - [ ] Select the smallest detour that captures most of the available requested benefit when evidence supports that claim.
 - [ ] Lead the receipt with one primary gain, one cost, and retained hard requirements.
 - [ ] Pair the recommendation with a subdued baseline mini-receipt.
-- [ ] Make baseline geometry and legend visually distinct without competing with the Happy Path.
+- [ ] Make baseline geometry and legend visually distinct without competing with the Footnote.
 - [ ] Highlight the route segments responsible for the main delta.
 - [ ] Keep sources, method, freshness, and caveats in one consistent deeper disclosure.
 - [ ] Define no-meaningful-alternative behavior that recommends the direct route honestly.

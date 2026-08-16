@@ -13,7 +13,7 @@ last_updated: 2026-08-15
 
 ## Outcome
 
-Happy Path becomes one reliable P1 product whose real data, journeys, AI interpretation, map presentation, copy, evidence, licensing, privacy, and mobile performance work together from a clean session.
+Footnote becomes one reliable P1 product whose real data, journeys, AI interpretation, map presentation, copy, evidence, licensing, privacy, and mobile performance work together from a clean session.
 
 ## Why this package exists
 
