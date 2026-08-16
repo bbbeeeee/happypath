@@ -131,6 +131,7 @@
       "asset_type": "api",
       "authority": "official",
       "access_method": "realtime_api",
+      "capability_status": "live_service",
       "format": "Pelias GeoJSON",
       "terms_url": "https://www.nyc.gov/home/terms-of-use.page",
       "attribution": "NYC Department of City Planning",

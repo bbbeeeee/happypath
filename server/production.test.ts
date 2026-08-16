@@ -84,6 +84,11 @@ describe("production server", () => {
     const spaRoute = await fetch(`${origin}/a/future/client-route`);
     expect(await spaRoute.text()).toContain("Happy Path");
     expect(spaRoute.headers.get("cache-control")).toBe("no-cache");
+
+    const dataSourcesRoute = await fetch(`${origin}/datasources`);
+    expect(dataSourcesRoute.status).toBe(200);
+    expect(await dataSourcesRoute.text()).toContain("Happy Path");
+    expect(dataSourcesRoute.headers.get("cache-control")).toBe("no-cache");
   });
 
   it("rate-limits only the bounded model API surface", async () => {

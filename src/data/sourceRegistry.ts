@@ -1,7 +1,7 @@
 import registryJson from "./source-registry.json";
 import { supportedArea } from "./supportedArea";
 
-export type SourceCapabilityStatus = "ingested" | "derived" | "reference_only" | "live_reference";
+export type SourceCapabilityStatus = "ingested" | "derived" | "reference_only" | "live_reference" | "live_service";
 export type SourceValidationStatus = "pending" | "cataloged" | "pilot_ingested" | "pilot_context_only";
 
 export interface SourceScenario {
@@ -81,6 +81,7 @@ function capabilityStatus(source: SourceRegistryEntry): SourceCapabilityStatus {
 function availabilityLabel(status: SourceCapabilityStatus): string {
   if (status === "ingested") return "Included in this preview";
   if (status === "derived") return "Estimated for this preview";
+  if (status === "live_service") return "Used when you submit an address";
   if (status === "live_reference") return "Live city link · opens separately";
   return "City source · not used in this path";
 }

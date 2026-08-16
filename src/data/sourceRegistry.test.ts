@@ -46,6 +46,13 @@ describe("source registry presentation", () => {
     });
   });
 
+  it("labels submitted address lookup as an active live service", () => {
+    expect(sourceRegistryPresentation("nyc-planning-geosearch")).toMatchObject({
+      capabilityStatus: "live_service",
+      availabilityLabel: "Used when you submit an address",
+    });
+  });
+
   it("uses current DOB NOW shed candidates without turning points into mapped cover", () => {
     const source = getSourceRegistryEntry("nyc-sidewalk-shed-permits");
     expect(source).toMatchObject({ dataset_id: "rbx6-tga4", capability_status: "ingested" });
