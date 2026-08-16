@@ -1,0 +1,503 @@
+{
+  "sources": [
+    {
+      "source_id": "openstreetmap",
+      "publisher": "OpenStreetMap contributors",
+      "dataset_name": "OpenStreetMap cropped pilot snapshot",
+      "dataset_url": "https://www.openstreetmap.org/export",
+      "canonical_url": "https://www.openstreetmap.org/copyright",
+      "dataset_id": null,
+      "asset_type": "dataset",
+      "authority": "community",
+      "access_method": "bulk_download",
+      "format": "Overpass JSON",
+      "terms_url": "https://www.openstreetmap.org/copyright",
+      "attribution": "© OpenStreetMap contributors",
+      "refresh_target": "deliberate pilot refresh",
+      "source_updated_at": null,
+      "retrieved_at": "2026-08-16T02:59:23.588Z",
+      "last_successful_ingest": "2026-08-16T02:59:23.588Z",
+      "snapshot_hash": "sha256:3a7d6f3904fff65a52c832c089bbad0a226f6ed56a69fa4fb487d78ca51aef1f",
+      "geometry_type": "ways, nodes, and edge LineStrings",
+      "source_crs": "EPSG:4326",
+      "pilot_bbox": {
+        "south": 40.726,
+        "west": -74.006,
+        "north": 40.736,
+        "east": -73.988
+      },
+      "pilot_coverage": 0.9935783879539415,
+      "derived_from": [],
+      "method_version": "osm-pedestrian-graph-v2",
+      "known_limitations": [
+        "Mapped access and crossing completeness varies",
+        "Snapshot is not proof of legal completeness or step-free access",
+        "Turn restrictions are not yet modeled",
+        "Edge geometry preserves mapped OSM shape nodes but does not establish sidewalk-side topology"
+      ],
+      "allowed_claims": [
+        "Uses mapped pedestrian ways",
+        "Avoids mapped steps when the hard constraint is enabled"
+      ],
+      "prohibited_claims": [
+        "Legally complete",
+        "Accessible",
+        "Guaranteed step-free"
+      ],
+      "validation_status": "pending"
+    },
+    {
+      "source_id": "nyc-planning-geosearch",
+      "publisher": "NYC Department of City Planning",
+      "dataset_name": "NYC GeoSearch",
+      "dataset_url": "https://geosearch.planninglabs.nyc/",
+      "canonical_url": "https://geosearch.planninglabs.nyc/",
+      "dataset_id": null,
+      "asset_type": "api",
+      "authority": "official",
+      "access_method": "realtime_api",
+      "format": "Pelias GeoJSON",
+      "terms_url": "https://www.nyc.gov/home/terms-of-use.page",
+      "attribution": "NYC Department of City Planning",
+      "refresh_target": "on explicit address submission",
+      "source_updated_at": null,
+      "retrieved_at": "2026-08-15T20:30:00.000Z",
+      "last_successful_ingest": null,
+      "snapshot_hash": null,
+      "geometry_type": "Point",
+      "source_crs": "EPSG:4326",
+      "pilot_bbox": null,
+      "pilot_coverage": null,
+      "derived_from": [],
+      "method_version": "nyc-geosearch-submit-v1",
+      "known_limitations": [
+        "Search result must be inside the pilot",
+        "Result is snapped to the nearest routable graph node",
+        "Queries are sent only after explicit submission"
+      ],
+      "allowed_claims": [
+        "Address search result from NYC Planning GeoSearch"
+      ],
+      "prohibited_claims": [
+        "Exact building entrance",
+        "Exact routing origin without snapping"
+      ],
+      "validation_status": "pending"
+    },
+    {
+      "source_id": "nyc-building-footprints",
+      "publisher": "NYC Office of Technology and Innovation",
+      "dataset_name": "BUILDING",
+      "dataset_url": "https://data.cityofnewyork.us/d/5zhs-2jue",
+      "canonical_url": "https://data.cityofnewyork.us/City-Government/BUILDING/5zhs-2jue",
+      "dataset_id": "5zhs-2jue",
+      "asset_type": "dataset",
+      "authority": "official",
+      "access_method": "socrata_api",
+      "format": "GeoJSON",
+      "terms_url": "https://opendata.cityofnewyork.us/overview/#termsofuse",
+      "attribution": "NYC OpenData",
+      "refresh_target": "deliberate pilot refresh",
+      "source_updated_at": "2026-07-01T20:14:27.000Z",
+      "retrieved_at": "2026-08-15T20:24:35.682Z",
+      "last_successful_ingest": "2026-08-15T20:24:35.682Z",
+      "snapshot_hash": "sha256:1f5bad11b81859d237b537299f9a495a4a7c47078e40ab1dbc91d1242a1ac7f9",
+      "geometry_type": "MultiPolygon",
+      "source_crs": "EPSG:4326",
+      "pilot_bbox": {
+        "south": 40.726,
+        "west": -74.006,
+        "north": 40.736,
+        "east": -73.988
+      },
+      "pilot_coverage": 1,
+      "derived_from": [],
+      "method_version": "nyc-building-crop-v1",
+      "known_limitations": [
+        "Roof heights may be missing, zero, anomalous, or stale",
+        "Building geometry does not measure sidewalk temperature"
+      ],
+      "allowed_claims": [
+        "Estimated building shade after shadow-model validation"
+      ],
+      "prohibited_claims": [
+        "Measured temperature",
+        "Guaranteed shade",
+        "Cooler street"
+      ],
+      "validation_status": "pending"
+    },
+    {
+      "source_id": "nyc-dot-seating",
+      "publisher": "NYC Department of Transportation",
+      "dataset_name": "Seating Locations",
+      "dataset_url": "https://data.cityofnewyork.us/d/esmy-s8q5",
+      "canonical_url": "https://data.cityofnewyork.us/d/esmy-s8q5",
+      "dataset_id": "esmy-s8q5",
+      "asset_type": "dataset",
+      "authority": "official",
+      "access_method": "socrata_api",
+      "format": "JSON",
+      "terms_url": "https://opendata.cityofnewyork.us/overview/#termsofuse",
+      "attribution": "NYC Department of Transportation",
+      "refresh_target": "Monthly",
+      "source_updated_at": "2026-08-07T20:34:41.000Z",
+      "retrieved_at": "2026-08-16T02:56:49.709Z",
+      "last_successful_ingest": "2026-08-16T02:56:49.709Z",
+      "snapshot_hash": "sha256:8ba92540717a08f6cda0b920dc2ac334734b929e2154e83c91709c798ac56189",
+      "geometry_type": "Point",
+      "source_crs": "EPSG:4326",
+      "pilot_bbox": {
+        "south": 40.726,
+        "west": -74.006,
+        "north": 40.736,
+        "east": -73.988
+      },
+      "pilot_coverage": null,
+      "pilot_record_count": 27,
+      "derived_from": [],
+      "method_version": "civic-asset-normalization-v1",
+      "capability_status": "ingested",
+      "current_operation_verified": false,
+      "known_limitations": [
+        "The inventory has no current operational field",
+        "A mapped installation does not prove the seat is still present or usable"
+      ],
+      "allowed_claims": [
+        "Mapped NYC DOT seating location",
+        "Published installation date and seating type when supplied"
+      ],
+      "prohibited_claims": [
+        "Seat is present, usable, or available now",
+        "Complete seating coverage",
+        "Accessible seating"
+      ],
+      "validation_status": "pending"
+    },
+    {
+      "source_id": "nyc-public-restrooms",
+      "publisher": "NYC Mayor's Office of Operations",
+      "dataset_name": "Public Restrooms",
+      "dataset_url": "https://data.cityofnewyork.us/d/i7jb-7jku",
+      "canonical_url": "https://data.cityofnewyork.us/d/i7jb-7jku",
+      "dataset_id": "i7jb-7jku",
+      "asset_type": "dataset",
+      "authority": "official",
+      "access_method": "socrata_api",
+      "format": "JSON",
+      "terms_url": "https://opendata.cityofnewyork.us/overview/#termsofuse",
+      "attribution": "NYC Mayor's Office of Operations",
+      "refresh_target": "As needed",
+      "source_updated_at": "2025-06-27T13:37:10.000Z",
+      "retrieved_at": "2026-08-16T02:56:49.709Z",
+      "last_successful_ingest": "2026-08-16T02:56:49.709Z",
+      "snapshot_hash": "sha256:3d7ed9266a6d11c61abbe97411a1bd085bae7871cde460aacacb603c598fb1ff",
+      "geometry_type": "Point",
+      "source_crs": "EPSG:4326",
+      "pilot_bbox": {
+        "south": 40.726,
+        "west": -74.006,
+        "north": 40.736,
+        "east": -73.988
+      },
+      "pilot_coverage": null,
+      "pilot_record_count": 4,
+      "derived_from": [],
+      "method_version": "civic-asset-normalization-v1",
+      "capability_status": "ingested",
+      "current_operation_verified": false,
+      "known_limitations": [
+        "Published status and hours can become stale and do not verify current operation",
+        "Facility accessibility does not establish an accessible journey to the restroom"
+      ],
+      "allowed_claims": [
+        "Mapped public restroom",
+        "Published inventory status, season, hours, operator, and facility details"
+      ],
+      "prohibited_claims": [
+        "Restroom is open or operational now",
+        "Published hours guarantee entry",
+        "An accessibility field proves an accessible route or facility",
+        "Complete restroom coverage"
+      ],
+      "validation_status": "pending"
+    },
+    {
+      "source_id": "nyc-parks-drinking-fountains",
+      "publisher": "NYC Department of Parks and Recreation",
+      "dataset_name": "NYC Parks Drinking Fountains",
+      "dataset_url": "https://data.cityofnewyork.us/d/qnv7-p7a2",
+      "canonical_url": "https://data.cityofnewyork.us/d/qnv7-p7a2",
+      "dataset_id": "qnv7-p7a2",
+      "asset_type": "dataset",
+      "authority": "official",
+      "access_method": "socrata_api",
+      "format": "JSON",
+      "terms_url": "https://opendata.cityofnewyork.us/overview/#termsofuse",
+      "attribution": "NYC Department of Parks and Recreation",
+      "refresh_target": "As needed",
+      "source_updated_at": "2024-07-15T14:41:58.000Z",
+      "retrieved_at": "2026-08-16T02:56:49.709Z",
+      "last_successful_ingest": "2026-08-16T02:56:49.709Z",
+      "snapshot_hash": "sha256:bfb7d88633473a687b80a274e5cb9af919b84bf4091e4fc4b0aa71c7d163eeea",
+      "geometry_type": "Point",
+      "source_crs": "EPSG:4326",
+      "pilot_bbox": {
+        "south": 40.726,
+        "west": -74.006,
+        "north": 40.736,
+        "east": -73.988
+      },
+      "pilot_coverage": null,
+      "pilot_record_count": 28,
+      "derived_from": [],
+      "method_version": "civic-asset-normalization-v1",
+      "capability_status": "ingested",
+      "current_operation_verified": false,
+      "known_limitations": [
+        "Published feature status is not a live operational check",
+        "Indoor fountains may depend on building access and hours"
+      ],
+      "allowed_claims": [
+        "Mapped NYC Parks drinking fountain",
+        "Published feature status and fountain details"
+      ],
+      "prohibited_claims": [
+        "Fountain is working or available now",
+        "Water availability or quality is verified now",
+        "Complete drinking-fountain coverage"
+      ],
+      "validation_status": "pending"
+    },
+    {
+      "source_id": "mta-subway-entrances-2024",
+      "publisher": "Metropolitan Transportation Authority",
+      "dataset_name": "MTA Subway Entrances and Exits: 2024",
+      "dataset_url": "https://data.ny.gov/d/i9wp-a4ja",
+      "canonical_url": "https://data.ny.gov/d/i9wp-a4ja",
+      "dataset_id": "i9wp-a4ja",
+      "asset_type": "dataset",
+      "authority": "official",
+      "access_method": "socrata_api",
+      "format": "JSON",
+      "terms_url": "https://www.mta.info/open-data",
+      "attribution": "Metropolitan Transportation Authority",
+      "refresh_target": "Static - Not Updated",
+      "source_updated_at": "2025-12-05T18:36:18.000Z",
+      "retrieved_at": "2026-08-16T02:56:49.709Z",
+      "last_successful_ingest": "2026-08-16T02:56:49.709Z",
+      "snapshot_hash": "sha256:48ba6172b2976c99b1b6b56ca9f0476927cbbf07779d1aa0039db83238a743b3",
+      "geometry_type": "Point",
+      "source_crs": "EPSG:4326",
+      "pilot_bbox": {
+        "south": 40.726,
+        "west": -74.006,
+        "north": 40.736,
+        "east": -73.988
+      },
+      "pilot_coverage": null,
+      "pilot_record_count": 41,
+      "derived_from": [],
+      "method_version": "civic-asset-normalization-v1",
+      "capability_status": "ingested",
+      "current_operation_verified": false,
+      "known_limitations": [
+        "This is a static 2024 inventory and does not represent live service or entrance operation",
+        "An Elevator or Ramp entrance type does not prove that equipment works or that the full journey is accessible"
+      ],
+      "allowed_claims": [
+        "Mapped 2024 subway entrance or exit",
+        "Published entrance type, entry and exit permission, station identifiers, and weekday routes"
+      ],
+      "prohibited_claims": [
+        "Entrance is open, passable, or operating now",
+        "Subway service or elevator operation is live or verified",
+        "Entrance or journey is accessible or step-free",
+        "Complete or current entrance coverage"
+      ],
+      "validation_status": "pending"
+    },
+    {
+      "source_id": "building-shadow-model",
+      "publisher": "Happy Path",
+      "dataset_name": "Pilot projected building shadows",
+      "dataset_url": "https://data.cityofnewyork.us/d/5zhs-2jue",
+      "canonical_url": "https://data.cityofnewyork.us/d/5zhs-2jue",
+      "dataset_id": null,
+      "asset_type": "calculation",
+      "authority": "derived",
+      "access_method": "calculation",
+      "format": "JSON and GeoJSON",
+      "terms_url": "https://opendata.cityofnewyork.us/overview/#termsofuse",
+      "attribution": "Derived from NYC BUILDING",
+      "refresh_target": "after building snapshot or method changes",
+      "source_updated_at": null,
+      "retrieved_at": "2026-08-16T02:59:34.388Z",
+      "last_successful_ingest": "2026-08-16T02:59:34.389Z",
+      "snapshot_hash": null,
+      "geometry_type": "Polygon and edge samples",
+      "source_crs": "EPSG:4326",
+      "pilot_bbox": {
+        "south": 40.726,
+        "west": -74.006,
+        "north": 40.736,
+        "east": -73.988
+      },
+      "pilot_coverage": 1,
+      "derived_from": [
+        "nyc-building-footprints",
+        "openstreetmap"
+      ],
+      "method_version": "building-shadow-polyline-sampling-v2",
+      "known_limitations": [
+        "Uses a solar approximation pending SPA-library review",
+        "Samples preserved OSM edge polylines every 8 meters",
+        "Edges without valid stored geometry receive no favorable shade evidence",
+        "Convex shadow hulls may overstate shadows for concave footprints",
+        "Does not model trees, clouds, facade detail, or measured temperature"
+      ],
+      "allowed_claims": [
+        "Estimated direct-sun exposure",
+        "Projected building shade"
+      ],
+      "prohibited_claims": [
+        "Measured temperature",
+        "Guaranteed shade",
+        "Cooler street"
+      ],
+      "validation_status": "pending"
+    },
+    {
+      "asset_type": "dataset",
+      "authority": "official",
+      "access_method": "socrata_api",
+      "format": "GeoJSON",
+      "terms_url": "https://opendata.cityofnewyork.us/overview/#termsofuse",
+      "refresh_target": "deliberate pilot refresh",
+      "source_updated_at": null,
+      "retrieved_at": "2026-08-16T02:59:44.252Z",
+      "last_successful_ingest": "2026-08-16T02:59:44.252Z",
+      "source_crs": "EPSG:4326",
+      "pilot_bbox": {
+        "south": 40.726,
+        "west": -74.006,
+        "north": 40.736,
+        "east": -73.988
+      },
+      "derived_from": [],
+      "validation_status": "pending",
+      "source_id": "nyc-forestry-tree-points",
+      "publisher": "NYC Department of Parks and Recreation",
+      "dataset_name": "Forestry Tree Points",
+      "dataset_url": "https://data.cityofnewyork.us/d/hn5i-inap",
+      "canonical_url": "https://data.cityofnewyork.us/d/hn5i-inap",
+      "dataset_id": "hn5i-inap",
+      "attribution": "NYC Parks",
+      "snapshot_hash": "sha256:281be0f804fa164aecace173d003da78f02edcfeb07e10e371f5fe62faadfab4",
+      "geometry_type": "Point",
+      "pilot_coverage": 1,
+      "method_version": "nyc-tree-crop-v1",
+      "known_limitations": [
+        "A mapped tree does not establish canopy size, present condition, or shade"
+      ],
+      "allowed_claims": [
+        "Nearby mapped trees",
+        "Greener ranking input"
+      ],
+      "prohibited_claims": [
+        "Tree canopy",
+        "Current tree shade",
+        "Current tree health"
+      ]
+    },
+    {
+      "asset_type": "dataset",
+      "authority": "official",
+      "access_method": "socrata_api",
+      "format": "GeoJSON",
+      "terms_url": "https://opendata.cityofnewyork.us/overview/#termsofuse",
+      "refresh_target": "deliberate pilot refresh",
+      "source_updated_at": null,
+      "retrieved_at": "2026-08-16T02:59:44.252Z",
+      "last_successful_ingest": "2026-08-16T02:59:44.252Z",
+      "source_crs": "EPSG:4326",
+      "pilot_bbox": {
+        "south": 40.726,
+        "west": -74.006,
+        "north": 40.736,
+        "east": -73.988
+      },
+      "derived_from": [],
+      "validation_status": "pending",
+      "source_id": "nyc-parks-properties",
+      "publisher": "NYC Department of Parks and Recreation",
+      "dataset_name": "Parks Properties",
+      "dataset_url": "https://data.cityofnewyork.us/d/enfh-gkve",
+      "canonical_url": "https://data.cityofnewyork.us/d/enfh-gkve",
+      "dataset_id": "enfh-gkve",
+      "attribution": "NYC Parks",
+      "snapshot_hash": "sha256:91a758b359debbcd2e7591f42fdf8a6b62059e2bd15531557b57014d3ce938f0",
+      "geometry_type": "MultiPolygon",
+      "pilot_coverage": 1,
+      "method_version": "nyc-park-crop-v1",
+      "known_limitations": [
+        "A property boundary does not prove current access, hours, or entrance location"
+      ],
+      "allowed_claims": [
+        "Adjacent to a mapped park property"
+      ],
+      "prohibited_claims": [
+        "Park is open",
+        "Entrance is accessible"
+      ]
+    },
+    {
+      "asset_type": "calculation",
+      "authority": "derived",
+      "access_method": "calculation",
+      "format": "GeoJSON",
+      "terms_url": "https://opendata.cityofnewyork.us/overview/#termsofuse",
+      "refresh_target": "deliberate pilot refresh",
+      "source_updated_at": null,
+      "retrieved_at": "2026-08-16T02:59:44.252Z",
+      "last_successful_ingest": "2026-08-16T02:59:44.252Z",
+      "source_crs": "EPSG:4326",
+      "pilot_bbox": {
+        "south": 40.726,
+        "west": -74.006,
+        "north": 40.736,
+        "east": -73.988
+      },
+      "derived_from": [
+        "nyc-forestry-tree-points",
+        "nyc-parks-properties",
+        "openstreetmap"
+      ],
+      "validation_status": "pending",
+      "source_id": "greenery-edge-model",
+      "publisher": "Happy Path",
+      "dataset_name": "Pilot tree and park adjacency",
+      "dataset_url": "https://data.cityofnewyork.us/d/hn5i-inap",
+      "canonical_url": "https://data.cityofnewyork.us/d/hn5i-inap",
+      "dataset_id": null,
+      "attribution": "Derived from NYC Parks data",
+      "snapshot_hash": null,
+      "geometry_type": "edge metrics",
+      "pilot_coverage": 1,
+      "method_version": "tree-park-polyline-adjacency-v2",
+      "known_limitations": [
+        "Tree adjacency is not canopy or shade",
+        "Park proximity does not prove an open entrance",
+        "Edges without valid stored geometry receive no favorable greenery evidence"
+      ],
+      "allowed_claims": [
+        "More mapped tree and park adjacency than baseline"
+      ],
+      "prohibited_claims": [
+        "Shadier",
+        "Cooler",
+        "Park access guaranteed"
+      ]
+    }
+  ]
+}

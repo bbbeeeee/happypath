@@ -1,32 +1,55 @@
-# Happy Path
+# Happy Path P1 MVP
 
-Happy Path helps people care about the journey, not only the destination.
+Happy Path turns one plain-language request into a visible Trip Brief, one considered walk, and an evidence-backed route receipt. This branch is a fresh P1 implementation based on the current product documents; the earlier prototype was used only as a source of useful fixtures and technical lessons.
 
-A person says where and/or how they want to walk. Happy Path brings together NYC public data, computes a practical route or walk, and explains—in clear, friendly language—why that way fits the moment.
+The current preview supports:
 
-The product should feel simple and almost magical even though the work underneath is complex:
+- destination walks with a 0, 5, or 10 minute detour allowance;
+- time-boxed loops and directional wandering, including ending near mapped transit;
+- time-aware building shade, mapped greenery, mapped steps, seating, restrooms, drinking fountains, and subway entrances;
+- an editable Trip Brief, deterministic routing, baseline comparison, and natural-language refinement;
+- one explicitly hypothetical Detour shade-planning scenario using the same route evidence;
+- deterministic prompt interpretation by default, with optional OpenRouter interpretation behind a server-only API boundary.
 
-> **Say what you want → see what Happy Path understood → get a considered walk → adjust it naturally.**
+## Run locally
 
-The same city model also powers **Detour**, a planning extension for identifying where missing shade, access, amenities, or infrastructure make everyday journeys harder.
+```bash
+npm install
+npm run dev -- --host 127.0.0.1
+```
 
-## Start here
+Open `http://127.0.0.1:5173/`. No API key is required: the built-in interpreter covers the supported demo requests.
 
-- [Product requirements](docs/PRD.md)
-- [Core experience, map UX, and product language](docs/UX.md)
-- [Data and inference specification](docs/data-and-inference.md)
-- [Detour planning extension](docs/DETOUR.md)
-- [Build plan and dependencies](docs/BUILD.md)
-- [Prototype inventory](docs/PROTOTYPES.md)
-- [Project task board](tasks/README.md)
+For optional model interpretation, copy `.env.example` to `.env.local` and set:
 
-## Current direction
+```dotenv
+OPENROUTER_API_KEY=your_key_here
+OPENROUTER_MODEL=openai/gpt-5.6-luna
+```
 
-- **Geography:** Manhattan from the Battery through Midtown, approximately south of Central Park
-- **Journey types:** destination routes, time-boxed loops, and directional wandering
-- **Hero proof:** time-aware shade using NYC building geometry and solar position
-- **City layers:** greenery, sidewalk sheds and construction, mapped steps, elevation, seating, restrooms, water, public spaces, transit, and other validated data
-- **Experience:** one friendly request → an easy-to-check interpretation → one clear route → useful reasons → natural refinement
-- **Planning connection:** one Detour proof using the same data and route features
+The key is read only by the local Vite middleware and is never exposed through a `VITE_` browser variable. Model output may interpret the request into a typed brief, but it cannot create route facts; routing and receipts remain deterministic.
 
-This work establishes the product requirements and execution plan. Future implementation should build from these docs and may choose whatever technical and development workflow best satisfies them; no existing prototype branch or architecture is prescribed.
+## Verify
+
+```bash
+npm test
+npm run build
+```
+
+## Refresh data
+
+The checked-in pilot snapshots make normal local development network-independent. Refresh commands intentionally contact upstream public-data services:
+
+```bash
+npm run data:osm
+npm run data:buildings
+npm run data:shade
+npm run data:greenery
+npm run data:civic
+```
+
+## Scope
+
+This is an honest Lower Manhattan preview, currently bounded approximately by Canal Street, Washington Square, Union Square, and the East Village—not yet the full Battery-to-59th-Street P1 geography. Amenity inventory records do not prove current operation, mapped steps do not constitute an accessibility guarantee, and shade is a modeled estimate rather than measured temperature.
+
+See [P1 implementation status](docs/P1_IMPLEMENTATION_STATUS.md) for verified coverage, payloads, and remaining gates. The product authority remains [PRD](docs/PRD.md), [UX](docs/UX.md), [data and inference](docs/data-and-inference.md), and [Detour](docs/DETOUR.md).
