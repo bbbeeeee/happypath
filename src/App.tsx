@@ -7,7 +7,7 @@ import { createSessionCivicObservation, findCivicTasksNearRoute, listCivicTasks,
 import { getMapLayerDefinition } from "./data/mapLayerCatalog";
 import { sourceRegistryPresentation, type SourceRegistryPresentation } from "./data/sourceRegistry";
 import { getPilotTransitEndpointCandidates } from "./data/transitEndpoints";
-import { amenitiesForViewport, amenityClusterCellMeters, amenityOverviewGeoJSON, type AmenityViewport } from "./amenityOverview";
+import { amenitiesForViewport, amenityClusterCellMeters, amenityOverviewGeoJSON, AMENITY_CLUSTER_COUNT_LAYOUT, type AmenityViewport } from "./amenityOverview";
 import { rainPromptIntent, routeShadeSegmentsGeoJSON } from "./climatePresentation";
 import { buildShadeDetourScenario, evaluateShadeDetourScenario, type ShadeDetourScenario } from "./detour/shadeScenario";
 import { demoCoverGeoJSON, demoCoverShare, pickRainFriendlyRoute, routeCoverSegmentsGeoJSON, routeCoverShare } from "./demoCover";
@@ -1192,12 +1192,7 @@ export function App() {
         "circle-stroke-width": 2,
         "circle-opacity": 0.96,
       }, layout: { visibility: "none" } });
-      map.addLayer({ id: "overview-cluster-count", type: "symbol", source: "overview-assets", filter: ["==", ["get", "featureType"], "cluster"], layout: {
-        "text-field": ["to-string", ["get", "count"]],
-        "text-size": 11,
-        "text-font": ["Open Sans Bold"],
-        visibility: "none",
-      }, paint: { "text-color": "#1E2A24" } });
+      map.addLayer({ id: "overview-cluster-count", type: "symbol", source: "overview-assets", filter: ["==", ["get", "featureType"], "cluster"], layout: AMENITY_CLUSTER_COUNT_LAYOUT, paint: { "text-color": "#1E2A24" } });
       const expandAmenityCluster = (event: MapLayerMouseEvent) => {
         map.easeTo({ center: event.lngLat, zoom: Math.min(17.2, Math.max(16.35, map.getZoom() + 1.8)), duration: 420 });
       };

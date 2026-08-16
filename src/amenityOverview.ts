@@ -1,4 +1,15 @@
+import type { SymbolLayerSpecification } from "maplibre-gl";
 import type { CivicAsset, CivicAssetKind } from "./data/civicAssets";
+
+/** Keep the count attached to its cluster disk even when map labels compete for space. */
+export const AMENITY_CLUSTER_COUNT_LAYOUT = {
+  "text-field": ["to-string", ["get", "count"]],
+  "text-size": 11,
+  "text-font": ["Open Sans Bold"],
+  "text-allow-overlap": true,
+  "text-ignore-placement": true,
+  visibility: "none",
+} satisfies SymbolLayerSpecification["layout"];
 
 export const amenityOverviewLegend: Record<CivicAssetKind, {
   label: string;
