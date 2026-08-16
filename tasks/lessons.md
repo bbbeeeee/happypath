@@ -88,6 +88,7 @@
 ## 2026-08-16 — Data copy should lead with resident utility
 
 - On public data pages, name the human need first—accessibility, safety context, shade and comfort, greenery and enjoyment, amenities, or transit—then explain the source or method. Keep audit vocabulary in expandable provenance instead of primary headings and descriptions.
+- On the primary planning screen, lead with the experience and agency the product enables; keep form mechanics in short supporting copy.
 
 ## 2026-08-16 — Endpoint fields are user authority
 

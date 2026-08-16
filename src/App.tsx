@@ -649,7 +649,7 @@ function ComposeSheet({ brief, setBrief, prompt, setPrompt, originText, setOrigi
   const setManualBrief = (nextBrief: UiTripBrief) => { setManualChanged(true); setBrief(nextBrief); };
   return <section className="sheet compose-sheet" aria-label="Plan a route">
     <div className="sheet-handle" />
-    <div className="compose-heading"><span className="eyebrow">Plan a better walk</span><h1>Where and how would you like to walk?</h1></div>
+    <div className="compose-heading"><span className="eyebrow">Experience the city how you want</span><h1>What’s the plan?</h1></div>
     <div className={`location-stack ${mapEndpointSelection ? "selecting-on-map" : ""}`}>
       <LocationCombobox id="route-origin" label="From" ariaLabel="Starting point" kind="origin" value={originText} disabled={busy} mapSelectionActive={mapEndpointSelection === "origin"} onFocus={() => onMapEndpointSelectionChange("origin")} onEscape={() => onMapEndpointSelectionChange(null)} onChange={(value) => { onMapEndpointSelectionChange(null); setOriginText(value); }} onSelect={(suggestion) => onSelectLocation("origin", suggestion)} />
       <LocationCombobox id="route-destination" label="To" ariaLabel="Destination" kind="destination" value={destinationText} disabled={busy} mapSelectionActive={mapEndpointSelection === "destination"} onFocus={() => onMapEndpointSelectionChange("destination")} onEscape={() => onMapEndpointSelectionChange(null)} onChange={(value) => { onMapEndpointSelectionChange(null); setDestinationText(value); setManualChanged(true); }} onSelect={(suggestion) => { setManualChanged(true); return onSelectLocation("destination", suggestion); }} placeholder="Optional — or ask for a loop or wander" />
