@@ -624,7 +624,7 @@ main { position: relative; width: 100vw; height: 100dvh; overflow: hidden; backg
 .task-source-list > a small { color: #707970; font-size: 8px; line-height: 1.4; }
 .task-emergency-note { margin-top: 11px !important; color: #81756d !important; font-size: 8px !important; }
 
-.map-lens-control { position: absolute; z-index: 4; right: 18px; bottom: 66px; width: 274px; padding: 10px; border: 1px solid rgba(211,214,208,.94); border-radius: 10px; background: rgba(255,254,250,.97); box-shadow: 0 7px 22px rgba(30,42,36,.11); backdrop-filter: blur(10px); }
+.map-lens-control { position: absolute; z-index: 4; right: 18px; bottom: 132px; width: 274px; padding: 10px; border: 1px solid rgba(211,214,208,.94); border-radius: 10px; background: rgba(255,254,250,.97); box-shadow: 0 7px 22px rgba(30,42,36,.11); backdrop-filter: blur(10px); }
 .map-lens-control > div:first-child { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
 .map-lens-control > div:first-child span { display: flex; align-items: center; gap: 6px; font-size: 10px; font-weight: 700; }
 .map-lens-control > div:first-child svg { width: 15px; height: 15px; color: #9b7446; }
