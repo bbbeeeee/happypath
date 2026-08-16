@@ -499,6 +499,12 @@ export function App() {
       map.addSource("happy", { type: "geojson", data: routeGeoJSON() });
       map.addLayer({ id: "happy-casing", type: "line", source: "happy", paint: { "line-color": "#FFFFFF", "line-width": 11, "line-opacity": 0.95 } });
       map.addLayer({ id: "happy", type: "line", source: "happy", paint: { "line-color": "#F05A47", "line-width": 6 } });
+      const showAssetPopover = (event: MapLayerMouseEvent) => {
+        const id = event.features?.[0]?.properties?.id;
+        setDetail(null);
+        setActiveAsset(allMapAssets.find((asset) => asset.id === id) ?? null);
+        setActiveAssetPoint({ x: event.point.x, y: event.point.y });
+      };
       map.addSource("assets", { type: "geojson", data: assetsGeoJSON([]) });
       map.addLayer({ id: "assets", type: "circle", source: "assets", paint: {
         "circle-radius": ["case", ["get", "selected"], 18, 15],
@@ -506,6 +512,7 @@ export function App() {
         "circle-opacity": ["case", ["get", "selected"], 0.98, 0],
         "circle-stroke-color": "#F05A47",
         "circle-stroke-width": ["case", ["get", "selected"], 3, 0],
+        "circle-translate": [0, -23],
       } });
       void registerAssetMarkerImages(map).then(() => {
         if (map.getLayer("asset-icons")) return;
@@ -518,6 +525,7 @@ export function App() {
         } });
         map.on("mouseenter", "asset-icons", () => { map.getCanvas().style.cursor = "pointer"; });
         map.on("mouseleave", "asset-icons", () => { map.getCanvas().style.cursor = ""; });
+        map.on("click", "asset-icons", showAssetPopover);
       }).catch(() => { /* The selectable marker hit areas remain available if icon art cannot load. */ });
       map.addSource("endpoints", { type: "geojson", data: endpointsGeoJSON() });
       map.addLayer({ id: "endpoints", type: "circle", source: "endpoints", paint: {
@@ -529,12 +537,7 @@ export function App() {
       map.on("mouseenter", "happy", () => { map.getCanvas().style.cursor = "pointer"; });
       map.on("mouseleave", "happy", () => { map.getCanvas().style.cursor = ""; });
       map.on("click", "happy", () => setDetail("why"));
-      map.on("click", "assets", (event: MapLayerMouseEvent) => {
-        const id = event.features?.[0]?.properties?.id;
-        setDetail(null);
-        setActiveAsset(allMapAssets.find((asset) => asset.id === id) ?? null);
-        setActiveAssetPoint({ x: event.point.x, y: event.point.y });
-      });
+      map.on("click", "assets", showAssetPopover);
     });
     map.on("error", () => { if (!map.isStyleLoaded()) setMapError(true); });
     mapRef.current = map;
