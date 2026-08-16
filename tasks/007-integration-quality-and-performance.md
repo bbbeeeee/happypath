@@ -1,91 +1,120 @@
 ---
 id: "007"
-title: Integration, quality, and performance
+title: Integration, quality, performance, and polish
 phase: M4
 status: blocked
 owner: unassigned
 depends_on: ["002", "003", "004", "005", "006"]
-parallel_with: []
+parallel_with: ["009-data-spike"]
 last_updated: 2026-08-15
 ---
 
-# 007 — Integration, quality, and performance
+# 007 — Integration, quality, performance, and polish
 
 ## Outcome
 
-The selected implementation is integrated into one reliable P0 application whose routing, inference, evidence, UI, licensing, privacy, and mobile performance satisfy the PRD.
+Happy Path becomes one reliable P1 product whose real data, journeys, AI interpretation, map presentation, copy, evidence, licensing, privacy, and mobile performance work together from a clean session.
 
 ## Why this package exists
 
-Data, routing, AI, and UI can proceed in parallel, but the product succeeds only when the same request produces a valid route, truthful receipt, relevant map layers, and safe failure behavior.
+Data, routing, AI, and UX can be developed separately, but the demo only feels magical when the seams disappear. A short request must produce a credible journey, relevant map, friendly explanation, honest uncertainty, and fast refinement without exposing implementation complexity.
 
 ## Inputs and dependencies
 
-- approved prototype disposition;
-- validated layer fixtures;
-- route API and metrics;
+- approved documentation on `main`;
+- validated Manhattan data layers and fixtures;
+- destination, loop, and wander engine;
 - Trip Brief and explanation services;
-- implemented core UX.
+- implemented UX and copy system;
+- selected civic-data layers and amenities.
 
 ## Deliverables
 
-- integrated application branch;
+- integrated P1 application through focused PRs to `main`;
 - stable end-to-end contracts;
+- destination, loop, and wander flows;
 - automated and manual test suite;
+- resident-copy review;
 - payload and performance plan;
-- attribution and privacy implementation;
-- route-review corpus;
-- resolved P0 defects and documented residual limitations.
+- source attribution and privacy implementation;
+- route and asset review corpus;
+- resolved P1 defects and explicit residual limitations.
 
 ## Work breakdown
 
-- [ ] `007-A` — Create a clean integration branch from the approved base.
-- [ ] `007-B` — Merge or port only selected assets from `codex/happy-path-mvp`.
-- [ ] `007-C` — Connect compose and Trip Brief to route generation.
-- [ ] `007-D` — Connect route metrics to receipt, evidence drawer, segment inspection, and map presentation.
-- [ ] `007-E` — Connect refinement patches to deterministic rerouting.
-- [ ] `007-F` — Implement inference timeout, validation failure, and deterministic fallback.
-- [ ] `007-G` — Verify all hard-requirement and unsupported-request paths.
-- [ ] `007-H` — Audit source attribution, third-party notices, and dataset terms.
-- [ ] `007-I` — Review privacy: avoid retaining raw prompts, precise paths, or inferred context by default.
-- [ ] `007-J` — Define and meet route-computation, inference, page-load, and interaction budgets.
-- [ ] `007-K` — Reduce or lazy-load graph, shadow, and layer payloads.
-- [ ] `007-L` — Test desktop and representative mobile browsers.
-- [ ] `007-M` — Review ten route pairs and twenty blocks or assets.
-- [ ] `007-N` — Test the three primary demo prompts and failure variants.
-- [ ] `007-O` — Document known limitations and kill nonessential unstable features.
+### Integration
+
+- [ ] `007-A` — Land shared contracts and realistic fixtures on `main`.
+- [ ] `007-B` — Integrate reusable prototype code only through focused reviewable changes.
+- [ ] `007-C` — Connect compose and Trip Brief to destination, loop, and wander generation.
+- [ ] `007-D` — Connect route metrics to the receipt, map, City data used view, and segment inspection.
+- [ ] `007-E` — Connect refinements to deterministic rerouting and route-change summaries.
+- [ ] `007-F` — Connect relevant amenities, public spaces, and warnings without clutter.
+- [ ] `007-G` — Implement inference timeout, validation failure, and deterministic fallback.
+
+### Truth and safety
+
+- [ ] `007-H` — Verify hard requirements and unsupported-request behavior.
+- [ ] `007-I` — Verify every resident claim against deterministic output and source evidence.
+- [ ] `007-J` — Audit attribution, third-party notices, and dataset terms.
+- [ ] `007-K` — Review privacy and avoid retaining raw prompts, precise routes, or inferred context by default.
+- [ ] `007-L` — Confirm hypothetical Detour data is visually distinct from observed City conditions.
+
+### Product polish
+
+- [ ] `007-M` — Remove developer copy, raw IDs, schema names, debug states, and technical jargon.
+- [ ] `007-N` — Run full product-copy review for warmth, clarity, consistency, and useful uncertainty.
+- [ ] `007-O` — Polish loading, map transitions, route changes, empty states, and recovery.
+- [ ] `007-P` — Verify all visible layers are relevant to the current journey.
+- [ ] `007-Q` — Review destination, loop, and wander for coherent visual and interaction behavior.
+
+### Performance and validation
+
+- [ ] `007-R` — Define route, inference, first-load, map-render, and refinement budgets.
+- [ ] `007-S` — Partition, compress, cache, or lazy-load graph, shadow, and asset data.
+- [ ] `007-T` — Test clean desktop and representative mobile browsers.
+- [ ] `007-U` — Review at least ten destination routes plus representative loops and wanders.
+- [ ] `007-V` — Review at least twenty blocks or assets across Lower and Midtown Manhattan.
+- [ ] `007-W` — Test the four primary demo prompts and several failure variants.
+- [ ] `007-X` — Remove noncritical unstable features rather than leaving them misleading.
 
 ## Acceptance criteria
 
-- [ ] A complete supported request works from input through explanation.
-- [ ] Every visible numerical claim matches deterministic output.
-- [ ] At least five City datasets are inspectable and at least three layer families materially influence the result.
+- [ ] A complete supported request works from input through route explanation and refinement.
+- [ ] Destination, loop, and wander each work in the supported demo set.
+- [ ] Every visible numerical and factual claim matches deterministic output and source evidence.
+- [ ] At least five official NYC datasets are inspectable.
+- [ ] At least three layer families materially influence the result.
 - [ ] No hard requirement is violated in the test corpus.
-- [ ] Partial or missing evidence is visible.
-- [ ] The application works when the inference provider is unavailable.
-- [ ] Ten route pairs and twenty sampled blocks or assets are reviewed.
-- [ ] Mobile load and warmed interactions meet explicit budgets.
+- [ ] Partial or missing evidence is visible in friendly language.
+- [ ] The application remains useful when inference is unavailable.
+- [ ] Primary screens contain no unexplained technical jargon or debug output.
+- [ ] The product feels coherent and responsive on a representative phone.
+- [ ] Data payload and interaction budgets are met.
 - [ ] Attribution and privacy requirements are implemented.
-- [ ] Noncritical unstable features are removed rather than left misleading.
+- [ ] Resident route facts use real pilot data rather than hard-coded demo claims.
+- [ ] Noncritical unstable features are removed or clearly deferred.
 
 ## Out of scope
 
 - broad post-hackathon refactoring;
-- citywide scaling;
-- mature observability;
-- full Detour interface;
-- persistent personalization.
+- citywide or multimodal scaling;
+- mature production observability;
+- full planning-workflow integration;
+- persistent personalization;
+- Civic Assets & Actions.
 
 ## Risks and decisions
 
-- Large committed pilot datasets may dominate bundle size.
-- Integration may expose conflicting schemas created by parallel work; fixture contracts should prevent this.
-- Feature breadth must not reduce trust in the hero route.
+- Large Manhattan datasets can make a credible product feel slow or fragile.
+- Copy and visual inconsistency can expose seams between parallel workstreams.
+- Loop and wander may need more curated test coverage than destination routes.
+- Feature breadth must not reduce trust or simplicity.
 
 ## Verification
 
-Record test commands, performance measurements, route-review results, source attributions, mobile screenshots, and a final P0 acceptance checklist.
+Record test commands, performance measurements, route-review results, product-copy review, source attributions, clean-session recordings, and a final P1 acceptance checklist.
 
 ## Handoff
 
-Task 008 packages the integrated application for deployment and presentation. Task 009 may proceed only if this package’s route and feature contracts are stable.
+Task 008 packages the integrated product for deployment and presentation. Task 009 reuses stable route and layer contracts for the Detour proof.
