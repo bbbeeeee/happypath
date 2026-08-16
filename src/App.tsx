@@ -246,6 +246,7 @@ function ResultSheet({ brief, route, result, assets, delta, onBack, onRefine, on
   const primary = brief.priorities[0] ?? "shade";
   const sunSaved = result.baseline ? Math.max(0, result.baseline.directSunMinutes - route.directSunMinutes) : null;
   const greenGain = result.baseline ? Math.max(0, route.greeneryPercent - result.baseline.greeneryPercent) : null;
+  const missingAmenities = routePriorityKinds(brief.priorities).filter((kind) => !assets.some((asset) => asset.kind === kind));
   const headline = primary === "shade"
     ? route.directSunMinutes < 0.05
       ? "No direct sun expected at this time"
@@ -261,10 +262,11 @@ function ResultSheet({ brief, route, result, assets, delta, onBack, onRefine, on
     <div className="result-lead"><p>{headline}</p><h2>{brief.shape === "loop" ? `${Math.round(route.durationMinutes)}-minute loop` : brief.shape === "wander" ? `A ${Math.round(route.durationMinutes)}-minute wander` : `${Math.round(route.durationMinutes)} minutes · ${Math.round(route.extraMinutesVsBaseline ?? 0)} longer`}</h2></div>
     <div className="benefit-list">
       {brief.priorities.includes("shade") && <button type="button" onClick={onShowWhy}><SunIcon /><span>{route.directSunMinutes < 0.05 ? <><strong>Nighttime departure</strong><small>No modeled direct sun at {formatClock(brief.departureHour)}</small></> : sunSaved !== null && sunSaved >= 0.05 ? <><strong>{sunSaved.toFixed(1)} fewer min</strong><small>in estimated direct sun</small></> : <><strong>{route.shadePercent.toFixed(0)}% estimated shade</strong><small>along this route at {formatClock(brief.departureHour)}</small></>}</span><ChevronIcon /></button>}
-      {greenGain !== null && brief.priorities.includes("greenery") && <button type="button" onClick={onShowWhy}><LeafIcon /><span><strong>{greenGain.toFixed(0)} points greener</strong><small>from mapped trees and parks</small></span><ChevronIcon /></button>}
+      {brief.priorities.includes("greenery") && <button type="button" onClick={onShowWhy}><LeafIcon /><span>{greenGain !== null && greenGain >= 0.5 ? <><strong>{greenGain.toFixed(0)} points greener</strong><small>than the fastest route</small></> : <><strong>{route.greeneryPercent.toFixed(0)}% mapped greenery</strong><small>from nearby tree and park records</small></>}</span><ChevronIcon /></button>}
       {assets.slice(0, 2).map((asset) => <button type="button" key={asset.id} onClick={onShowWhy}><AssetIcon kind={asset.kind} /><span><strong>{asset.name}</strong><small>mapped nearby · operation unverified</small></span><ChevronIcon /></button>)}
       {brief.avoidMappedSteps && <button type="button" onClick={onShowWhy}><StairsIcon /><span><strong>Avoids mapped steps</strong><small>Not an accessibility guarantee</small></span><ChevronIcon /></button>}
     </div>
+    {missingAmenities.length > 0 && <div className="coverage-note"><strong>Not found near this route</strong><span>{missingAmenities.map((kind) => ({ seating: "mapped seating", restroom: "a mapped restroom", drinking_fountain: "a mapped drinking fountain", transit: "a mapped subway entrance" })[kind]).join(" or ")} within 90 meters. Inventory coverage and current operation may vary.</span></div>}
     <div className="confidence-row"><span className="confidence-dot" /><p><strong>Good confidence for route and time</strong><small>{brief.priorities.includes("shade") ? "Shade is an estimate from building shapes and sun position." : "Some street and asset details may be incomplete."}</small></p></div>
     {result.baseline && <button type="button" className="text-action" onClick={() => setShowBaseline(!showBaseline)}><span className="baseline-swatch" />{showBaseline ? "Hide" : "Compare with"} fastest · {formatMinutes(result.baseline.durationMinutes)}</button>}
     {brief.unsupported.length > 0 && <div className="request-limit" role="status"><strong>Kept out of the route score</strong><span>{brief.unsupported.join(" · ")}. You can still use the mapped evidence above.</span></div>}

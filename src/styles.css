@@ -134,6 +134,9 @@ main { position: relative; width: 100vw; height: 100dvh; overflow: hidden; backg
 .request-limit { display: grid; gap: 3px; margin: 3px 0 9px; padding: 9px 11px; border-left: 3px solid #cf7d6f; border-radius: 4px 9px 9px 4px; background: #fff1ed; }
 .request-limit strong { color: var(--warning); font-size: 9px; }
 .request-limit span { color: #80635f; font-size: 8.5px; line-height: 1.4; }
+.coverage-note { display: grid; gap: 3px; margin: 0 0 9px; padding: 9px 11px; border-radius: 9px; background: #f3f0e9; }
+.coverage-note strong { color: #655d50; font-size: 9px; }
+.coverage-note span { color: #80796e; font-size: 8.5px; line-height: 1.4; }
 .data-action, .detour-action { width: 100%; display: grid; grid-template-columns: 24px 1fr 16px; gap: 9px; align-items: center; padding: 11px 12px; border: 1px solid var(--line); border-radius: 12px; background: #f8f5ee; text-align: left; cursor: pointer; }
 .data-action > svg { width: 18px; height: 18px; color: var(--indigo); }
 .data-action span, .detour-action > span:nth-child(2) { display: grid; gap: 2px; }

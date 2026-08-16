@@ -54,7 +54,7 @@ function unique<T>(values: T[]) {
 }
 
 function parseMinutes(prompt: string) {
-  const numeric = prompt.match(/\b(10|15|20|25|30|35|40|45|60)\s*(?:minutes?|mins?)\b/i);
+  const numeric = prompt.match(/\b(10|15|20|25|30|35|40|45|60)[\s-]*(?:minutes?|mins?)\b/i);
   if (numeric) return Number(numeric[1]);
   const compact = prompt.toLowerCase().replace(/[ -]/g, "");
   const word = Object.entries(numberWords).find(([candidate]) => compact.includes(`${candidate}minute`));
@@ -95,7 +95,7 @@ export function compileTripBrief(prompt: string, current: TripBrief = DEFAULT_BR
   else if (/\bwander\b|walk (?:north|south|east|west)|finish|end near/i.test(text)) shape = "wander";
   else if (parseDestination(text)) shape = "destination";
 
-  const parsedMinutes = parseMinutes(text);
+  const parsedMinutes = shape === "destination" ? null : parseMinutes(text);
   const shorter = /shorter|less time/i.test(text);
   const longer = /longer|more time/i.test(text);
   const walkingMinutes = parsedMinutes ?? (shorter ? Math.max(10, current.walkingMinutes - 5) : longer ? Math.min(60, current.walkingMinutes + 5) : current.walkingMinutes);

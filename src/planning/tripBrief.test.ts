@@ -19,6 +19,13 @@ describe("compileTripBrief", () => {
     const brief = compileTripBrief("Get me to Washington Square Park with less direct sun. I can add five minutes.");
     expect(brief.destinationQuery).toBe("Washington Square Park");
     expect(brief.detourMinutes).toBe(5);
+    expect(brief.walkingMinutes).toBe(DEFAULT_BRIEF.walkingMinutes);
+  });
+
+  it("parses a hyphenated loop budget independently of a destination detour", () => {
+    const destination = compileTripBrief("Less direct sun. I can add five minutes.");
+    const loop = compileTripBrief("A green 20-minute loop with places to sit.", destination);
+    expect(loop).toMatchObject({ shape: "loop", walkingMinutes: 20, detourMinutes: 5 });
   });
 
   it("keeps unsupported claims visible", () => {
