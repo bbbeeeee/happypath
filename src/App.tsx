@@ -390,7 +390,13 @@ export function App() {
 
   useEffect(() => {
     if (!mapContainer.current || mapRef.current) return;
-    const map = new maplibregl.Map({ container: mapContainer.current, style: MAP_STYLE, center: [-73.997, 40.731], zoom: 14.2, attributionControl: false });
+    let map: MapLibreMap;
+    try {
+      map = new maplibregl.Map({ container: mapContainer.current, style: MAP_STYLE, center: [-73.997, 40.731], zoom: 14.2, attributionControl: false });
+    } catch {
+      setMapError(true);
+      return;
+    }
     map.addControl(new maplibregl.AttributionControl({ compact: true }), "bottom-right");
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "bottom-right");
     map.on("load", () => {
